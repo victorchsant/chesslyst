@@ -17,8 +17,8 @@ A interface é uma página HTML servida por um pequeno servidor local em Python.
 
 Requer **Python 3.10+** e internet na primeira execução.
 
-- **Windows:** dois cliques em `iniciar.pyw` (sem janela de terminal).
-- **Windows, Linux e macOS:** `python iniciar.py`.
+- **Windows:** dois cliques em `Chesslyst.pyw` (sem janela de terminal).
+- **Linux e macOS** (ou pelo terminal): `python Chesslyst.pyw`. Com `--terminal` o programa mostra o que o servidor imprime.
 
 Na primeira vez o programa cria uma pasta `.venv`, instala o `python-chess` e abre a interface no navegador. Nada é instalado fora da pasta do projeto.
 
@@ -39,7 +39,7 @@ O servidor escuta somente em `127.0.0.1`, recusa pedidos de outros sites e só e
 
 ## Estrutura
 ```
-iniciar.py / iniciar.pyw   launcher multiplataforma
+Chesslyst.pyw                launcher multiplataforma (único arquivo para abrir o programa)
 server.py                  servidor local e API
 indice/                    núcleo: fórmula, explicações, posição, engines, Lichess
 web/                       interface (HTML, JS)
@@ -70,6 +70,6 @@ Componentes de terceiros (não redistribuídos aqui; cada um segue sua licença)
 
 Chesslyst analyses chess games and shows four indices per position, each with a plain-language reading (Portuguese and English): the original **engine** evaluation, the **chance of finding the move** for a player of the given rating, a static **position** score, and the quality of the **last move** with an explanation of what it did. The UI is an HTML page served by a small local Python server; engines run natively.
 
-**Run:** Python 3.10+. Double-click `iniciar.pyw` (Windows) or run `python iniciar.py`. On first run it creates a `.venv` and installs `python-chess`. Then, in the **Engines** window, download Stockfish (and optionally Lc0 with the Maia networks) or register any UCI engine.
+**Run:** Python 3.10+. Double-click `Chesslyst.pyw` (Windows) or run `python Chesslyst.pyw` (Linux/macOS). On first run it creates a `.venv` and installs `python-chess`. Then, in the **Engines** window, download Stockfish (and optionally Lc0 with the Maia networks) or register any UCI engine.
 
 **License:** GNU GPL-3.0. Built by Víctor Chaves Santos with Claude (Anthropic, Claude Sonnet 5.5), November 2026.

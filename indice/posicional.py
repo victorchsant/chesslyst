@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import chess
 from .core import win_pct
-from .i18n import T, num
+from .i18n import T, num, P, lang
 
 VAL = {chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330, chess.ROOK: 500, chess.QUEEN: 900}
 
@@ -286,3 +286,38 @@ def destaques(b: chess.Board, chaves):
                                (chess.square_rank(s) > chess.square_rank(sq) if c else chess.square_rank(s) < chess.square_rank(sq)) for s in inim): continue
                         casa(sq, c)
     return dict(casas=casas, setas=setas)
+
+
+def texto_debilidades(b: chess.Board) -> str:
+    """Quem tem mais debilidades (casas fracas e peças expostas) e se o adversário já as aproveita. Vazio quando não há diferença clara."""
+    casas = destaques(b, "casas_fracas")["casas"]
+    risco = destaques(b, "pecas_em_risco")["casas"]
+    info = {}
+    for c in (chess.WHITE, chess.BLACK):
+        lado = "B" if c else "P"
+        fracas = [chess.parse_square(x[0]) for x in casas if x[1] == lado and x[2] == "tinta"]
+        expostas = [chess.parse_square(x[0]) for x in risco if x[1] == lado and c != b.turn]   # quem joga agora pode simplesmente salvar a peça: não conta
+        ocupa = [(sq, b.piece_type_at(sq)) for sq in fracas if (p := b.piece_at(sq)) and p.color != c and p.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)]
+        controla = [sq for sq in fracas if any(b.piece_type_at(a) in (chess.KNIGHT, chess.BISHOP) for a in b.attackers(not c, sq))]
+        info[c] = dict(fracas=fracas, expostas=expostas, ocupa=ocupa, controla=controla, nota=len(fracas) + 3 * len(expostas))
+    fraco = chess.WHITE if info[chess.WHITE]["nota"] >= info[chess.BLACK]["nota"] else chess.BLACK
+    d = info[fraco]
+    explorada = bool(d["ocupa"] or d["controla"] or d["expostas"])      # o adversário já mexe nelas: vale falar mesmo com poucas
+    if d["nota"] - info[not fraco]["nota"] < (3 if explorada else 5): return ""
+    # o que são as debilidades
+    partes = []
+    if len(d["fracas"]) - len(info[not fraco]["fracas"]) >= 3: partes.append(T("db.casas"))
+    if d["expostas"]: partes.append(T("db.pecas"))
+    if not partes: return ""
+    quem = T("w.brancas") if fraco == chess.WHITE else T("w.pretas")
+    base = T("db.mais", l=quem, o=T("db.e").join(partes))
+    # estão sendo aproveitadas?
+    como = []
+    if d["expostas"]: como.append(T("db.sob_ataque", n=len(d["expostas"]), v=P(len(d["expostas"]), "db.peca")))
+    if d["ocupa"]:
+        sq, pt = d["ocupa"][0]
+        como.append(T("db.ocupa", p=T("db.p" + str(pt)), s=chess.square_name(sq)))
+    elif d["controla"] and T("db.casas") in partes:
+        sqs = (T("db.e")).join(chess.square_name(x) for x in d["controla"][:2])
+        como.append(T("db.controla1" if len(d["controla"]) == 1 else "db.controla", s=sqs))
+    return base + " " + (T("db.aproveita", c=T("db.e").join(como)) if como else T("db.nao"))

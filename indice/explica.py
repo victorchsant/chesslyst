@@ -448,6 +448,14 @@ def _quando(k):
     return T("a.q_prox") if k <= 1 else (T("a.q_pouco") if k <= 3 else T("a.q_adiante"))
 
 
+def _nome_vantagem(g):
+    """Nome do grupo da análise de posição em linguagem natural, para dizer de onde vem a vantagem (ex.: 'rei longe de ataques')."""
+    if g["id"] == "rei":
+        it = max(g["itens"], key=lambda i: abs(i["cp"]))
+        return T("gv.reif" if it["chave"] == "rei_final" else "gv.rei")
+    return T("gv." + g["id"])
+
+
 def explicar_avaliacao(raw, info=None):
     """Por que a engine avalia a posição assim, lendo a linha principal dela (sem alterar o valor da engine).
     Ex.: 'Vantagem das brancas: as pretas perdem a dama no próximo lance.'"""
@@ -479,8 +487,8 @@ def explicar_avaliacao(raw, info=None):
         else:
             grupos = [g for g in _analise_pos(board)["grupos"] if g["id"] != "material" and (g["cp"] > 0) == (fav == chess.WHITE) and abs(g["cp"]) >= 15]
             grupos.sort(key=lambda g: -abs(g["cp"]))
-            if len(grupos) >= 2: causa, k = T("a.c_pos", a=grupos[0]["nome"].lower(), b=grupos[1]["nome"].lower()), "posicional"
-            elif grupos: causa, k = T("a.c_pos1", a=grupos[0]["nome"].lower()), "posicional"
+            if len(grupos) >= 2: causa, k = T("a.c_pos", a=_nome_vantagem(grupos[0]), b=_nome_vantagem(grupos[1])), "posicional"
+            elif grupos: causa, k = T("a.c_pos1", a=_nome_vantagem(grupos[0])), "posicional"
             else: causa, k = T("a.c_pos0"), "sem_causa"
     return _r(info, k, cabeca + ": " + causa + ".")
 

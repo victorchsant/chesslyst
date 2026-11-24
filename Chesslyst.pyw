@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Inicia o Chesslyst (Windows, Linux e Mac): prepara o ambiente na primeira vez, sobe o servidor e abre o navegador.
 
-Uso:  python iniciar.py            terminal visível (mostra o que o servidor imprime; Ctrl+C encerra)
-      iniciar.pyw                  Windows, dois cliques, SEM janela de terminal (servidor oculto)
-      python iniciar.py --sem-navegador
+Uso:  dois cliques em Chesslyst.pyw      Windows: sem janela de terminal (o servidor roda oculto)
+      python Chesslyst.pyw               Linux/Mac (ou Windows pelo terminal)
+      python Chesslyst.pyw --terminal    mostra o que o servidor imprime; Ctrl+C encerra
+      python Chesslyst.pyw --sem-navegador
 Requer Python 3.10+. Na primeira execução cria a pasta .venv e instala o python-chess (precisa de internet).
-No modo sem janela o servidor se encerra sozinho ~90 s depois de fechar a página (ou pelo botão ⏻ da interface).
+O servidor se encerra sozinho ~90 s depois de fechar a página. Se algo der errado, aparece uma caixa de mensagem;
+o registro fica em servidor.log. Se já houver um servidor de uma versão mais antiga rodando, ele é reiniciado.
 """
 import os, subprocess, sys, time, urllib.request, venv, webbrowser
 from pathlib import Path
@@ -15,7 +17,7 @@ PORTA = 8765
 URL = f"http://127.0.0.1:{PORTA}/"
 VENV = RAIZ / ".venv"
 PY = VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-SILENCIOSO = "--silencioso" in sys.argv or Path(sys.executable).name.lower().startswith("pythonw")
+SILENCIOSO = "--terminal" not in sys.argv          # padrão: servidor oculto (sem janela de terminal)
 SEM_JANELA = 0x08000000 | 0x00000200      # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP (só Windows)
 
 

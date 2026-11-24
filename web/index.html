@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Chesslyst — chance de acerto no xadrez</title>
 <style>
-:root{--bg:#0b0f17;--card:#131a26;--card2:#1a2333;--bd:#26324a;--tx:#e6edf7;--mut:#8fa0bd;--ac:#35e0c2;--sq:64px;--clara:#f0d9b5;--escura:#b58863;
+:root{--bar-bd:#5d6e8c;--bg:#0b0f17;--card:#131a26;--card2:#1a2333;--bd:#26324a;--tx:#e6edf7;--mut:#8fa0bd;--ac:#35e0c2;--sq:64px;--clara:#f0d9b5;--escura:#b58863;
   --bg2:#0e1420;--pri-tx:#04251f;--aviso-bg:#2a2410;--trilho-suave:#202a3d;--c-eng:#f2f2f2;--c-pos:#2ecc71;--c-mat:#b388ff;--c-ace:#35e0c2;--c-jog:#f1c40f;--cb-pos:#f2f2f2;--cb-neg:#7a86a0;color-scheme:dark}
-html[data-tema="claro"]{--bg:#f2f4f8;--card:#ffffff;--card2:#edf0f5;--bd:#d3d9e5;--tx:#1a2232;--mut:#5a6a84;--ac:#0b8f7a;--bg2:#ffffff;--pri-tx:#ffffff;--aviso-bg:#fff6d1;
+html[data-tema="claro"]{--bar-bd:#8b98b0;--bg:#f2f4f8;--card:#ffffff;--card2:#edf0f5;--bd:#d3d9e5;--tx:#1a2232;--mut:#5a6a84;--ac:#0b8f7a;--bg2:#ffffff;--pri-tx:#ffffff;--aviso-bg:#fff6d1;
   --trilho-suave:#dbe1ec;--c-eng:#4a5568;--c-pos:#1e9e5a;--c-mat:#7c4dff;--c-ace:#0b8f7a;--c-jog:#c99700;--cb-pos:#ffffff;--cb-neg:#4a5568;color-scheme:light}
 html[data-tema="claro"] .ok{color:#1e8e50}html[data-tema="claro"] .er{color:#d13c3c}
 html[data-tema="claro"] .info .tip,html[data-tema="claro"] #toast{box-shadow:0 8px 24px #0003}
@@ -54,7 +54,7 @@ main.quebrado #col-lances{position:static;max-height:none}main.quebrado #col-lan
 .barra.h .t{width:64px}.barra.h .val{width:92px;text-align:right}
 .barra.v .t{height:14px;line-height:14px}
 .barra.v .val{flex:none;height:50px;overflow:hidden;line-height:1.1;overflow-wrap:anywhere}   /* altura fixa: a barra tem sempre o mesmo tamanho, só o nível muda */
-.trilho{position:relative;flex:1;background:#202a3d;border-radius:4px;overflow:hidden;border:1px solid var(--bd)}
+.trilho{position:relative;flex:1;background:#202a3d;border-radius:5px;overflow:hidden;border:2px solid var(--bar-bd)}
 .trilho.duo{background:#161b26}
 .enc{position:absolute;background:#f2f2f2}
 .barra.v .enc{left:0;right:0}.barra.h .enc{top:0;bottom:0}
@@ -213,8 +213,9 @@ body.completa #lateral .bloco.recolhido{align-self:start}
 .janela[hidden]{display:none}
 #jan-sobre{width:min(420px,calc(100vw - 32px))}.abertura{margin:6px 2px 0;font-size:13px;color:var(--mut)}.abertura b{color:var(--tx)}.abertura .eco{display:inline-block;background:var(--card2);border:1px solid var(--bd);border-radius:5px;padding:0 6px;margin-right:6px;font-size:12px;color:var(--ac)}
 .rw[data-d]{cursor:pointer}.rw[data-d]:hover,.rw[data-d].fixo{background:var(--card2);border-radius:5px}.rw.fixo .rn::after{content:' 📌';font-size:10px}
-.dica{display:inline-block;margin-left:5px;color:var(--ac);font-size:13px;cursor:help;vertical-align:baseline;outline:none;font-weight:400;text-transform:none;letter-spacing:0}
-.dica .tip{display:none;position:fixed;z-index:80;width:max-content;max-width:min(300px,86vw);background:var(--bg2);border:1px solid var(--ac);border-radius:8px;padding:8px 10px;color:var(--tx);font:12.5px/1.45 "Segoe UI",sans-serif;box-shadow:0 8px 24px #0006;white-space:normal;text-align:left}
+.dica,.info{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:6px;border:1.5px solid currentColor;border-radius:50%;color:var(--ac);font:italic 700 10px/1 Georgia,serif;cursor:help;vertical-align:-2px;outline:none;text-transform:none;letter-spacing:0;position:relative;transition:background .15s}
+.dica:hover,.dica:focus,.info:hover,.info:focus{background:color-mix(in srgb,var(--ac) 18%,transparent)}
+.dica .tip{display:none;position:fixed;z-index:80;width:max-content;max-width:min(330px,88vw);background:var(--bg2);border:1px solid var(--bd);border-left:3px solid var(--ac);border-radius:8px;padding:10px 12px;color:var(--tx);font:normal 400 12.5px/1.5 "Segoe UI",system-ui,sans-serif;box-shadow:0 10px 30px #0007;white-space:normal;text-align:left;letter-spacing:0}
 .dica:hover .tip,.dica:focus .tip{display:block}
 .sobre{padding:14px 16px}.sobre h2{margin:0;font:700 26px Georgia,serif;color:var(--ac)}.sobre .kv{margin:6px 0}.sobre .kv[hidden]{display:none}.sobre a{color:var(--ac)}.sobre .nota{margin-top:12px}
 #jan-eng{width:min(900px,calc(100vw - 32px));right:56px;top:72px}
@@ -344,7 +345,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-eng" hidden><div class="jan-tit"><span>🖥 Engines e modelo de jogadores</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo">
   <div class="painel" style="margin:6px 0">
     <div id="baixar" class="card" style="margin-bottom:10px"><h3>Baixar engines (fonte oficial)
-      <span class="info" tabindex="0" role="button" aria-label="Informações sobre engines e licenças">ⓘ<span class="tip">
+      <span class="info" tabindex="0" role="button" aria-label="Informações sobre engines e licenças">i<span class="tip">
         <b>Este projeto não inclui engines.</b> O download é feito por você, direto do GitHub oficial de cada projeto, e a engine continua sob a licença original (GPL-3.0).<br><br>
         Você também pode cadastrar abaixo qualquer engine UCI que já tenha (Stockfish, Lc0, Komodo, Berserk…). A <b>referência</b> calcula o índice; as demais aparecem ao lado e geram o aviso de divergência. Vale para a próxima análise iniciada.</span></span></h3>
       <div id="baixar-lista" class="mut">carregando…</div></div>
@@ -560,7 +561,7 @@ function desenhaTab(row){mostraAbertura();setTimeout(()=>{marcaFixo();const it=d
   const uv=V&&V.k>0?V.ucis[V.k-1]:null;
   const ult=V?(uv?[uv.slice(0,2),uv.slice(2,4)]:[]):(ant&&ant.uci?[ant.uci.slice(0,2),ant.uci.slice(2,4)]:[]);
   const sg=V?null:sinalTab(ant),dest=sg&&ant.uci?ant.uci.slice(2,4):'';
-  pintaTab($('#tab'),fen,ult,sg,dest,'seta',cavDe(V));
+  ULT=ult;pintaTab($('#tab'),fen,ult,sg,dest,'seta',cavDe(V));
   if(V){if(V.ucis[V.k])seta(V.ucis[V.k],SETA_COR)}else setasPadrao(row);
 }
 const SETA_COR='#ff9f43';   // laranja = cálculo da engine (amarelo ficou para as casas do último lance; ciano/violeta = marcações de posição)
@@ -622,7 +623,7 @@ function linhasHtml(row){
   const L=row.linhas||[];if(!L.length)return'';
   const mn=row.rating?'~'+Math.round(Math.max(1100,Math.min(1900,row.rating))/100)*100:'1900';
   const dica=esc(t('Clique para ver a variante no tabuleiro'));
-  let h=`<h3>${t('Linhas de cálculo')}${ajuda('Valores originais da engine, sem ajuste dos índices.')}${S.engines&&S.engines.referencia?' · '+S.engines.referencia:''} · ${t('profundidade {d}',{d:cfg.depth})} <button class="chip fixa-linhas ${cfg.fixaLinhas?'on':''}" title="${esc(t('Mostra no tabuleiro, em laranja, os melhores lances de todas as linhas (o primeiro mais forte); clique de novo para soltar'))}">${t('📌 Fixar todos os melhores lances')}</button></h3><table class="lin"><tr><th>#</th><th>${t('Lance')}</th><th>${t('Aval. (brancas)')}</th><th title="${esc(t('Chance de acerto: probabilidade de um jogador desse nível (rating ~{n}, modelo Maia) escolher este lance',{n:mn.replace('~','')}))}">${t('Acerto')} ⓘ</th><th>${t('Variante')}</th></tr>`;
+  let h=`<h3>${t('Linhas de cálculo')}${ajuda('Valores originais da engine, sem ajuste dos índices.')}${S.engines&&S.engines.referencia?' · '+S.engines.referencia:''} · ${t('profundidade {d}',{d:cfg.depth})} <button class="chip fixa-linhas ${cfg.fixaLinhas?'on':''}" title="${esc(t('Mostra no tabuleiro, em laranja, os melhores lances de todas as linhas (o primeiro mais forte); clique de novo para soltar'))}">${t('📌 Fixar lances')}</button></h3><table class="lin"><tr><th>#</th><th>${t('Lance')}</th><th>${t('Aval. (brancas)')}</th><th title="${esc(t('Chance de acerto: probabilidade de um jogador desse nível (rating ~{n}, modelo Maia) escolher este lance',{n:mn.replace('~','')}))}">${t('Acerto')} ⓘ</th><th>${t('Variante')}</th></tr>`;
   L.forEach((l,i)=>{const jog=l.san===row.move;
     h+=`<tr data-uci="${l.uci}" data-pv="${esc(l.pv.join(','))}" data-eng="${esc((S.engines&&S.engines.referencia)||'engine')}" title="${dica}"><td>${i+1}</td><td><b>${l.san}</b>${jog?` <span class="mut">${t('▶ jogado')}</span>`:''}</td><td>${ev(l.cp,l.mate)}</td>
     <td><span class="hb" style="width:${Math.round(l.p_humano*60)}px"></span>${Math.round(l.p_humano*100)}%</td><td class="pv">${pvClic(row.fen,l.pv)}</td></tr>`});
@@ -638,7 +639,7 @@ function linhasHtml(row){
 function interpHtml(row){
   const ant=row.ant,lado=row.side==='B'?t('brancas'):t('pretas');
   const mot=row.motivos?row.motivos.split(' | '):[];
-  let h=`<div class="ih"><span class="badge" style="background:${BANDA_COR(row.indice)}">${row.faixa} · ${Math.round(row.indice)}%</span>${ajuda('Chance de Acerto: probabilidade de um jogador do nível (rating) de quem joga encontrar um lance bom nesta posição, calibrada com partidas reais.')}
+  let h=`<div class="ih"><span class="badge" style="background:${BANDA_COR(row.indice)}">${row.faixa} · ${Math.round(row.indice)}%</span>${ajuda('Chance de Acerto: probabilidade de o jogador, com o seu nível de rating, escolher um lance adequado nesta posição.\n• Base: a engine identifica os lances adequados (os que quase não pioram a posição) e o modelo Maia, no nível do jogador, estima a probabilidade de ele escolher cada um deles.\n• Ajustes: teoria de abertura e mate curto elevam o valor; cálculo muito profundo o reduz; finais técnicos impõem um limite.\n• Calibração com partidas reais, que também considera o rating.\n• A divergência entre engines só reduz o valor se estiver ativada. O tempo de relógio é uma leitura à parte e não altera este valor.')}
     <span class="mut">${t('Vez das {lado}',{lado})}${row.rating?' · '+t('rating {r}',{r:row.rating}):''}${row.tempo_restante!=null?' · ⏱ '+fmtT(row.tempo_restante):''}</span></div>
     <p class="ires">${row.resumo}</p>`;
   if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}${ajuda('Os fatores que mais pesaram na chance de acerto desta posição.')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
@@ -647,18 +648,19 @@ function interpHtml(row){
   if(ant)h+=`<div class="kv"><span class="k">${t('Último lance')}${ajuda('Índice de Jogada: qualidade do lance que acabou de ser jogado, comparada ao melhor lance da engine.')}</span><div class="v"><b>${ant.lance}</b> <span class="badge" style="background:${CLS_COR[ant.classe_id]||'#999'}">${ant.classe} · ${Math.round(ant.indice)}</span><div>${ant.texto}</div>${ant.tempo?`<div class="mut">⏱ ${ant.tempo}</div>`:''}</div></div>`;
   return h;
 }
-const ajuda=txt=>`<span class="dica" tabindex="0" role="button" aria-label="${esc(t('Informação'))}">ⓘ<span class="tip">${esc(t(txt))}</span></span>`;   // ⓘ: passe o mouse (ou foque) para ler a explicação
+const ajuda=txt=>`<span class="dica" tabindex="0" role="button" aria-label="${esc(t('Informação'))}">i<span class="tip">${esc(t(txt)).replace(/\n/g,'<br>')}</span></span>`;   // ⓘ: passe o mouse (ou foque) para ler a explicação
 function posDica(el){const tip=el.querySelector('.tip');if(!tip)return;const r=el.getBoundingClientRect();tip.style.display='block';const w=tip.offsetWidth,h=tip.offsetHeight;tip.style.display='';
-  let x=Math.min(Math.max(8,r.left+r.width/2-w/2),innerWidth-w-8),y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);tip.style.left=x+'px';tip.style.top=y+'px'}
+  let x=Math.min(Math.max(8,r.left+r.width/2-w/2),innerWidth-w-8),y=r.bottom+6;if(y+h>innerHeight-8)y=r.top-h-6;if(y<8)y=Math.max(8,innerHeight-h-8);   // abaixo, senão acima, senão encostado na borda da janela
+  tip.style.maxHeight=(innerHeight-16)+'px';tip.style.overflowY='auto';tip.style.left=x+'px';tip.style.top=y+'px'}
 document.addEventListener('mouseover',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
 document.addEventListener('focusin',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
 /* ---------- destaques no tabuleiro (itens do Índice de Posição) ---------- */
 const DEST_COR={B:'#35e0c2',P:'#b388ff'};   // cor de quem tem a característica: brancas / pretas
-const destCache={};let destFixo=null,destAtual=null;
+const destCache={};let destFixo=null,destAtual=null,ULT=[];   // ULT: casas do último lance (amarelas): as marcações de posição não pintam por cima delas
 function fenAtual(){const row=S.rows[S.cur];return V?V.fens[V.k]:(row?row.fen:null)}
 function pintaDest(d){
   const s=$('#seta-d');if(!s)return;let h='';
-  if(d)for(const [sq,lado,tipo] of d.casas||[]){const [x,y]=sqXY(sq),c=DEST_COR[lado];
+  if(d)for(const [sq,lado,tipo] of d.casas||[]){if(ULT.includes(sq))continue;const [x,y]=sqXY(sq),c=DEST_COR[lado];
     h+=tipo==='tinta'?`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}" opacity=".30"/>`
       :`<rect x="${x+.04}" y="${y+.04}" width=".92" height=".92" rx=".1" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width=".09"/>`}
   if(d)for(const [a,z,lado] of d.setas||[]){const c=DEST_COR[lado],[x1,y1]=sqXY(a),[x2,y2]=sqXY(z);
@@ -814,7 +816,9 @@ function irAoRecente(){   // “Lance mais recente”: vai para o último lance 
   V=null;foco2=false;const n=(S.job&&S.rows.length)?S.rows.length:totalPos();if(!n)return;S.cur=n-1;desenha()}
 $('#seguir').onchange=e=>{if(e.target.checked)irAoRecente()};
 function vai(i){V=null;foco2=false;const n=totalPos();if(!n)return;
-  S.cur=Math.max(0,Math.min(n-1,i));desenha()}
+  S.cur=Math.max(0,Math.min(n-1,i));
+  const ult=(S.job&&S.rows.length)?S.rows.length-1:n-1;$('#seguir').checked=S.cur>=ult;   // a caixa acompanha onde você está: no lance mais recente fica marcada, em lance antigo desmarca
+  desenha()}
 
 /* ---------- jobs ---------- */
 async function api(u,corpo){const r=await fetch(u,corpo?{method:'POST',headers:{'Content-Type':'application/json','X-Lang':LANG},body:JSON.stringify(corpo)}:{headers:{'X-Lang':LANG}});return r.json()}

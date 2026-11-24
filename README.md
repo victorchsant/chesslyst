@@ -15,6 +15,9 @@ A interface é uma página HTML servida por um pequeno servidor local em Python.
 
 ## Como usar
 
+### Opção 0: online, sem instalar nada
+Abra **https://victorchsant.github.io/chesslyst/** em um navegador moderno. O programa roda inteiro no seu navegador (Python e Stockfish em WebAssembly), sem servidor: nada da sua análise sai do seu computador, e é gratuito. Limites desta versão: o Stockfish em WebAssembly é mais lento que o instalado, não há o modelo Maia (a Chance de Acerto usa uma estimativa feita a partir das avaliações da engine) e na primeira abertura são baixados cerca de 15 MB.
+
 ### Opção 1: Windows, com o `Chesslyst.exe` (recomendada)
 Baixe o `Chesslyst.exe` na página de [Releases](https://github.com/victorchsant/chesslyst/releases) e dê dois cliques. **Não precisa instalar o Python.** O programa abre a interface no navegador e se encerra sozinho depois que você fecha a página.
 - Engines baixadas, configurações e caches ficam em `%LOCALAPPDATA%\Chesslyst`.
@@ -56,6 +59,7 @@ app/
   exemplos/                partida de demonstração (uso sem internet)
   testes/test_core.py      testes do núcleo
   exe/                     como gerar o Chesslyst.exe (PyInstaller): exe_main.py e construir.py
+  online/                  versão online (GitHub Pages): webserver.py, shim.js, construir_site.py e publicar.py
   requirements.txt
 ```
 O que o programa cria ao rodar (ambiente `.venv`, engines baixadas, `engines.json`, caches e `servidor.log`) fica dentro de `app/` (ou, no `.exe`, em `%LOCALAPPDATA%\Chesslyst`) e não vai para o Git.

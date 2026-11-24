@@ -15,3 +15,7 @@ app/exe/.venv-build/
 app/exe/build/
 app/exe/dist/
 *.spec
+
+# versão online (gerada)
+app/online/site/
+app/online/vendor/

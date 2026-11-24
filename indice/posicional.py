@@ -208,7 +208,9 @@ def destaques(b: chess.Board, chaves):
             peoes, inim = b.pieces(chess.PAWN, c), b.pieces(chess.PAWN, opp)
             cols = [0] * 8
             for sq in peoes: cols[chess.square_file(sq)] += 1
-            if chave == "peoes_dobrados":
+            if chave == "peoes":                       # grupo Estrutura de peões: todos os peões
+                for sq in peoes: casa(sq, c)
+            elif chave == "peoes_dobrados":
                 for sq in peoes:
                     if cols[chess.square_file(sq)] > 1: casa(sq, c)
             elif chave == "peoes_isolados":

@@ -1,14 +1,11 @@
-# ambiente e caches
+# engines são baixadas pelo usuário (licença GPL-3.0 própria de cada uma) - não versionar
+engines/
 .venv/
 __pycache__/
 *.pyc
-
-# engines e redes são baixadas pelo usuário (cada uma com a sua licença)
-engines/
-engines.json
-
-# arquivos gerados em uso
-servidor.log
-cache_fontes.json
 dados/
 saida/
+cache_fontes.json
+engines.json
+servidor.log
+cache_analises.json

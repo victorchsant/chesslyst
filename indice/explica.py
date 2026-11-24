@@ -7,7 +7,10 @@ from __future__ import annotations
 from collections import Counter
 import chess
 from .i18n import T, lang
-from .posicional import desc_material, material as _material, analise as _analise_pos
+from .posicional import desc_material, material as _material, analise as _analise_pos, _fase, avalia as _avalia_pos
+from .core import win_pct as _wp
+from .aberturas import nome_da_posicao
+from .i18n import num as _num
 
 VAL = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
 # (artigo+singular, plural, feminino?)
@@ -74,6 +77,11 @@ def _ideia(board, melhor, seq_b, mate_b, net_j, eval_antes, permitiu_mate=False)
     except ValueError:
         pass
     if net_j <= -1: return T("x.i_evita")
+    try:
+        y = _ideias(board, chess.Move.from_uci(melhor["uci"]))
+        if y: return ", " + y[0][2]
+    except ValueError:
+        pass
     return T("x.i_vant") if eval_antes >= 60 else (T("x.i_seg") if eval_antes <= 40 else T("x.i_eq"))
 
 
@@ -133,6 +141,206 @@ def _efeito(board, move):
     return None
 
 
+_COL = "abcdefgh"
+_REI = ("o rei", "the king")
+
+
+def _art(pt):
+    """'o cavalo' / 'the knight' (e 'o rei' / 'the king')."""
+    if pt == chess.KING: return _REI[1 if lang() == "en" else 0]
+    return _ART_EN[pt] if lang() == "en" else _ART_PT[pt][0]
+
+
+def _fracas(board, cor):
+    """Casas das peças de `cor` (não rei) atacadas com ganho para o adversário: sem defesa ou atacadas por peça menor."""
+    r = set()
+    for sq, pc in board.piece_map().items():
+        if pc.color != cor or pc.piece_type == chess.KING: continue
+        atq = board.attackers(not cor, sq)
+        if not atq: continue
+        menor = min(VAL.get(board.piece_type_at(a), 99) for a in atq)
+        if not board.is_attacked_by(cor, sq) or menor < VAL[pc.piece_type]: r.add(sq)
+    return r
+
+
+def _ideias(board, move):
+    """Ideias claras por trás de um lance, reconhecidas por regras (nada de palpite): [(id, frase, gerúndio)].
+    Quem chama só mostra quando a engine confirma (o lance é o preferido dela ou está entre os bons)."""
+    out = []
+
+    def add(k, **kw): out.append((k, T("y." + k, **kw), T("yg." + k, **kw)))
+    try:
+        cor = board.turn; pt = board.piece_type_at(move.from_square)
+        if pt is None or board.is_castling(move): return out
+        b2 = board.copy(); b2.push(move)
+        to, de = move.to_square, move.from_square
+        fl = chess.square_file(to); col = _COL[fl]
+        captura = board.is_capture(move)
+        rel = lambda sq: chess.square_rank(sq) if cor else 7 - chess.square_rank(sq)
+        seguro = not (b2.is_attacked_by(not cor, to) and not b2.is_attacked_by(cor, to))
+        # 1) ataque duplo
+        if not captura and seguro and pt != chess.KING:
+            alvos = [s for s in b2.attacks(to) if (p := b2.piece_at(s)) and p.color != cor
+                     and (p.piece_type == chess.KING or (p.piece_type != chess.PAWN and (VAL[p.piece_type] >= VAL.get(pt, 0) or not b2.is_attacked_by(not cor, s))))]
+            if len(alvos) >= 2:
+                alvos.sort(key=lambda s: -(99 if b2.piece_type_at(s) == chess.KING else VAL[b2.piece_type_at(s)]))
+                add("garfo", a=_art(b2.piece_type_at(alvos[0])), b=_art(b2.piece_type_at(alvos[1])))
+        # 2) cravada contra o rei
+        if pt in (chess.BISHOP, chess.ROOK, chess.QUEEN) and seguro:
+            for s in b2.attacks(to):
+                p = b2.piece_at(s)
+                if p and p.color != cor and p.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN) and b2.is_pinned(not cor, s) \
+                        and (b2.pin(not cor, s) >> to) & 1:
+                    add("cravada", p=_art(p.piece_type)); break
+        # 3) tira uma peça do ataque / protege uma peça atacada
+        if not captura:
+            f0, f1 = _fracas(board, cor), _fracas(b2, cor)
+            if de in f0 and to not in f1: add("salva", p=_art(pt))
+            else:
+                for s in f0:
+                    if s != de and s not in f1 and board.piece_type_at(s) != chess.PAWN:
+                        add("protege", p=_art(board.piece_type_at(s))); break
+        # 4) torres
+        if pt == chess.ROOK and chess.square_file(de) != fl and not captura:
+            outras = [s for s in b2.pieces(chess.ROOK, cor) if s != to and chess.square_file(s) == fl
+                      and not any(b2.piece_at(chess.square(fl, r)) for r in range(min(chess.square_rank(s), chess.square_rank(to)) + 1, max(chess.square_rank(s), chess.square_rank(to))))]
+            if outras: add("dobra", c=col)
+            else:
+                meus = [s for s in b2.pieces(chess.PAWN, cor) if chess.square_file(s) == fl]
+                deles = [s for s in b2.pieces(chess.PAWN, not cor) if chess.square_file(s) == fl]
+                if not meus and not deles: add("aberta", c=col)
+                elif not meus: add("semi", c=col)
+        if pt == chess.ROOK and rel(to) == 6 and rel(de) != 6 and not captura:
+            inim7 = [s for s in b2.pieces(chess.PAWN, not cor) if rel(s) == 6]
+            rei = b2.king(not cor)
+            if inim7 or (rei is not None and rel(rei) == 7): add("setima")
+        # 5) cavalo/bispo em posto avançado
+        if pt in (chess.KNIGHT, chess.BISHOP) and 4 <= rel(to) <= 5 and not captura:
+            if any(b2.piece_type_at(a) == chess.PAWN for a in b2.attackers(cor, to)) and not any(
+                    abs(chess.square_file(s) - fl) == 1 and ((chess.square_rank(s) > chess.square_rank(to)) if cor else (chess.square_rank(s) < chess.square_rank(to)))
+                    for s in b2.pieces(chess.PAWN, not cor)):
+                add("posto", o=_art(pt), s=chess.square_name(to))
+        # 6) fianchetto
+        if pt == chess.BISHOP and to in ((chess.G2, chess.B2) if cor else (chess.G7, chess.B7)):
+            frente = chess.square(fl, 2 if cor else 5)
+            if b2.piece_type_at(frente) == chess.PAWN and b2.color_at(frente) == cor: add("fianchetto")
+        # 7) peões: peão passado avançando / quebra de peões
+        if pt == chess.PAWN and not captura:
+            inim = b2.pieces(chess.PAWN, not cor)
+            passado = not any(abs(chess.square_file(s) - fl) <= 1 and ((chess.square_rank(s) > chess.square_rank(to)) if cor else (chess.square_rank(s) < chess.square_rank(to))) for s in inim)
+            if passado and rel(to) >= 4: add("passado")
+            elif any(b2.piece_type_at(s) == chess.PAWN and b2.color_at(s) != cor for s in b2.attacks(to)) and b2.is_attacked_by(cor, to): add("quebra")
+        # 8) rei no final
+        if pt == chess.KING and not captura and _fase(board) < 0.35:
+            dc = lambda sq: abs(chess.square_file(sq) - 3.5) + abs(chess.square_rank(sq) - 3.5)
+            if dc(to) < dc(de): add("rei")
+    except Exception:
+        return []
+    ordem = ["garfo", "cravada", "dobra", "aberta", "semi", "setima", "posto", "fianchetto", "passado", "quebra", "salva", "protege", "rei"]
+    return sorted(out, key=lambda x: ordem.index(x[0]) if x[0] in ordem else 99)   # a ideia mais marcante primeiro
+
+
+_PZ = {   # item da análise de posição -> (frase se melhora, frase se piora)
+    "mobilidade": ("pz.mob_mais", "pz.mob_menos"), "desenvolvimento": ("pz.desenv_mais", "pz.desenv_menos"),
+    "centro": ("pz.centro_mais", "pz.centro_menos"), "espaco": ("pz.espaco_mais", "pz.espaco_menos"),
+    "seguranca_rei": ("pz.rei_mais", "pz.rei_menos"), "rei_final": ("pz.reif_mais", "pz.reif_menos"),
+    "torres": ("pz.torres_mais", "pz.torres_menos"), "par_de_bispos": (None, "pz.bispos_menos"),
+    "peoes_dobrados": ("pz.dob_mais", "pz.dob_menos"), "peoes_isolados": ("pz.iso_mais", "pz.iso_menos"),
+    "peoes_passados": ("pz.pas_mais", "pz.pas_menos"), "pecas_em_risco": ("pz.risco_mais", "pz.risco_menos"),
+    "casas_fracas": ("pz.fracas_mais", "pz.fracas_menos"), "postos_avancados": ("pz.posto_mais", "pz.posto_menos"),
+}
+
+
+def _motivo_posicional(board, move, limiar=8.0):
+    """Compara a análise de posição (os mesmos itens da tabela) antes e depois do lance e diz o que mais mudou para quem jogou:
+    (id, texto, positivo) ou None. Material fica de fora (capturas já têm explicação própria)."""
+    try:
+        cor = board.turn; b2 = board.copy(); b2.push(move)
+        _, c0 = _avalia_pos(board); _, c1 = _avalia_pos(b2)
+        sg = 1 if cor == chess.WHITE else -1
+        d = {k: (c1[k] - c0[k]) * sg for k in c0 if k != "material" and k in _PZ and not (k == "pecas_em_risco" and board.is_capture(move))}   # troca: o "risco" some na recaptura
+        k_mais, v_mais = max(d.items(), key=lambda kv: kv[1])
+        k_menos, v_menos = min(d.items(), key=lambda kv: kv[1])
+        if v_mais >= limiar and _PZ[k_mais][0] and v_mais >= -v_menos: return k_mais, T(_PZ[k_mais][0]), True
+        if v_menos <= -limiar: return k_menos, T(_PZ[k_menos][1]), False
+        if v_mais >= limiar and _PZ[k_mais][0]: return k_mais, T(_PZ[k_mais][0]), True
+    except Exception:
+        return None
+    return None
+
+
+def _fmt_av(cp, mate):
+    """Avaliação para o texto: '+1,2' ou 'mate em 3'."""
+    if mate is not None: return T("x.mate_em", n=abs(mate)) if mate > 0 else "−" + T("x.mate_em", n=abs(mate))
+    return ("+" if cp >= 0 else "−") + _num(abs(cp) / 100)
+
+
+def explicar_subida(prev, raw):
+    """Quando a avaliação sobe muito depois do lance (a engine confirma): mostra a ideia seguinte, ex.: 'a ideia de Kd4+'.
+    `prev` = análise da posição antes do lance; `raw` = análise da posição depois."""
+    try:
+        if not prev or prev.get("terminal") or raw.get("terminal") or not prev.get("move") or not raw.get("linhas"): return None
+        a_cp, a_m = prev["cands"][0][1], prev["cands"][0][2]                  # de quem jogou, antes
+        d_cp, d_m = raw["cands"][0][1], raw["cands"][0][2]                    # de quem vai jogar agora (o adversário)
+        antes, depois = _wp(a_cp, a_m), 100 - _wp(d_cp, d_m)
+        if depois - antes < 10: return None
+        a_txt = _fmt_av(a_cp, a_m)
+        b_txt = _fmt_av(-d_cp if d_cp is not None else 0, -d_m if d_m is not None else None)
+        ln = raw["linhas"][0]; pv = ln.get("pv") or []; pvu = ln.get("pv_uci") or []
+        if len(pv) >= 2:
+            ideia = ""
+            try:
+                b = chess.Board(raw["fen"]); b.push(chess.Move.from_uci(pvu[0]))
+                y = _ideias(b, chess.Move.from_uci(pvu[1]))
+                if y: ideia = ", " + y[0][2]
+            except Exception: pass
+            return T("x.sobe_i", a=a_txt, b=b_txt, m=pv[1], i=ideia)
+        return T("x.sobe", a=a_txt, b=b_txt)
+    except Exception:
+        return None
+
+
+def explicar_porque(raw, pos, ap=None):
+    """'Por quê' concreto da dificuldade da posição: teoria explicada, natureza do melhor lance, quantos lances são bons e tensão tática."""
+    out = []
+    try:
+        board = chess.Board(raw["fen"]); ln = raw["linhas"][0]; san = ln["san"]
+        # 1) teoria de abertura, com o nome e os lances mais jogados pelos mestres
+        bg = raw.get("book_games")
+        if bg and bg >= 20:
+            ab = nome_da_posicao(raw["fen"])
+            tot = f"{bg:,}".replace(",", ".") if lang() != "en" else f"{bg:,}"
+            txt = T("pq.teoria", ab=(f" ({ab[0]} {ab[1]})" if ab else ""), n=tot)
+            top = [(s, n) for s, n in sorted((raw.get("book_moves") or {}).items(), key=lambda kv: -kv[1])[:3] if n / bg >= 0.08]
+            if top: txt += " " + T("pq.teoria_m", l=", ".join(f"{s} ({round(100 * n / bg)}%)" for s, n in top))
+            out.append(txt)
+        # 2) natureza do melhor lance (a explicação do porquê de ser difícil ou fácil de achar)
+        mate = raw["cands"][0][2]
+        if not (mate is not None and mate > 0):
+            mv = chess.Move.from_uci(ln["uci"]); seq = _seq(board, ln.get("pv_uci"))
+            primeiro = next((k for k, p in enumerate(seq["passos"]) if p["meu"] and p["cap"]), None)
+            if seq["liquido"] >= 1.5 and seq["ganhou"] and primeiro is not None:
+                out.append(T("pq.ganha", m=san, p=_lista(seq["ganhou"]), n=primeiro // 2 + 1))
+            elif board.gives_check(mv): out.append(T("pq.xeque", m=san))
+            elif board.is_capture(mv): out.append(T("pq.captura", m=san))
+            else:
+                y = _ideias(board, mv); ef = _efeito(board, mv); pz = _motivo_posicional(board, mv)
+                frase = y[0][1] if y else (ef[1] if ef and ef[2] else (pz[1] if pz and pz[2] else None))
+                if frase: out.append(T("pq.ideia", m=san, i=frase[:1].lower() + frase[1:].rstrip(".")))
+        # 3) quantos lances são bons
+        if pos is not None:
+            bw = _wp(pos.candidates[0].cp, pos.candidates[0].mate)
+            bons = [c.san for c in pos.candidates if bw - _wp(c.cp, c.mate) <= 3]
+            if len(bons) >= 3: out.append(T("pq.varios", l=", ".join(bons[:3])))
+        # 4) peças em risco na posição: tática
+        if ap:
+            risco = next((i for g in ap["grupos"] for i in g["itens"] if i["chave"] == "pecas_em_risco"), None)
+            if risco and abs(risco["cp"]) >= 50: out.append(T("pq.risco"))
+    except Exception:
+        pass
+    return out[:4]
+
+
 def _r(info, causa, texto):
     """Devolve o texto e, se pedido, registra qual causa foi usada (serve para calibrar)."""
     if info is not None: info["causa"] = causa
@@ -170,6 +378,11 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
         if board.gives_check(move): return _r(info, "xeque", T("x.xeque"))
         ef = _efeito(board, move)
         ef = ef if ef and ef[2] else None          # só efeitos positivos num bom lance
+        y = _ideias(board, move)
+        if y: return _r(info, "melhor_generico+ideia_" + y[0][0], T("j.melhor") + " " + y[0][1])
+        if not ef:
+            pz = _motivo_posicional(board, move)
+            if pz and pz[2]: return _r(info, "melhor_generico+pz_" + pz[0], T("j.melhor") + " " + pz[1])
         return _r(info, "melhor_generico" + ("+" + ef[0] if ef else ""), T("j.melhor") + (" " + ef[1] if ef else ""))
 
     permitiu = (mate_j is not None and mate_j < 0) or bool(jog["passos"] and _mate_contra(board, raw["pv_jogado"]))
@@ -178,6 +391,11 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
     melhor_era = T("x.melhor_era", m=san_melhor, i=ideia)
     ef = _efeito(board, move)
     ef = ef if ef and ef[2] else None
+    y = _ideias(board, move)
+    if y: ef = (  "ideia_" + y[0][0], y[0][1], True)          # ideia clara, confirmada pela engine (lance entre os melhores)
+    elif not ef:
+        pz = _motivo_posicional(board, move)
+        if pz and pz[2]: ef = ("pz_" + pz[0], pz[1], True)
     if cid == "excelente": return _r(info, "quase" + ("+" + ef[0] if ef else ""), T("x.quase", m=san_melhor) + (" " + ef[1] if ef else ""))
     if cid == "bom": return _r(info, "bom" + ("+" + ef[0] if ef else ""), T("x.bom", m=san_melhor) + (" " + ef[1] if ef and ef[2] else ""))
 
@@ -215,7 +433,9 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
         k, causa = "perdeu_roque", T("x.perdeu_roque")
     else:
         ef = _efeito(board, move)
+        pz = _motivo_posicional(board, move)
         if ef and not ef[2]: k, causa = "piorou+" + ef[0], T("x.piorou_mob", e=ef[1])
+        elif pz and not pz[2]: k, causa = "piorou+pz_" + pz[0], T("x.piorou_mob", e=pz[1])
         else: k, causa = "piorou", T("x.piorou")
     if k in ("perdeu", "perdeu_troca") and idx_perda is not None and idx_perda >= 3:      # perda que não vem logo: diz em quantos lances
         causa = T("x.perde_em", p=_lista(jog["perdeu"]), n=(idx_perda + 1) // 2)

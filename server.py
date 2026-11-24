@@ -13,6 +13,7 @@ from indice.gerente import Gerente
 from indice.i18n import set_lang, T
 from indice import baixador, relogio
 from indice.aberturas import nomes as nomes_abertura
+from indice.explica import explicar_subida
 from indice.posicional import destaques as destaques_posicao
 from indice.core import analyse
 
@@ -80,6 +81,42 @@ def escolhe_jogo(job, pgn_texto):
     return jogos[i] if 0 <= i < len(jogos) else None
 
 
+# ---------- memória das análises: pausar e continuar (ou reabrir o programa) não recomeça do zero ----------
+CACHE_ARQ = ROOT / "cache_analises.json"
+CACHE_MAX = 10                       # partidas guardadas (as mais recentes)
+try: ANALISES = json.loads(CACHE_ARQ.read_text(encoding="utf-8"))
+except (OSError, ValueError): ANALISES = {}
+
+
+def chave_analise(depth, fen0):
+    """Mesma partida, mesma profundidade e mesmas engines = mesma análise (idioma não conta: o texto é refeito ao mostrar)."""
+    import hashlib
+    with LOCK: c = GER.cfg
+    assin = json.dumps({k: c.get(k) for k in ("engines", "referencia", "humano", "divergencia_peso")}, sort_keys=True, default=str)
+    return f"{depth}|{hashlib.md5(assin.encode()).hexdigest()}|{fen0}"
+
+
+def reaproveita(job, raws, boards, moves, chave):
+    """Carrega o que já foi analisado desta partida (a parte que ainda confere com a partida) e devolve o estado de 'em teoria'."""
+    antigas = ANALISES.get(chave) or []
+    for i, r in enumerate(antigas):
+        if i >= len(boards) or r.get("fen") != boards[i].fen(): break
+        if r.get("move") is not None and (i >= len(moves) or r.get("uci") != moves[i].uci()): break
+        raws.append(r)
+    em = True
+    for i, r in enumerate(raws):
+        if em: em = bool(r.get("book_games") and r["book_games"] >= 20)
+        push_row(job, r, i)
+    ANALISES.pop(chave, None); ANALISES[chave] = raws          # a lista viva do job é a memória: cresce junto com a análise
+    while len(ANALISES) > CACHE_MAX: ANALISES.pop(next(iter(ANALISES)))
+    return em
+
+
+def guarda_analises():
+    try: CACHE_ARQ.write_text(json.dumps(ANALISES, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except (OSError, TypeError, ValueError): pass
+
+
 def rodar_job(job):
     set_lang(job["lang"])
     depth = int(job["depth"])
@@ -109,6 +146,9 @@ def rodar_job(job):
             job["lances"], job["esperado"] = lances, len(boards)   # a interface mostra tudo desde já e o progresso
             job["fens"], job["ucis"] = [bb.fen() for bb in boards], [m.uci() for m in moves]
             job["aberturas"] = nomes_abertura(job["fens"])
+            if not job.get("_memoria"):                      # primeira volta: aproveita a análise guardada desta partida
+                job["_memoria"] = True; job["_chave"] = chave_analise(depth, boards[0].fen())
+                if not raws: em_livro = reaproveita(job, raws, boards, moves, job["_chave"])
             if any(i < len(boards) - 1 and raws[i]["fen"] != boards[i].fen() for i in range(min(len(raws), len(boards)))):
                 raws.clear(); job["rows"].clear(); em_livro = True
             for i in range(len(raws), len(boards)):
@@ -156,13 +196,21 @@ def rodar_job(job):
         job["estado"] = "parado" if job["parar"] else "fim"
     except Exception as e:
         job["estado"] = "erro"; job["aviso"] = repr(e)
+    finally:
+        guarda_analises()
 
 
-def _ant(r):
-    """Resumo do lance jogado em uma linha (mostrado na linha seguinte como 'último lance')."""
+def _ant(r, extra=""):
+    """Resumo do lance jogado em uma linha (mostrado na linha seguinte como 'último lance'); `extra` = a avaliação sobe depois dele."""
     if r is None or r["jogada_indice"] is None: return None
     return dict(lance=r["move"], indice=r["jogada_indice"], classe=r["jogada_classe"], classe_id=r["jogada_classe_id"],
-                texto=r["jogada_texto"], tempo=r.get("tempo_texto", ""))
+                texto=(r["jogada_texto"] or "") + ((" " + extra) if extra else ""), tempo=r.get("tempo_texto", ""))
+
+
+def _subida(job, i):
+    """Texto de 'a avaliação sobe muito' para o lance que levou à posição i (usa a análise das posições i-1 e i)."""
+    raws = job.get("raws") or []
+    return explicar_subida(raws[i - 1], raws[i]) if 0 < i < len(raws) else None
 
 
 def push_row(job, raw, i):
@@ -174,12 +222,12 @@ def push_row(job, raw, i):
             pos = pipeline.para_posicao(raw, GER.cfg.get("divergencia_peso", 0.0))
             row = pipeline.linha(raw, pos, analyse(pos))
         row["idx"] = i
-        row["ant"] = _ant(job["rows"][i - 1]) if i > 0 and i - 1 < len(job["rows"]) else None
+        row["ant"] = _ant(job["rows"][i - 1], _subida(job, i) or "") if i > 0 and i - 1 < len(job["rows"]) else None
         if i < len(job["rows"]): job["rows"][i] = row
         else: job["rows"].append(row)
         job["versao"] += 1
         if i + 1 < len(job["rows"]):   # a linha seguinte deve mostrar a jogada anterior atualizada
-            job["rows"][i + 1]["ant"] = _ant(row)
+            job["rows"][i + 1]["ant"] = _ant(row, _subida(job, i + 1) or "")
 
 
 def traduz_job(job, lang):

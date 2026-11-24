@@ -116,6 +116,14 @@ def traduz(nome):
     return ": ".join(", ".join(_parte(s) for s in seg.split(", ")) for seg in nome.split(": "))
 
 
+def nome_da_posicao(fen):
+    """(eco, nome) da posição, no idioma atual, ou None se não for uma abertura da lista."""
+    from .i18n import lang
+    try: x = _DB.get(chess.Board(fen).epd())
+    except ValueError: return None
+    return (x[0], traduz(x[1]) if lang() != "en" else x[1]) if x else None
+
+
 def nomes(fens):
     """Para cada posição (lista de FEN), [eco, nome_en, nome_pt] da abertura reconhecida mais recente, ou None.
     Mantém o último nome conhecido enquanto a partida segue por posições fora da lista."""

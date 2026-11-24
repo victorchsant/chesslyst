@@ -9,7 +9,7 @@ from pathlib import Path
 import chess, chess.engine, chess.pgn
 from . import fontes
 from .core import Candidate, Position, analyse, win_pct, indice_jogada, nome_classe
-from .explica import explicar_lance, explicar_avaliacao
+from .explica import explicar_lance, explicar_avaliacao, explicar_porque
 from .i18n import T
 from .posicional import indice_posicao, analise as analise_posicao
 
@@ -151,7 +151,8 @@ def colher(board, move, sf, maia, rating=None, depth=14, multipv=5, em_livro=Tru
     n = board.legal_moves.count() if (pcs <= ENDGAME_PIECES and not tb) else multipv
     cands, stable, pvs = candidates(sf, board, n, depth)
     pol = maia.policy(board, rating)
-    book = fontes.masters(board.fen())[0] if em_livro else None
+    bk = fontes.masters(board.fen()) if em_livro else (None, {})
+    book, book_moves = bk[0], bk[1]
     san = jogado = fen_depois = uci = pv_jogado = None
     if move is not None:
         san, uci = board.san(move), move.uci()
@@ -172,7 +173,7 @@ def colher(board, move, sf, maia, rating=None, depth=14, multipv=5, em_livro=Tru
             out_eng.append(dict(nome=nome, erro=(str(ex) or type(ex).__name__)[:100] + T("e.confira")))
     return dict(fen=board.fen(), fen_depois=fen_depois, ply=board.ply() + 1, side="B" if board.turn else "P",
                 move=san, uci=uci, rating=rating, cands=cands, pol=pol, linhas=linhas, depth_stable=stable,
-                book_games=book, piece_count=pcs, tb=tb, jogado=jogado, pv_jogado=pv_jogado, outras=out_eng, tempo=tempo, game_over=board.is_game_over())
+                book_games=book, book_moves=book_moves, piece_count=pcs, tb=tb, jogado=jogado, pv_jogado=pv_jogado, outras=out_eng, tempo=tempo, game_over=board.is_game_over())
 
 
 def para_posicao(raw, div_peso=0.0) -> Position:
@@ -223,6 +224,13 @@ def analyse_game(game, depth=16, multipv=5, maia=None, sf=None):
     return rows
 
 
+def motivos_do_porque(raw, pos, r, ap):
+    """Lista do 'Por quê': os motivos gerais do índice, com a teoria explicada e os motivos concretos da posição."""
+    base = [m for m in r.reasons[1:] if m != T("r.teoria")]
+    novos = explicar_porque(raw, pos, ap)
+    return novos[:1] + base + novos[1:] if novos and "teoria" in r.flags else base + novos
+
+
 def linha(raw, pos, r):
     """Linha de resultados de uma posição. Sem lance jogado (posição atual), os campos de jogada ficam vazios."""
     brancas = raw["side"] == "B"
@@ -242,7 +250,7 @@ def linha(raw, pos, r):
              aval_pct=round(r.eval_pct, 1), melhor=pos.candidates[0].san, melhor_uci=raw["linhas"][0]["uci"],
              linhas=raw["linhas"], outras=raw.get("outras") or [], flags=r.flags,
              fonte_final=("tablebase" if raw["tb"] else ("estimado" if raw["piece_count"] <= ENDGAME_PIECES else "")),
-             teoria_partidas=raw["book_games"], resumo=r.headline, motivos=" | ".join(r.reasons[1:]),
+             teoria_partidas=raw["book_games"], resumo=r.headline, motivos=" | ".join(motivos_do_porque(raw, pos, r, ap)),
              indice_tempo=(None if r.index_tempo is None else round(r.index_tempo, 1)), tempo_texto=r.tempo_texto,
              tempo_gasto=(raw.get("tempo") or {}).get("gasto"), tempo_restante=(raw.get("tempo") or {}).get("restante"),
              jogada_indice=None, jogada_classe=None, jogada_classe_id=None, jogada_texto=None, jogado_perda=None)

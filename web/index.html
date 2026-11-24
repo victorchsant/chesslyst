@@ -178,7 +178,32 @@ body.fixo #col-esq{position:sticky;top:6px;align-self:start;max-height:calc(100v
 body.fixo #area-tab{flex:none}
 body.fixo #abaixo{flex:1;min-height:140px;overflow:auto;margin-top:6px}
 body.fixo #lateral{position:sticky;top:6px;align-self:start;max-height:calc(100vh - 12px);overflow:auto}
-@media(max-width:760px){body.fixo #col-esq,body.fixo #lateral,#col-lances{position:static;max-height:none;overflow:visible}}
+/* divisores arrastáveis: tabuleiro | lances | blocos */
+.divisor{flex:0 0 8px;align-self:stretch;margin:0 -6px;cursor:col-resize;border-radius:4px;position:relative;touch-action:none;min-height:80px;user-select:none}
+.divisor::after{content:"";position:absolute;left:3px;top:calc(50% - 22px);width:2px;height:44px;border-radius:2px;background:var(--bd)}
+.divisor:hover,.divisor.on{background:var(--card2)}.divisor:hover::after,.divisor.on::after{background:var(--ac)}
+.divisor[hidden],main.quebrado .divisor{display:none}
+/* visão completa: tudo na janela, sem rolar a página (blocos em grade, cada um rola por dentro se precisar) */
+@media(min-width:900px){
+body.completa{overflow:hidden}
+body.completa header{padding:4px 16px}
+body.completa #fonte{padding:6px 12px;margin:4px 16px}
+body.completa #status{min-height:0;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.completa #prog{padding:0 16px 2px}
+body.completa #blocos-bar{padding:0 16px}
+body.completa main{height:var(--h-main,560px);flex-wrap:nowrap;overflow:hidden;align-items:stretch;padding-bottom:6px}
+body.completa #col-esq{overflow:auto;max-height:100%}
+body.completa #abaixo{display:none}
+body.completa #col-lances{position:static;max-height:100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
+body.completa #col-lances .bloco{flex:1;min-height:0;display:flex;flex-direction:column;margin:0}
+body.completa #col-lances .bloco .bc{flex:1;min-height:0;overflow:auto}
+body.completa #col-lances .lances{max-height:none}
+body.completa #lateral{flex:1 1 0;min-width:0;display:grid;grid-template-columns:var(--gcols,minmax(0,1fr) minmax(0,1fr));grid-template-rows:var(--grows,none);grid-auto-rows:minmax(0,1fr);gap:10px;position:static;max-height:100%;overflow:hidden}
+body.completa #lateral .bloco{display:flex;flex-direction:column;min-height:0;min-width:0;margin:0;overflow:hidden}
+body.completa #lateral .bloco .bc{flex:1;min-height:0;overflow:auto}
+body.completa #lateral .bloco.recolhido{align-self:start}
+}
+@media(max-width:760px){.divisor{display:none}body.fixo #col-esq,body.fixo #lateral,#col-lances{position:static;max-height:none;overflow:visible}}
 #fonte-bar{margin:0;align-items:center}
 #pgn{height:34px;min-height:34px;resize:vertical;transition:height .15s}#pgn:focus{height:120px}
 .p.inv{display:inline-block;transform:scaleX(-1)}
@@ -286,10 +311,13 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
       <select id="c-linhas"><option value="lateral">Em bloco</option><option value="embaixo">Embaixo de tudo</option><option value="oculta">Ocultas</option></select></label>
     <div id="c-locais" class="bol" style="grid-column:1/-1;flex-wrap:wrap"></div>
     <label class="bol"><input type="checkbox" id="c-fixo"> tabuleiro fixo (a rolagem fica só na área dos blocos)</label>
+    <label class="bol"><input type="checkbox" id="c-completa"> visão completa (todos os blocos na janela, sem rolar a página)</label>
     <label class="bol"><input type="checkbox" id="c-sqauto"> tamanho automático (ajusta à janela)</label>
     <label>Tamanho do tabuleiro <input type="range" id="c-sq" min="34" max="130"></label>
     <label>Largura da coluna de lances <input type="range" id="c-wl" min="150" max="420" step="10"></label>
     <label>Largura da coluna de blocos (0 = automática) <input type="range" id="c-wb" min="0" max="1000" step="20"></label>
+    <label>Visão completa: largura entre os blocos (esquerda | direita) <input type="range" id="c-cp" min="25" max="75" step="1"></label>
+    <label>Visão completa: altura entre os blocos (cima | baixo) <input type="range" id="c-lp" min="25" max="75" step="1"></label>
     <label>Profundidade da engine <select id="c-depth"><option>10</option><option>12</option><option selected>14</option><option>16</option><option>18</option></select></label>
     <label class="bol"><input type="checkbox" id="c-varsep"> abrir variantes clicadas em outro tabuleiro</label>
     <label class="bol"><input type="checkbox" id="c-seta"> seta do melhor lance</label>
@@ -352,7 +380,9 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     </div>
     <div id="abaixo" class="col"></div>
   </div>
+  <div class="divisor" id="div-tab" title="Arraste para mudar o tamanho do tabuleiro"></div>
   <div class="col" id="col-lances"></div>
+  <div class="divisor" id="div-bl" title="Arraste para mudar a largura da coluna de lances"></div>
   <div class="col" id="lateral">
     <div class="card bloco" data-b="interp"><div class="bh"><span>Interpretação do lance</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc" id="interp"><div class="mut">Escolha um jogo acima.</div></div></div>
     <div class="card bloco" data-b="pos"><div class="bh"><span>Posição em detalhes</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc" id="pos-det"><div class="mut">—</div></div></div>
@@ -382,7 +412,7 @@ const BARRAS=['engine','posicao','material','acerto','jogada'];
 const BARRAS4=['engine','posicao','acerto','jogada'];
 const CLS_COR={brilhante:'#1abc9c',melhor:'#27ae60',excelente:'#2ecc71',bom:'#8bc34a',imprecisao:'#f1c40f',erro:'#e67e22',grave:'#e74c3c'};
 const BANDA_COR=v=>`hsl(${Math.round(v*1.2)},70%,48%)`;
-const DEF={peca:'classico',tema:'madeira',clara:'#f0d9b5',escura:'#b58863',layout:'dois',slots:{engine:'esq',posicao:'esq',material:'off',acerto:'dir',jogada:'dir'},varSep:false,ver:5,temaUi:'escuro',cav:'todos',sqAuto:true,wLances:220,wBlocos:0,blocos:{},colapsados:{},neutros:false,local:{interp:'lat',pos:'lat',lances:'col',graf:'lat',linhas:'lat'},fixo:false,gAberto:{},linhas:'lateral',flip:false,
+const DEF={peca:'classico',tema:'madeira',clara:'#f0d9b5',escura:'#b58863',layout:'dois',slots:{engine:'esq',posicao:'esq',material:'off',acerto:'dir',jogada:'dir'},varSep:false,ver:5,fixaLinhas:false,completa:false,cProp:50,lProp:50,temaUi:'escuro',cav:'todos',sqAuto:true,wLances:220,wBlocos:0,blocos:{},colapsados:{},neutros:false,local:{interp:'lat',pos:'lat',lances:'col',graf:'lat',linhas:'lat'},fixo:false,gAberto:{},linhas:'lateral',flip:false,
   sq:Math.max(40,Math.min(76,Math.floor((innerHeight-250)/8))),seta:true,coord:true,depth:14,som:true,notif:false};
 const SALVO=JSON.parse(localStorage.getItem('indiceCfg')||'{}');
 let cfg=Object.assign({},DEF,SALVO);
@@ -418,9 +448,12 @@ function iniciaCfg(){
   $('#c-sq').oninput=e=>{cfg.sqAuto=false;$('#c-sqauto').checked=false;cfg.sq=+e.target.value;aplica()};
   $('#c-wl').value=cfg.wLances;$('#c-wl').oninput=e=>{cfg.wLances=+e.target.value;aplica()};
   $('#c-wb').value=cfg.wBlocos;$('#c-wb').oninput=e=>{cfg.wBlocos=+e.target.value;aplica()};
+  $('#c-cp').value=cfg.cProp;$('#c-cp').oninput=e=>{cfg.cProp=+e.target.value;aplica()};
+  $('#c-lp').value=cfg.lProp;$('#c-lp').oninput=e=>{cfg.lProp=+e.target.value;aplica()};
+  $('#c-completa').checked=cfg.completa;$('#c-completa').onchange=e=>defineModo(e.target.checked?'completa':'normal');
   $('#c-depth').onchange=e=>{cfg.depth=+e.target.value;save()};
   $('#c-seta').onchange=e=>{cfg.seta=e.target.checked;aplica()};
-  $('#c-fixo').checked=cfg.fixo;$('#c-fixo').onchange=e=>{cfg.fixo=e.target.checked;aplicaFixo();if(cfg.fixo)$('main').scrollIntoView();save();blocosBar()};
+  $('#c-fixo').checked=cfg.fixo;$('#c-fixo').onchange=e=>defineModo(e.target.checked?'fixo':'normal');
   $('#c-locais').innerHTML=`<b class="mut">${t('Local de cada bloco:')}</b> `+BLOCOS.map(([k,nm])=>`<label class="bol">${t(nm)} <select class="c-loc" data-k="${k}"><option value="col">${t('coluna própria')}</option><option value="lat">${t('lateral')}</option><option value="baixo">${t('abaixo do tabuleiro')}</option></select></label>`).join('');
   $$('.c-loc').forEach(x=>{x.value=cfg.local[x.dataset.k];x.onchange=e=>{cfg.local[x.dataset.k]=e.target.value;save();posicionaBlocos()}});
   $('#c-cav').value=cfg.cav;$('#c-cav').onchange=e=>{cfg.cav=e.target.value;aplica()};
@@ -440,19 +473,39 @@ function autoTamanho(){
   const wBarras=(n('esq')+n('dir'))*50+36,hBarras=(n('topo')+n('base'))*36;
   const colLances=(cfg.local.lances==='col'&&cfg.blocos.lances!==false)?cfg.wLances+16:0;
   const wBl=cfg.wBlocos>0?cfg.wBlocos:320;
+  if(efetivaCompleta()){   // visão completa: o tabuleiro ocupa no máximo ~40% da largura e cabe na altura que sobra abaixo do cabeçalho
+    const topo=$('main').getBoundingClientRect().top+scrollY,hDisp=innerHeight-topo-14-(2*30+44+hBarras);
+    const resto=innerWidth-32-colLances-48,wDisp=Math.min(resto*0.5,resto-500)-wBarras;   // tabuleiro até metade do que sobra, deixando ≥ 500px para os blocos
+    cfg.sq=Math.max(30,Math.min(110,Math.floor(Math.min(hDisp/8,wDisp/8))));const e=$('#c-sq');if(e)e.value=cfg.sq;return}
   const hExtra=2*30+44+(cfg.fixo?24:130);                          // faixas dos jogadores + navegação (+ cabeçalho/fonte quando a página rola)
   const porAltura=(innerHeight-hExtra-hBarras)/8;
   const larg=innerWidth-32;
   const comBlocosAoLado=(larg-colLances-wBl-16-wBarras-24)/8;          // tabuleiro + lances + blocos lado a lado
-  const semBlocos=(larg-colLances-wBarras)/8;                       // janela estreita: os blocos descem para baixo do tabuleiro
+  const comLances=(larg-colLances-wBarras-16)/8;
+  const semBlocos=comLances>=52?comLances:(larg-wBarras)/8;           // janela estreita: os blocos descem; se a coluna de lances também descer, o tabuleiro usa a largura toda
   const porLargura=(cfg.fixo||comBlocosAoLado>=52)?comBlocosAoLado:semBlocos;
   cfg.sq=Math.max(34,Math.min(130,Math.floor(Math.min(porAltura,porLargura))));
   const el=$('#c-sq');if(el)el.value=cfg.sq;
 }
 function quebra(){const m=$('main'),l=$('#lateral'),c=$('#col-lances');if(!m||!l||!c)return;
   m.classList.toggle('quebrado',!c.hidden&&l.offsetTop>c.offsetTop+20)}   // blocos desceram para baixo do tabuleiro: desliga o "fixo" da coluna de lances
+const efetivaCompleta=()=>!!cfg.completa&&innerWidth>=900;
+function aplicaModo(){   // fixo e completa são excludentes; a visão completa só vale em janelas largas
+  const c=efetivaCompleta(),ant=document.body.classList.contains('completa');
+  document.body.classList.toggle('completa',c);document.body.classList.toggle('fixo',!!cfg.fixo&&!c);
+  if(c!==ant){posicionaBlocos();if(c)scrollTo(0,0)}
+  if(c)ajustaCompleta()}
+function ajustaCompleta(){   // altura útil da janela e proporção entre os blocos
+  if(!efetivaCompleta())return;const m=$('main'),r=document.documentElement.style;
+  r.setProperty('--h-main',Math.max(320,innerHeight-(m.getBoundingClientRect().top+scrollY)-6)+'px');
+  const n=$$('#lateral .bloco').filter(b=>!b.hidden).length,lin=Math.ceil(n/2);
+  r.setProperty('--gcols',`minmax(0,${cfg.cProp}fr) minmax(0,${100-cfg.cProp}fr)`);
+  r.setProperty('--grows',lin===2?`minmax(0,${cfg.lProp}fr) minmax(0,${100-cfg.lProp}fr)`:'none')}
+function defineModo(modo){   // 'normal' | 'fixo' | 'completa'
+  cfg.fixo=modo==='fixo';cfg.completa=modo==='completa';$('#c-fixo').checked=cfg.fixo;$('#c-completa').checked=cfg.completa;
+  aplicaModo();posicionaBlocos();if(cfg.sqAuto||cfg.completa)autoTamanho();aplica();if(cfg.fixo)$('main').scrollIntoView();save();blocosBar()}
 function aplica(){
-  aplicaTema();
+  aplicaTema();aplicaModo();
   if(cfg.sqAuto)autoTamanho();
   document.documentElement.style.setProperty('--sq',cfg.sq+'px');document.documentElement.style.setProperty('--wl',cfg.wLances+'px');
   $('#lateral').style.flex=cfg.wBlocos>0?`0 0 ${cfg.wBlocos}px`:'';
@@ -508,15 +561,28 @@ function desenhaTab(row){mostraAbertura();setTimeout(()=>{marcaFixo();const it=d
   const ult=V?(uv?[uv.slice(0,2),uv.slice(2,4)]:[]):(ant&&ant.uci?[ant.uci.slice(0,2),ant.uci.slice(2,4)]:[]);
   const sg=V?null:sinalTab(ant),dest=sg&&ant.uci?ant.uci.slice(2,4):'';
   pintaTab($('#tab'),fen,ult,sg,dest,'seta',cavDe(V));
-  if(V){if(V.ucis[V.k])seta(V.ucis[V.k],'#ffd54a')}else if(cfg.seta&&row.melhor_uci)seta(row.melhor_uci,'#35e0c2');
+  if(V){if(V.ucis[V.k])seta(V.ucis[V.k],SETA_COR)}else setasPadrao(row);
 }
-function seta(uci,cor,el){
-  const s=el||$('#seta');if(!s)return;const [x1,y1]=sqXY(uci.slice(0,2)),[x2,y2]=sqXY(uci.slice(2,4));
-  const a=[x1+.5,y1+.5],z=[x2+.5,y2+.5],d=Math.hypot(z[0]-a[0],z[1]-a[1]),ux=(z[0]-a[0])/d,uy=(z[1]-a[1])/d;
-  const e=[z[0]-ux*.35,z[1]-uy*.35];
-  s.innerHTML=`<line x1="${a[0]}" y1="${a[1]}" x2="${e[0]}" y2="${e[1]}" stroke="${cor}" stroke-width=".13" stroke-linecap="round" opacity=".8"/>
-  <polygon points="${z[0]},${z[1]} ${e[0]-uy*.17},${e[1]+ux*.17} ${e[0]+uy*.17},${e[1]-ux*.17}" fill="${cor}" opacity=".85"/>`;
+const SETA_COR='#ff9f43';   // laranja = cálculo da engine (amarelo ficou para as casas do último lance; ciano/violeta = marcações de posição)
+function setaMarkup(uci,cor,op=1){
+  const [x1,y1]=sqXY(uci.slice(0,2)),[x2,y2]=sqXY(uci.slice(2,4));
+  const a=[x1+.5,y1+.5],z=[x2+.5,y2+.5],d=Math.hypot(z[0]-a[0],z[1]-a[1])||1,ux=(z[0]-a[0])/d,uy=(z[1]-a[1])/d;
+  const e=[z[0]-ux*.35,z[1]-uy*.35],pts=`${z[0]},${z[1]} ${e[0]-uy*.19},${e[1]+ux*.19} ${e[0]+uy*.19},${e[1]-ux*.19}`;
+  return `<line x1="${a[0]}" y1="${a[1]}" x2="${e[0]}" y2="${e[1]}" stroke="#2b2100" stroke-width=".16" stroke-linecap="round" opacity="${.3*op}"/>
+  <polygon points="${pts}" fill="#2b2100" stroke="#2b2100" stroke-width=".03" stroke-linejoin="round" opacity="${.3*op}"/>
+  <line x1="${a[0]}" y1="${a[1]}" x2="${e[0]}" y2="${e[1]}" stroke="${cor}" stroke-width=".12" stroke-linecap="round" opacity="${.98*op}"/>
+  <polygon points="${pts}" fill="${cor}" opacity="${.98*op}"/>`;
 }
+function seta(uci,cor,el){const s=el||$('#seta');if(s)s.innerHTML=setaMarkup(uci,cor)}
+function setasMelhores(row){   // fixa os melhores lances de todas as linhas de cálculo (e o primeiro de cada outra engine): o 1º mais forte
+  const s=$('#seta');if(!s)return;const vistos=new Set(),m=[];
+  (row.linhas||[]).forEach((l,i)=>{if(l.uci&&!vistos.has(l.uci)){vistos.add(l.uci);m.push([l.uci,i])}});
+  (row.outras||[]).forEach(o=>{const l=o.linhas&&o.linhas[0];if(l&&l.uci&&!vistos.has(l.uci)){vistos.add(l.uci);m.push([l.uci,2])}});
+  s.innerHTML=m.reverse().map(([u,i])=>setaMarkup(u,SETA_COR,Math.max(.5,1-i*.17))).join('')}
+function setasPadrao(row){
+  if(cfg.fixaLinhas&&row.linhas&&row.linhas.length)setasMelhores(row);
+  else if(cfg.seta&&row.melhor_uci)seta(row.melhor_uci,SETA_COR);
+  else{const s=$('#seta');if(s)s.innerHTML=''}}
 
 /* ---------- barras ---------- */
 function eng(row){if(row.engine_mate!=null)return(row.engine_mate>0?'+':'−')+'M'+Math.abs(row.engine_mate);return row.engine_cp==null?'':(row.engine_cp>=0?'+':'−')+num(Math.abs(row.engine_cp)/100)}
@@ -556,7 +622,7 @@ function linhasHtml(row){
   const L=row.linhas||[];if(!L.length)return'';
   const mn=row.rating?'~'+Math.round(Math.max(1100,Math.min(1900,row.rating))/100)*100:'1900';
   const dica=esc(t('Clique para ver a variante no tabuleiro'));
-  let h=`<h3>${t('Linhas de cálculo')}${ajuda('Valores originais da engine, sem ajuste dos índices.')}${S.engines&&S.engines.referencia?' · '+S.engines.referencia:''} · ${t('profundidade {d}',{d:cfg.depth})}</h3><table class="lin"><tr><th>#</th><th>${t('Lance')}</th><th>${t('Aval. (brancas)')}</th><th title="${esc(t('Chance de acerto: probabilidade de um jogador desse nível (rating ~{n}, modelo Maia) escolher este lance',{n:mn.replace('~','')}))}">${t('Acerto')} ⓘ</th><th>${t('Variante')}</th></tr>`;
+  let h=`<h3>${t('Linhas de cálculo')}${ajuda('Valores originais da engine, sem ajuste dos índices.')}${S.engines&&S.engines.referencia?' · '+S.engines.referencia:''} · ${t('profundidade {d}',{d:cfg.depth})} <button class="chip fixa-linhas ${cfg.fixaLinhas?'on':''}" title="${esc(t('Mostra no tabuleiro, em laranja, os melhores lances de todas as linhas (o primeiro mais forte); clique de novo para soltar'))}">${t('📌 Fixar todos os melhores lances')}</button></h3><table class="lin"><tr><th>#</th><th>${t('Lance')}</th><th>${t('Aval. (brancas)')}</th><th title="${esc(t('Chance de acerto: probabilidade de um jogador desse nível (rating ~{n}, modelo Maia) escolher este lance',{n:mn.replace('~','')}))}">${t('Acerto')} ⓘ</th><th>${t('Variante')}</th></tr>`;
   L.forEach((l,i)=>{const jog=l.san===row.move;
     h+=`<tr data-uci="${l.uci}" data-pv="${esc(l.pv.join(','))}" data-eng="${esc((S.engines&&S.engines.referencia)||'engine')}" title="${dica}"><td>${i+1}</td><td><b>${l.san}</b>${jog?` <span class="mut">${t('▶ jogado')}</span>`:''}</td><td>${ev(l.cp,l.mate)}</td>
     <td><span class="hb" style="width:${Math.round(l.p_humano*60)}px"></span>${Math.round(l.p_humano*100)}%</td><td class="pv">${pvClic(row.fen,l.pv)}</td></tr>`});
@@ -587,7 +653,7 @@ function posDica(el){const tip=el.querySelector('.tip');if(!tip)return;const r=e
 document.addEventListener('mouseover',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
 document.addEventListener('focusin',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
 /* ---------- destaques no tabuleiro (itens do Índice de Posição) ---------- */
-const DEST_COR={B:'#35e0c2',P:'#ff9f43'};   // cor de quem tem a característica: brancas / pretas
+const DEST_COR={B:'#35e0c2',P:'#b388ff'};   // cor de quem tem a característica: brancas / pretas
 const destCache={};let destFixo=null,destAtual=null;
 function fenAtual(){const row=S.rows[S.cur];return V?V.fens[V.k]:(row?row.fen:null)}
 function pintaDest(d){
@@ -597,7 +663,9 @@ function pintaDest(d){
       :`<rect x="${x+.04}" y="${y+.04}" width=".92" height=".92" rx=".1" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width=".09"/>`}
   if(d)for(const [a,z,lado] of d.setas||[]){const c=DEST_COR[lado],[x1,y1]=sqXY(a),[x2,y2]=sqXY(z);
     const A=[x1+.5,y1+.5],Z=[x2+.5,y2+.5],L=Math.hypot(Z[0]-A[0],Z[1]-A[1])||1,ux=(Z[0]-A[0])/L,uy=(Z[1]-A[1])/L,E=[Z[0]-ux*.3,Z[1]-uy*.3];
-    h+=`<line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="${c}" stroke-width=".1" stroke-linecap="round" opacity=".85"/><polygon points="${Z[0]},${Z[1]} ${E[0]-uy*.15},${E[1]+ux*.15} ${E[0]+uy*.15},${E[1]-ux*.15}" fill="${c}" opacity=".9"/>`}
+    const pts=`${Z[0]},${Z[1]} ${E[0]-uy*.15},${E[1]+ux*.15} ${E[0]+uy*.15},${E[1]-ux*.15}`;
+    h+=`<line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="#101010" stroke-width=".135" stroke-linecap="round" opacity=".28"/><polygon points="${pts}" fill="#101010" stroke="#101010" stroke-width=".03" stroke-linejoin="round" opacity=".28"/>
+    <line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="${c}" stroke-width=".1" stroke-linecap="round" opacity=".85"/><polygon points="${pts}" fill="${c}" opacity=".9"/>`}
   s.innerHTML=h;
 }
 async function mostraDest(item){
@@ -620,9 +688,9 @@ function posHtml(row){
   const linha=(nome,cp,cls,extra,dd)=>`<div class="rw ${cls}"${dd?` data-d="${dd}"${cls==='g'?` title="${esc(t('Passe o mouse para ver no tabuleiro; clique para fixar'))}"`:''}`:''}><span class="rn">${nome}${extra||''}</span>${cbar(cp,cls==='i')}<span class="rv">${Math.abs(cp)<5?'—':fcp(cp)}</span></div>`;
   G.forEach(g=>{
     const itens=g.itens.filter(i=>cfg.neutros||Math.abs(i.cp)>=3);
-    if(!itens.length){h+=`<div class="gd vazio">${linha(g.nome,g.cp,'g','',g.itens.map(i=>i.chave).join(','))}</div>`;return}
+    if(!itens.length){h+=`<div class="gd vazio">${linha(g.nome,g.cp,'g','',(g.id==='estrutura'?'peoes,':'')+g.itens.map(i=>i.chave).join(','))}</div>`;return}
     const aberto=cfg.gAberto[g.nome]!==false;
-    h+=`<details class="gd" data-g="${esc(g.nome)}" ${aberto?'open':''}><summary>${linha(g.nome,g.cp,'g','',g.itens.map(i=>i.chave).join(','))}</summary>`
+    h+=`<details class="gd" data-g="${esc(g.nome)}" ${aberto?'open':''}><summary>${linha(g.nome,g.cp,'g','',(g.id==='estrutura'?'peoes,':'')+g.itens.map(i=>i.chave).join(','))}</summary>`
       +itens.map(i=>`<div title="${esc(i.desc)}">${linha(i.nome,i.cp,'i',i.regra?` <sup title="${esc(t('peso definido por regra, ainda não validado pelos dados'))}">†</sup>`:'',i.chave)}</div>`).join('')+'</details>'});
   if(row.posicao_residuo!=null)h+=`<div class="gd res" title="${esc(t('ameaças, táticas, iniciativa e tudo que o cálculo da engine enxerga além da avaliação estática'))}">${linha(t('Dinâmica / tática'),row.posicao_residuo,'g')}</div>`;
   h+=`<div class="nota">${t('Como ler esta tabela')}${ajuda('Valores em peões (1,00 = um peão). Positivo favorece as brancas. † peso definido por regra: os dados não confirmaram esse item.')}</div>`;
@@ -654,7 +722,7 @@ function desenhaProg(){
   const n=S.rows.length,esp=S.esperado||0,pct=esp?Math.round(100*n/esp):0;let tx='';
   const prontas=n===1?t('1 pronta'):t('{n} prontas',{n});
   if(S.estado==='analisando')tx=`<span class="spin"></span>${t('Analisando posição {a} de {b}',{a:Math.min(n+1,esp||n+1),b:esp||'?'})}${S.decorrido!=null?t(' · {s} s nesta posição',{s:Math.round(S.decorrido)}):''} · ${prontas}. ${t('Os lances em cinza ainda estão em análise e abrem sozinhos quando ficarem prontos.')}`;
-  else if(S.estado==='ao vivo')tx=S.atual!=null?`<span class="spin"></span>${t('Novo lance ao vivo: analisando…')}`:`<span class="vivo">${t('AO VIVO')}</span> ${t('aguardando o próximo lance')}`;
+  else if(S.estado==='ao vivo')tx=S.atual!=null?`<span class="spin"></span>${t('Novo lance ao vivo: analisando…')}`:t('Aguardando o próximo lance');
   else if(S.estado==='fim')tx=n===1?t('✔ Análise concluída (1 posição)'):t('✔ Análise concluída ({n} posições)',{n});
   else if(S.estado==='erro')tx=t('✖ Erro na análise');
   else tx=t(S.estado);
@@ -666,18 +734,19 @@ function piscaProg(){const e=$('#prog');e.classList.add('pisca');setTimeout(()=>
 const BLOCOS=[['interp','Interpretação do lance'],['linhas','Linhas de cálculo'],['pos','Posição em detalhes'],['lances','Lances'],['graf','Gráficos']];   // ordem na tela: as linhas de cálculo logo abaixo da interpretação
 function blocosBar(){
   $('#blocos-bar').innerHTML=`<b class="mut">${t('Blocos:')}</b> `+BLOCOS.map(([k,nm])=>`<button class="chip ${cfg.blocos[k]!==false?'on':''}" data-k="${k}" title="${t('mostrar/esconder')}">${t(nm)}</button>`).join('');
-  $('#blocos-bar').insertAdjacentHTML('beforeend',`<button class="chip ${cfg.fixo?'on':''}" id="chip-fixo" title="${t('Deixa o tabuleiro parado e rola só a área dos blocos')}">${t('📌 Tabuleiro fixo')}</button>`);
+  $('#blocos-bar').insertAdjacentHTML('beforeend',`<button class="chip ${cfg.fixo?'on':''}" id="chip-fixo" title="${t('Deixa o tabuleiro parado e rola só a área dos blocos')}">${t('📌 Tabuleiro fixo')}</button><button class="chip ${cfg.completa?'on':''}" id="chip-completa" title="${t('Mostra todos os blocos de uma vez na janela, sem rolar a página (tabuleiro e blocos menores)')}">${t('🖥 Visão completa')}</button>`);
   $$('#blocos-bar .chip[data-k]').forEach(b=>b.onclick=()=>{cfg.blocos[b.dataset.k]=cfg.blocos[b.dataset.k]===false;save();blocosBar();desenha()});
-  $('#chip-fixo').onclick=()=>{cfg.fixo=!cfg.fixo;$('#c-fixo').checked=cfg.fixo;aplicaFixo();if(cfg.fixo)$('main').scrollIntoView();save();blocosBar()};
+  $('#chip-fixo').onclick=()=>defineModo(cfg.fixo?'normal':'fixo');
+  $('#chip-completa').onclick=()=>defineModo(cfg.completa?'normal':'completa');
 }
 function posicionaBlocos(){BLOCOS.forEach(([k])=>{const el=document.querySelector(`.bloco[data-b="${k}"]`);if(!el)return;const loc=cfg.local[k];
-  (loc==='col'?$('#col-lances'):(loc==='baixo'&&!cfg.fixo?$('#abaixo'):$('#lateral'))).appendChild(el)})}
-function aplicaFixo(){document.body.classList.toggle('fixo',!!cfg.fixo);posicionaBlocos();if(cfg.sqAuto)aplica()}   // no modo fixo: tabuleiro de um lado e TODO o resto na outra lateral
+  (loc==='col'?$('#col-lances'):(loc==='baixo'&&!cfg.fixo&&!efetivaCompleta()?$('#abaixo'):$('#lateral'))).appendChild(el)})}
+function aplicaFixo(){aplicaModo();posicionaBlocos();if(cfg.sqAuto)aplica()}   // no modo fixo: tabuleiro de um lado e TODO o resto na outra lateral
 function aplicaBlocos(){
   $$('.bloco').forEach(el=>{const k=el.dataset.b;
     if(k!=='linhas'&&k!=='var')el.hidden=cfg.blocos[k]===false;
     el.classList.toggle('recolhido',!!cfg.colapsados[k]);const bt=el.querySelector('.bt');if(bt)bt.textContent=cfg.colapsados[k]?'▸':'▾'});
-  const cl=$('#col-lances');cl.hidden=![...cl.children].some(c=>!c.hidden);   // sem blocos na coluna própria, ela some
+  const cl=$('#col-lances');cl.hidden=![...cl.children].some(c=>!c.hidden);$('#div-bl').hidden=cl.hidden;ajustaCompleta();   // sem blocos na coluna própria, ela some
 }
 $$('.bloco .bt').forEach(b=>b.onclick=()=>{const k=b.closest('.bloco').dataset.b;cfg.colapsados[k]=!cfg.colapsados[k];save();aplicaBlocos()});
 
@@ -700,7 +769,7 @@ function desenha(){
   mostraAbertura();
   const row=S.rows[S.cur];
   const linhasOn=cfg.blocos.linhas!==false;
-  $('#lin-lat-card').hidden=!(linhasOn&&cfg.linhas==='lateral');$('#lin-baixo').hidden=!(linhasOn&&cfg.linhas==='embaixo');
+  $('#lin-lat-card').hidden=!(linhasOn&&(cfg.linhas==='lateral'||efetivaCompleta()));$('#lin-baixo').hidden=!(linhasOn&&cfg.linhas==='embaixo'&&!efetivaCompleta());
   aplicaBlocos();desenhaProg();desenhaVar2();aplicaFonteBar();
   if(!row){   // posição ainda sem análise (ou nenhuma análise): o tabuleiro e a lista de lances funcionam normalmente
     const fen=S.pre?S.pre.fens[Math.min(S.cur,S.pre.fens.length-1)]:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -714,7 +783,8 @@ function desenha(){
   $('#interp').innerHTML=interpHtml(row);$('#pos-det').innerHTML=posHtml(row);desenhaPlayers(row);
   $$('#pos-det details.gd').forEach(d=>d.ontoggle=()=>{cfg.gAberto[d.dataset.g]=d.open;save()});
   const lh=linhasHtml(row);$('#lin-lat').innerHTML=lh;$('#lin-baixo').innerHTML=lh;
-  $$('table.lin tr[data-uci]').forEach(tr=>{tr.onmouseenter=()=>seta(tr.dataset.uci,'#ffd54a');tr.onmouseleave=()=>{if(cfg.seta&&row.melhor_uci)seta(row.melhor_uci,'#35e0c2');else $('#seta').innerHTML=''}});
+  $$('table.lin tr[data-uci]').forEach(tr=>{tr.onmouseenter=()=>seta(tr.dataset.uci,SETA_COR);tr.onmouseleave=()=>setasPadrao(row)});
+  $$('.fixa-linhas').forEach(b=>b.onclick=()=>{cfg.fixaLinhas=!cfg.fixaLinhas;save();$$('.fixa-linhas').forEach(x=>x.classList.toggle('on',!!cfg.fixaLinhas));if(!V)setasPadrao(row)});
   $$('table.lin tr[data-pv]').forEach(tr=>tr.onclick=e=>{const m=e.target.closest('.pvm');abreVariante(row.fen,tr.dataset.pv.split(','),m?+m.dataset.k:1,tr.dataset.eng)});
   listaLances();grafico();
 }
@@ -737,9 +807,12 @@ function desenhaVar2(){
   const el=$('#tab2');el.style.setProperty('--sq',Math.max(30,Math.round(cfg.sq*0.62))+'px');
   const uv=V2.k>0?V2.ucis[V2.k-1]:null;
   pintaTab(el,V2.fens[V2.k],uv?[uv.slice(0,2),uv.slice(2,4)]:[],null,'','seta2',cavDe(V2));
-  if(V2.ucis[V2.k])seta(V2.ucis[V2.k],'#ffd54a',$('#seta2'));
+  if(V2.ucis[V2.k])seta(V2.ucis[V2.k],SETA_COR,$('#seta2'));
 }
 const totalPos=()=>S.pre?S.pre.fens.length:S.rows.length;
+function irAoRecente(){   // “Lance mais recente”: vai para o último lance e, enquanto marcado, acompanha cada lance novo
+  V=null;foco2=false;const n=(S.job&&S.rows.length)?S.rows.length:totalPos();if(!n)return;S.cur=n-1;desenha()}
+$('#seguir').onchange=e=>{if(e.target.checked)irAoRecente()};
 function vai(i){V=null;foco2=false;const n=totalPos();if(!n)return;
   S.cur=Math.max(0,Math.min(n-1,i));desenha()}
 
@@ -760,16 +833,16 @@ async function carrega(fonte){   // abre a partida SEM analisar: dá para navega
   let d;try{d=await api('/api/partida',{fonte})}catch(e){status(t('Erro: {e}',{e:String(e)}));return false}
   if(d.erro){status(t('Erro: {e}',{e:d.erro}));return false}
   S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;S.cur=S.live?d.fens.length-1:0;
-  $('#seguir').checked=false;$('#fonte-det').hidden=true;
+  $('#seguir').checked=!!S.live;$('#fonte-det').hidden=true;
   desenha();status(t('Partida carregada: {n} lances. Navegue com ◀ ▶ e clique em “▶ Analisar” para calcular os índices.',{n:d.lances.length}));
-  if(S.live){S.liveTimer=setInterval(()=>acompanhaAoVivo(fonte),15000);status(t('Partida ao vivo: {n} lances até agora. Os lances novos aparecem sozinhos; clique em “▶ Analisar” para calcular os índices.',{n:d.lances.length}))}
+  if(S.live){S.liveTimer=setInterval(()=>acompanhaAoVivo(fonte),15000);status(t('{n} lances até agora. Os lances novos aparecem sozinhos; clique em “▶ Analisar” para calcular os índices.',{n:d.lances.length}))}
   return true;
 }
 async function acompanhaAoVivo(fonte){   // partida ao vivo ainda não analisada: busca os lances novos a cada 15 s
   if(S.job||S.fonte!==fonte){clearInterval(S.liveTimer);return}
   let d;try{d=await api('/api/partida',{fonte})}catch(e){return}
   if(!d||d.erro||!d.fens||d.fens.length<=(S.pre?S.pre.fens.length:0)&&(d.info||{}).Result===(S.info||{}).Result)return;
-  const noFim=S.cur>=totalPos()-1;S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;
+  const noFim=S.cur>=totalPos()-1||$('#seguir').checked;S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;
   if(noFim)S.cur=d.fens.length-1;
   if((S.info.Result||'*')!=='*')clearInterval(S.liveTimer);
   desenha();
@@ -800,9 +873,9 @@ async function poll(){
   d.rows.forEach((r,k)=>S.rows[d.desde+k]=r);S.estado=d.estado;S.info=d.info||{};S.engines=d.engines;
   S.lances=d.lances||S.lances;S.esperado=d.esperado||S.esperado;S.atual=d.atual;S.decorrido=d.decorrido;
   if(d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
-  if(S.rows.length&&$('#seguir').checked&&seguindo)S.cur=S.rows.length-1;
+  if(S.rows.length&&$('#seguir').checked&&!V)S.cur=S.rows.length-1;   // marcado: mantém no lance mais recente e atualiza
   const i=S.info;const jog=i.White?`<b>${i.White}</b> ${i.WhiteElo||''} — <b>${i.Black}</b> ${i.BlackElo||''} · ${i.Event||''} · ${i.Result||''}`:'';
-  const vivo=d.estado==='ao vivo'?`<span class="vivo">${t('AO VIVO')}</span> `:'';const np=S.rows.length;
+  const vivo='';const np=S.rows.length;
   status(`${vivo}${jog} · ${np===1?t('1 posição analisada'):t('{n} posições analisadas',{n:np})} · ${t(d.estado)}${d.aviso?' · '+d.aviso:''}`);
   const chave=[d.versao,d.estado,(d.lances||[]).length,d.esperado,d.atual,S.cur,V?1:0].join('|');
   if(chave!==S.chave){S.chave=chave;desenha()}else desenhaProg();   // só redesenha se algo mudou: a rolagem fica livre
@@ -986,7 +1059,19 @@ $('#c-lang').onchange=async e=>{LANG=e.target.value;localStorage.setItem('indice
   aplicaIdioma()};
 if(LANG!=='pt')aplicaIdioma();
 matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{if(cfg.temaUi==='auto')aplica()});
-let rz=null;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(cfg.sqAuto)aplica();else quebra()},150)});   // tabuleiro acompanha o tamanho da janela
+/* ---------- divisores: arraste para mudar o tamanho do tabuleiro e a largura da coluna de lances ---------- */
+function arrasta(sel,mover){
+  const d=$(sel);let raf=0;
+  d.addEventListener('pointerdown',e=>{try{d.setPointerCapture(e.pointerId)}catch(x){}d.classList.add('on');e.preventDefault()});
+  d.addEventListener('pointermove',e=>{if(!d.classList.contains('on'))return;const x=e.clientX;cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{mover(x);
+    document.documentElement.style.setProperty('--sq',cfg.sq+'px');document.documentElement.style.setProperty('--wl',cfg.wLances+'px');requestAnimationFrame(quebra)})});
+  d.addEventListener('pointerup',()=>{d.classList.remove('on');aplica()});
+}
+arrasta('#div-tab',x=>{   // tabuleiro: a largura da coluna dele vai até o divisor
+  const n=sl=>BARRAS.filter(b=>cfg.slots[b]===sl).length,wBarras=(n('esq')+n('dir'))*50+36;
+  cfg.sq=Math.max(30,Math.min(130,Math.round((x-$('#col-esq').getBoundingClientRect().left-wBarras)/8)));cfg.sqAuto=false;$('#c-sqauto').checked=false;$('#c-sq').value=cfg.sq});
+arrasta('#div-bl',x=>{cfg.wLances=Math.max(150,Math.min(420,Math.round(x-$('#col-lances').getBoundingClientRect().left)));$('#c-wl').value=cfg.wLances});
+let rz=null;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(cfg.sqAuto||efetivaCompleta())aplica();else quebra()},150)});   // tabuleiro acompanha o tamanho da janela
 carregaInicial();
 </script>
 </body>

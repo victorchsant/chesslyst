@@ -8,7 +8,7 @@ import hashlib, json, platform, tarfile, threading, urllib.request, zipfile
 from pathlib import Path
 from .i18n import T, set_lang, lang
 
-ROOT = Path(__file__).resolve().parent.parent
+from .caminhos import DADOS as ROOT       # as engines baixadas vão para a pasta de dados do usuário
 UA = {"User-Agent": "indice-xadrez-pesquisa", "Accept": "application/vnd.github+json"}
 WIN = platform.system() == "Windows"
 EXT = ".exe" if WIN else ""

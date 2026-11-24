@@ -17,7 +17,8 @@ from indice.explica import explicar_subida, texto_repeticao
 from indice.posicional import destaques as destaques_posicao
 from indice.core import analyse
 
-ROOT = Path(__file__).parent
+from indice.caminhos import RECURSOS, DADOS
+ROOT = RECURSOS                      # interface, exemplos e calibrações (somente leitura)
 WEB = ROOT / "web"
 PORT = int(sys.argv[sys.argv.index("--porta") + 1]) if "--porta" in sys.argv else 8765   # --porta N: outra porta (desenvolvimento)
 UA = {"User-Agent": "indice-xadrez-pesquisa"}
@@ -82,7 +83,7 @@ def escolhe_jogo(job, pgn_texto):
 
 
 # ---------- memória das análises: pausar e continuar (ou reabrir o programa) não recomeça do zero ----------
-CACHE_ARQ = ROOT / "cache_analises.json"
+CACHE_ARQ = DADOS / "cache_analises.json"
 CACHE_MAX = 10                       # partidas guardadas (as mais recentes)
 try: ANALISES = json.loads(CACHE_ARQ.read_text(encoding="utf-8"))
 except (OSError, ValueError): ANALISES = {}
@@ -419,10 +420,15 @@ class H(BaseHTTPRequestHandler):
         self.json({"erro": "não encontrado"}, 404)
 
 
-if __name__ == "__main__":
+def servir():
+    """Sobe o servidor e fica atendendo (usado por `python server.py` e pelo Chesslyst.exe)."""
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
     print(f"Chesslyst em http://127.0.0.1:{PORT}", flush=True)
     threading.Thread(target=vigia, daemon=True).start()
     threading.Thread(target=acha_exemplo, daemon=True).start()
     try: srv.serve_forever()
     finally: GER.fecha_tudo()
+
+
+if __name__ == "__main__":
+    servir()

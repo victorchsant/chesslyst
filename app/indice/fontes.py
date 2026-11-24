@@ -3,7 +3,8 @@ Só a posição (FEN) é enviada. Respostas ficam em cache local (cache_fontes.j
 import json, time, urllib.parse, urllib.request
 from pathlib import Path
 
-CACHE = Path(__file__).resolve().parent.parent / "cache_fontes.json"
+from .caminhos import DADOS
+CACHE = DADOS / "cache_fontes.json"
 _cache = json.loads(CACHE.read_text(encoding="utf-8")) if CACHE.exists() else {}
 _last = 0.0
 PERSIST = True  # processos paralelos desligam, para não corromper o arquivo

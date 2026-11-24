@@ -9,7 +9,7 @@ import chess.engine
 from . import pipeline
 from .i18n import T
 
-ROOT = Path(__file__).resolve().parent.parent
+from .caminhos import DADOS as ROOT       # engines e engines.json ficam na pasta de dados do usuário
 ARQ = ROOT / "engines.json"
 
 

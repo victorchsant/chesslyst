@@ -9,3 +9,9 @@ cache_fontes.json
 engines.json
 servidor.log
 cache_analises.json
+
+# empacotamento do .exe
+app/exe/.venv-build/
+app/exe/build/
+app/exe/dist/
+*.spec

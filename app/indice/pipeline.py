@@ -13,7 +13,7 @@ from .explica import explicar_lance, explicar_avaliacao, explicar_porque
 from .i18n import T
 from .posicional import indice_posicao, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei
 
-ROOT = Path(__file__).resolve().parent.parent
+from .caminhos import DADOS as ROOT       # engines baixadas ficam na pasta de dados do usuário
 def _acha(nome):
     d = ROOT / "engines" / nome
     for p in (sorted(d.rglob(nome + "*")) if d.exists() else []):

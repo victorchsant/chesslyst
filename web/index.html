@@ -41,6 +41,7 @@ main{display:flex;flex-wrap:wrap;gap:16px;padding:10px 16px;align-items:flex-sta
 #col-lances .lances .m{padding:2px 5px}
 #col-lances .leg2{font-size:10.5px}
 #lateral{flex:1 1 320px;min-width:300px}
+main.quebrado #col-esq,main.quebrado #col-lances,main.quebrado #lateral,body.fixo main.quebrado #col-esq,body.fixo main.quebrado #lateral{position:static;max-height:none;overflow:visible}
 main.quebrado #col-lances{position:static;max-height:none}main.quebrado #col-lances .lances{max-height:360px}
 /* tabuleiro + barras */
 .mesa{display:grid;grid-template-areas:". topo ." "esq tab dir" ". base .";gap:6px;justify-content:center;align-items:center}
@@ -158,8 +159,8 @@ html[data-tema="claro"] .cbar i.p{box-shadow:inset 0 0 0 1px #9aa6bd}
 #var-card .bh button{margin-left:4px}
 .ih{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ires{font-size:15.5px;font-weight:600;margin:8px 0 10px;line-height:1.4}
-.kv{display:grid;grid-template-columns:92px 1fr;gap:8px;padding:8px 0;border-top:1px solid var(--bd)}
-.kv .k{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;padding-top:2px}
+.kv{display:grid;grid-template-columns:118px 1fr;gap:8px;padding:8px 0;border-top:1px solid var(--bd)}
+.kv .k{white-space:nowrap;color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;padding-top:2px}
 .kv .v{line-height:1.45}.kv ul.mot{margin:0;padding-left:16px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
 .st{background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:6px 8px;text-align:center}
@@ -213,8 +214,10 @@ body.completa #lateral .bloco.recolhido{align-self:start}
 .janela[hidden]{display:none}
 #jan-sobre{width:min(420px,calc(100vw - 32px))}.abertura{margin:6px 2px 0;font-size:13px;color:var(--mut)}.abertura b{color:var(--tx)}.abertura .eco{display:inline-block;background:var(--card2);border:1px solid var(--bd);border-radius:5px;padding:0 6px;margin-right:6px;font-size:12px;color:var(--ac)}
 .rw[data-d]{cursor:pointer}.rw[data-d]:hover,.rw[data-d].fixo{background:var(--card2);border-radius:5px}.rw.fixo .rn::after{content:' 📌';font-size:10px}
-.dica,.info{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:6px;border:1.5px solid currentColor;border-radius:50%;color:var(--ac);font:italic 700 10px/1 Georgia,serif;cursor:help;vertical-align:-2px;outline:none;text-transform:none;letter-spacing:0;position:relative;transition:background .15s}
-.dica:hover,.dica:focus,.info:hover,.info:focus{background:color-mix(in srgb,var(--ac) 18%,transparent)}
+.dica,.info{display:inline-flex;align-items:center;justify-content:center;width:1.12em;height:1.12em;margin-left:.45em;color:var(--ac);cursor:help;vertical-align:-.22em;outline:none;position:relative;text-transform:none;letter-spacing:0;line-height:0;border-radius:50%;transition:background .15s}   /* o tamanho e o alinhamento acompanham a fonte da linha em que o ícone está */
+.dica .ic,.info .ic{display:block;flex:none}
+.info{position:static}   /* a caixa da janela de engines se ancora na janela, não no ícone */
+.dica:hover,.dica:focus,.info:hover,.info:focus{background:color-mix(in srgb,var(--ac) 20%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 20%,transparent)}
 .dica .tip{display:none;position:fixed;z-index:80;width:max-content;max-width:min(330px,88vw);background:var(--bg2);border:1px solid var(--bd);border-left:3px solid var(--ac);border-radius:8px;padding:10px 12px;color:var(--tx);font:normal 400 12.5px/1.5 "Segoe UI",system-ui,sans-serif;box-shadow:0 10px 30px #0007;white-space:normal;text-align:left;letter-spacing:0}
 .dica:hover .tip,.dica:focus .tip{display:block}
 .sobre{padding:14px 16px}.sobre h2{margin:0;font:700 26px Georgia,serif;color:var(--ac)}.sobre .kv{margin:6px 0}.sobre .kv[hidden]{display:none}.sobre a{color:var(--ac)}.sobre .nota{margin-top:12px}
@@ -311,7 +314,6 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     <label>Linhas de cálculo
       <select id="c-linhas"><option value="lateral">Em bloco</option><option value="embaixo">Embaixo de tudo</option><option value="oculta">Ocultas</option></select></label>
     <div id="c-locais" class="bol" style="grid-column:1/-1;flex-wrap:wrap"></div>
-    <label class="bol"><input type="checkbox" id="c-fixo"> tabuleiro fixo (a rolagem fica só na área dos blocos)</label>
     <label class="bol"><input type="checkbox" id="c-completa"> visão completa (todos os blocos na janela, sem rolar a página)</label>
     <label class="bol"><input type="checkbox" id="c-sqauto"> tamanho automático (ajusta à janela)</label>
     <label>Tamanho do tabuleiro <input type="range" id="c-sq" min="34" max="130"></label>
@@ -345,7 +347,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-eng" hidden><div class="jan-tit"><span>🖥 Engines e modelo de jogadores</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo">
   <div class="painel" style="margin:6px 0">
     <div id="baixar" class="card" style="margin-bottom:10px"><h3>Baixar engines (fonte oficial)
-      <span class="info" tabindex="0" role="button" aria-label="Informações sobre engines e licenças">i<span class="tip">
+      <span class="info" tabindex="0" role="button" aria-label="Informações sobre engines e licenças"><svg class="ic" viewBox="0 0 16 16" width="100%" height="100%" aria-hidden="true"><circle cx="8" cy="8" r="6.9" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="4.9" r="1.05" fill="currentColor"/><rect x="7.15" y="7" width="1.7" height="5.2" rx=".85" fill="currentColor"/></svg><span class="tip">
         <b>Este projeto não inclui engines.</b> O download é feito por você, direto do GitHub oficial de cada projeto, e a engine continua sob a licença original (GPL-3.0).<br><br>
         Você também pode cadastrar abaixo qualquer engine UCI que já tenha (Stockfish, Lc0, Komodo, Berserk…). A <b>referência</b> calcula o índice; as demais aparecem ao lado e geram o aviso de divergência. Vale para a próxima análise iniciada.</span></span></h3>
       <div id="baixar-lista" class="mut">carregando…</div></div>
@@ -413,7 +415,7 @@ const BARRAS=['engine','posicao','material','acerto','jogada'];
 const BARRAS4=['engine','posicao','acerto','jogada'];
 const CLS_COR={brilhante:'#1abc9c',melhor:'#27ae60',excelente:'#2ecc71',bom:'#8bc34a',imprecisao:'#f1c40f',erro:'#e67e22',grave:'#e74c3c'};
 const BANDA_COR=v=>`hsl(${Math.round(v*1.2)},70%,48%)`;
-const DEF={peca:'classico',tema:'madeira',clara:'#f0d9b5',escura:'#b58863',layout:'dois',slots:{engine:'esq',posicao:'esq',material:'off',acerto:'dir',jogada:'dir'},varSep:false,ver:5,fixaLinhas:false,completa:false,cProp:50,lProp:50,temaUi:'escuro',cav:'todos',sqAuto:true,wLances:220,wBlocos:0,blocos:{},colapsados:{},neutros:false,local:{interp:'lat',pos:'lat',lances:'col',graf:'lat',linhas:'lat'},fixo:false,gAberto:{},linhas:'lateral',flip:false,
+const DEF={peca:'classico',tema:'madeira',clara:'#f0d9b5',escura:'#b58863',layout:'dois',slots:{engine:'esq',posicao:'esq',material:'off',acerto:'dir',jogada:'dir'},varSep:false,ver:6,fixo:true,fixaLinhas:false,completa:false,cProp:50,lProp:50,temaUi:'escuro',cav:'todos',sqAuto:true,wLances:220,wBlocos:0,blocos:{},colapsados:{},neutros:false,local:{interp:'lat',pos:'lat',lances:'col',graf:'lat',linhas:'lat'},fixo:false,gAberto:{},linhas:'lateral',flip:false,
   sq:Math.max(40,Math.min(76,Math.floor((innerHeight-250)/8))),seta:true,coord:true,depth:14,som:true,notif:false};
 const SALVO=JSON.parse(localStorage.getItem('indiceCfg')||'{}');
 let cfg=Object.assign({},DEF,SALVO);
@@ -423,6 +425,7 @@ if((SALVO.ver||0)<4){   // novo padrão (madeira, 2 barras de cada lado, lances 
   cfg.slots={engine:'esq',posicao:'esq',material:cfg.slots.material||'off',acerto:'dir',jogada:'dir'};
   cfg.local=Object.assign({},DEF.local);cfg.fixo=false;cfg.sqAuto=true;cfg.cav='pretos';cfg.wLances=220;cfg.wBlocos=0;cfg.ver=4;
   localStorage.setItem('indiceCfg',JSON.stringify(cfg))}
+cfg.fixo=true;   // tabuleiro fixo é o comportamento padrão e não é mais uma escolha
 if((SALVO.ver||0)<5){cfg.cav='todos';cfg.ver=5;localStorage.setItem('indiceCfg',JSON.stringify(cfg))}   // o cavalo de b1 (brancas) também olha para dentro
 cfg.blocos=cfg.blocos||{};cfg.colapsados=cfg.colapsados||{};cfg.local=Object.assign({},DEF.local,cfg.local||{});cfg.gAberto=cfg.gAberto||{};
 const S={rows:[],cur:0,job:null,estado:'',info:{},timer:null,lances:[],esperado:0,atual:null,decorrido:null,pedido:null,pre:null,fonte:null};
@@ -454,7 +457,6 @@ function iniciaCfg(){
   $('#c-completa').checked=cfg.completa;$('#c-completa').onchange=e=>defineModo(e.target.checked?'completa':'normal');
   $('#c-depth').onchange=e=>{cfg.depth=+e.target.value;save()};
   $('#c-seta').onchange=e=>{cfg.seta=e.target.checked;aplica()};
-  $('#c-fixo').checked=cfg.fixo;$('#c-fixo').onchange=e=>defineModo(e.target.checked?'fixo':'normal');
   $('#c-locais').innerHTML=`<b class="mut">${t('Local de cada bloco:')}</b> `+BLOCOS.map(([k,nm])=>`<label class="bol">${t(nm)} <select class="c-loc" data-k="${k}"><option value="col">${t('coluna própria')}</option><option value="lat">${t('lateral')}</option><option value="baixo">${t('abaixo do tabuleiro')}</option></select></label>`).join('');
   $$('.c-loc').forEach(x=>{x.value=cfg.local[x.dataset.k];x.onchange=e=>{cfg.local[x.dataset.k]=e.target.value;save();posicionaBlocos()}});
   $('#c-cav').value=cfg.cav;$('#c-cav').onchange=e=>{cfg.cav=e.target.value;aplica()};
@@ -484,12 +486,12 @@ function autoTamanho(){
   const comBlocosAoLado=(larg-colLances-wBl-16-wBarras-24)/8;          // tabuleiro + lances + blocos lado a lado
   const comLances=(larg-colLances-wBarras-16)/8;
   const semBlocos=comLances>=52?comLances:(larg-wBarras)/8;           // janela estreita: os blocos descem; se a coluna de lances também descer, o tabuleiro usa a largura toda
-  const porLargura=(cfg.fixo||comBlocosAoLado>=52)?comBlocosAoLado:semBlocos;
+  const porLargura=(comBlocosAoLado>=52)?comBlocosAoLado:semBlocos;
   cfg.sq=Math.max(34,Math.min(130,Math.floor(Math.min(porAltura,porLargura))));
   const el=$('#c-sq');if(el)el.value=cfg.sq;
 }
-function quebra(){const m=$('main'),l=$('#lateral'),c=$('#col-lances');if(!m||!l||!c)return;
-  m.classList.toggle('quebrado',!c.hidden&&l.offsetTop>c.offsetTop+20)}   // blocos desceram para baixo do tabuleiro: desliga o "fixo" da coluna de lances
+function quebra(){const m=$('main'),l=$('#lateral'),c=$('#col-lances'),e=$('#col-esq');if(!m||!l||!c||!e)return;
+  m.classList.toggle('quebrado',l.offsetTop>e.offsetTop+20||(!c.hidden&&c.offsetTop>e.offsetTop+20))}   // blocos desceram para baixo do tabuleiro: desliga o "fixo" da coluna de lances
 const efetivaCompleta=()=>!!cfg.completa&&innerWidth>=900;
 function aplicaModo(){   // fixo e completa são excludentes; a visão completa só vale em janelas largas
   const c=efetivaCompleta(),ant=document.body.classList.contains('completa');
@@ -502,9 +504,9 @@ function ajustaCompleta(){   // altura útil da janela e proporção entre os bl
   const n=$$('#lateral .bloco').filter(b=>!b.hidden).length,lin=Math.ceil(n/2);
   r.setProperty('--gcols',`minmax(0,${cfg.cProp}fr) minmax(0,${100-cfg.cProp}fr)`);
   r.setProperty('--grows',lin===2?`minmax(0,${cfg.lProp}fr) minmax(0,${100-cfg.lProp}fr)`:'none')}
-function defineModo(modo){   // 'normal' | 'fixo' | 'completa'
-  cfg.fixo=modo==='fixo';cfg.completa=modo==='completa';$('#c-fixo').checked=cfg.fixo;$('#c-completa').checked=cfg.completa;
-  aplicaModo();posicionaBlocos();if(cfg.sqAuto||cfg.completa)autoTamanho();aplica();if(cfg.fixo)$('main').scrollIntoView();save();blocosBar()}
+function defineModo(modo){   // 'normal' (tabuleiro fixo, o padrão) | 'completa'
+  cfg.fixo=true;cfg.completa=modo==='completa';$('#c-completa').checked=cfg.completa;
+  aplicaModo();posicionaBlocos();if(cfg.sqAuto||cfg.completa)autoTamanho();aplica();save();blocosBar()}
 function aplica(){
   aplicaTema();aplicaModo();
   if(cfg.sqAuto)autoTamanho();
@@ -648,7 +650,7 @@ function interpHtml(row){
   if(ant)h+=`<div class="kv"><span class="k">${t('Último lance')}${ajuda('Índice de Jogada: qualidade do lance que acabou de ser jogado, comparada ao melhor lance da engine.')}</span><div class="v"><b>${ant.lance}</b> <span class="badge" style="background:${CLS_COR[ant.classe_id]||'#999'}">${ant.classe} · ${Math.round(ant.indice)}</span><div>${ant.texto}</div>${ant.tempo?`<div class="mut">⏱ ${ant.tempo}</div>`:''}</div></div>`;
   return h;
 }
-const ajuda=txt=>`<span class="dica" tabindex="0" role="button" aria-label="${esc(t('Informação'))}">i<span class="tip">${esc(t(txt)).replace(/\n/g,'<br>')}</span></span>`;   // ⓘ: passe o mouse (ou foque) para ler a explicação
+const ajuda=txt=>`<span class="dica" tabindex="0" role="button" aria-label="${esc(t('Informação'))}"><svg class="ic" viewBox="0 0 16 16" width="100%" height="100%" aria-hidden="true"><circle cx="8" cy="8" r="6.9" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="4.9" r="1.05" fill="currentColor"/><rect x="7.15" y="7" width="1.7" height="5.2" rx=".85" fill="currentColor"/></svg><span class="tip">${esc(t(txt)).replace(/\n/g,'<br>')}</span></span>`;   // ⓘ: passe o mouse (ou foque) para ler a explicação
 function posDica(el){const tip=el.querySelector('.tip');if(!tip)return;const r=el.getBoundingClientRect();tip.style.display='block';const w=tip.offsetWidth,h=tip.offsetHeight;tip.style.display='';
   let x=Math.min(Math.max(8,r.left+r.width/2-w/2),innerWidth-w-8),y=r.bottom+6;if(y+h>innerHeight-8)y=r.top-h-6;if(y<8)y=Math.max(8,innerHeight-h-8);   // abaixo, senão acima, senão encostado na borda da janela
   tip.style.maxHeight=(innerHeight-16)+'px';tip.style.overflowY='auto';tip.style.left=x+'px';tip.style.top=y+'px'}
@@ -736,9 +738,8 @@ function piscaProg(){const e=$('#prog');e.classList.add('pisca');setTimeout(()=>
 const BLOCOS=[['interp','Interpretação do lance'],['linhas','Linhas de cálculo'],['pos','Posição em detalhes'],['lances','Lances'],['graf','Gráficos']];   // ordem na tela: as linhas de cálculo logo abaixo da interpretação
 function blocosBar(){
   $('#blocos-bar').innerHTML=`<b class="mut">${t('Blocos:')}</b> `+BLOCOS.map(([k,nm])=>`<button class="chip ${cfg.blocos[k]!==false?'on':''}" data-k="${k}" title="${t('mostrar/esconder')}">${t(nm)}</button>`).join('');
-  $('#blocos-bar').insertAdjacentHTML('beforeend',`<button class="chip ${cfg.fixo?'on':''}" id="chip-fixo" title="${t('Deixa o tabuleiro parado e rola só a área dos blocos')}">${t('📌 Tabuleiro fixo')}</button><button class="chip ${cfg.completa?'on':''}" id="chip-completa" title="${t('Mostra todos os blocos de uma vez na janela, sem rolar a página (tabuleiro e blocos menores)')}">${t('🖥 Visão completa')}</button>`);
+  $('#blocos-bar').insertAdjacentHTML('beforeend',`<button class="chip ${cfg.completa?'on':''}" id="chip-completa" title="${t('Mostra todos os blocos de uma vez na janela, sem rolar a página (tabuleiro e blocos menores)')}">${t('🖥 Visão completa')}</button>`);
   $$('#blocos-bar .chip[data-k]').forEach(b=>b.onclick=()=>{cfg.blocos[b.dataset.k]=cfg.blocos[b.dataset.k]===false;save();blocosBar();desenha()});
-  $('#chip-fixo').onclick=()=>defineModo(cfg.fixo?'normal':'fixo');
   $('#chip-completa').onclick=()=>defineModo(cfg.completa?'normal':'completa');
 }
 function posicionaBlocos(){BLOCOS.forEach(([k])=>{const el=document.querySelector(`.bloco[data-b="${k}"]`);if(!el)return;const loc=cfg.local[k];

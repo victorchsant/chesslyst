@@ -21,6 +21,25 @@ SILENCIOSO = "--terminal" not in sys.argv          # padrão: servidor oculto (s
 SEM_JANELA = 0x08000000 | 0x00000200      # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP (só Windows)
 
 
+def sem_console():
+    """Windows: se o programa foi aberto por python.exe com dois cliques (a janela de console é só dele), reabre com pythonw.exe
+    e esconde essa janela, para nunca aparecer um prompt. Se foi aberto de um terminal seu, não mexe na sua janela."""
+    if os.name != "nt" or "--terminal" in sys.argv: return
+    exe = Path(sys.executable)
+    if exe.name.lower() == "pythonw.exe": return
+    try:
+        import ctypes
+        lista = (ctypes.c_uint * 4)()
+        if ctypes.windll.kernel32.GetConsoleProcessList(lista, 4) != 1: return     # há um terminal de quem abriu: não esconde
+        ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+    except Exception:
+        return
+    pw = exe.with_name("pythonw.exe")
+    if pw.exists():
+        subprocess.Popen([str(pw), str(Path(__file__).resolve()), *sys.argv[1:]], creationflags=0x00000008 | SEM_JANELA, close_fds=True)
+        sys.exit(0)
+
+
 def mensagem(titulo, texto, erro=False):
     """Mostra uma caixa de diálogo (sem terminal) ou imprime."""
     print(("ERRO: " if erro else "") + texto)
@@ -74,7 +93,10 @@ def prepara_ambiente():
     try:
         if not PY.exists():
             print("Primeira execução: criando o ambiente (.venv)…")
-            venv.EnvBuilder(with_pip=True).create(VENV)
+            exe = Path(sys.executable); cli = exe.with_name("python.exe") if exe.name.lower() == "pythonw.exe" else exe
+            r = rodar_oculto([str(cli), "-m", "venv", str(VENV)], capture_output=True)      # sem janelas piscando durante a criação
+            if r.returncode != 0 or not PY.exists():
+                venv.EnvBuilder(with_pip=True).create(VENV)
         if rodar_oculto([str(PY), "-c", "import chess"], capture_output=True).returncode != 0:
             print("Instalando o python-chess (só na primeira vez)…")
             r = rodar_oculto([str(PY), "-m", "pip", "install", "--quiet", "-r", str(RAIZ / "requirements.txt")], capture_output=True)
@@ -150,4 +172,5 @@ def main():
 
 
 if __name__ == "__main__":
+    sem_console()
     main()

@@ -1,23 +1,24 @@
 """Inicia o Chesslyst (Windows, Linux e Mac): prepara o ambiente na primeira vez, sobe o servidor e abre o navegador.
 
 NÃO coloque uma linha "#!" (shebang) no topo deste arquivo: no Windows ela faz o py launcher abrir python.exe, com a janela preta de prompt.
-Uso:  dois cliques em Chesslyst.pyw      Windows: sem janela de terminal (o servidor roda oculto)
+Uso:  abrir Chesslyst.pyw com o Python    Windows (o servidor roda oculto)
       python Chesslyst.pyw               Linux/Mac (ou Windows pelo terminal)
       python Chesslyst.pyw --terminal    mostra o que o servidor imprime; Ctrl+C encerra
       python Chesslyst.pyw --sem-navegador
 Requer Python 3.10+. Na primeira execução cria a pasta .venv e instala o python-chess (precisa de internet).
 O servidor se encerra sozinho ~90 s depois de fechar a página. Se algo der errado, aparece uma caixa de mensagem;
-o registro fica em servidor.log. Se já houver um servidor de uma versão mais antiga rodando, ele é reiniciado.
+o registro fica em app/servidor.log. Se já houver um servidor de uma versão mais antiga rodando, ele é reiniciado.
 """
 import os, subprocess, sys, time, urllib.request, venv, webbrowser
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent
+APP = RAIZ / "app"                       # todo o programa fica em app/; só este arquivo fica de fora
 PORTA = 8765
 URL = f"http://127.0.0.1:{PORTA}/"
-VENV = RAIZ / ".venv"
+VENV = APP / ".venv"
 PY = VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-SILENCIOSO = "--terminal" not in sys.argv          # padrão: servidor oculto (sem janela de terminal)
+SILENCIOSO = "--terminal" not in sys.argv          # padrão: servidor oculto
 SEM_JANELA = 0x08000000 | 0x00000200      # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP (só Windows)
 
 
@@ -99,7 +100,7 @@ def prepara_ambiente():
                 venv.EnvBuilder(with_pip=True).create(VENV)
         if rodar_oculto([str(PY), "-c", "import chess"], capture_output=True).returncode != 0:
             print("Instalando o python-chess (só na primeira vez)…")
-            r = rodar_oculto([str(PY), "-m", "pip", "install", "--quiet", "-r", str(RAIZ / "requirements.txt")], capture_output=True)
+            r = rodar_oculto([str(PY), "-m", "pip", "install", "--quiet", "-r", str(APP / "requirements.txt")], capture_output=True)
             if r.returncode != 0:
                 pausa_erro("não consegui instalar o python-chess (confira a internet) e tente de novo.")
     finally:
@@ -115,7 +116,7 @@ def servidor_desatualizado():
         rodando = json.load(urllib.request.urlopen(URL + "api/codigo", timeout=2))["codigo"]
     except Exception:
         return True                      # servidor de uma versão que nem informa o carimbo
-    arqs = [RAIZ / "server.py", *(RAIZ / "indice").glob("*")]
+    arqs = [APP / "server.py", *(APP / "indice").glob("*"), *(APP / "calibracao").glob("*")]
     return max((f.stat().st_mtime for f in arqs if f.suffix in (".py", ".json")), default=0) > rodando + 1
 
 
@@ -141,14 +142,14 @@ def main():
             return
     prepara_ambiente()
     if SILENCIOSO:
-        log = open(RAIZ / "servidor.log", "w", encoding="utf-8")
-        kw = dict(cwd=str(RAIZ), stdout=log, stderr=log, stdin=subprocess.DEVNULL)
+        log = open(APP / "servidor.log", "w", encoding="utf-8")
+        kw = dict(cwd=str(APP), stdout=log, stderr=log, stdin=subprocess.DEVNULL)
         if os.name == "nt": kw["creationflags"] = SEM_JANELA
         else: kw["start_new_session"] = True
-        proc = subprocess.Popen([str(PY), str(RAIZ / "server.py")], **kw)
+        proc = subprocess.Popen([str(PY), str(APP / "server.py")], **kw)
     else:
         print("Iniciando o servidor… (feche esta janela ou use Ctrl+C para encerrar)")
-        proc = subprocess.Popen([str(PY), str(RAIZ / "server.py"), "--manter"], cwd=str(RAIZ))
+        proc = subprocess.Popen([str(PY), str(APP / "server.py"), "--manter"], cwd=str(APP))
     try:
         for _ in range(60):
             if proc.poll() is not None:

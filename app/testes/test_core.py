@@ -1,4 +1,7 @@
-﻿from indice.core import Candidate as C, Position as P, analyse, line_index
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # app/ (onde fica o pacote indice)
+from indice.core import Candidate as C, Position as P, analyse, line_index
 
 def show(name, pos):
     r = analyse(pos, calibrar=False)   # regras testadas na escala bruta

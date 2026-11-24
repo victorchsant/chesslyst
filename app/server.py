@@ -26,7 +26,7 @@ JOBS = {}
 GER = Gerente()
 def _codigo():
     """Carimbo do código em uso (data da última alteração dos .py): o launcher reinicia um servidor mais antigo que os arquivos."""
-    try: return max(f.stat().st_mtime for f in [Path(__file__).resolve(), *(Path(__file__).resolve().parent / "indice").glob("*")] if f.suffix in (".py", ".json"))
+    try: return max(f.stat().st_mtime for f in [Path(__file__).resolve(), *(Path(__file__).resolve().parent / "indice").glob("*"), *(Path(__file__).resolve().parent / "calibracao").glob("*")] if f.suffix in (".py", ".json"))
     except OSError: return 0.0
 
 

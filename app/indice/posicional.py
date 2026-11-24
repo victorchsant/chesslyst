@@ -33,7 +33,7 @@ def desc_item(k): return T(f"it.{k}.d")
 PESOS0 = {"material": 1.0, "mobilidade": 4.0, "par_de_bispos": 30.0, "peoes_dobrados": -15.0, "peoes_isolados": -12.0,
           "peoes_passados": 12.0, "seguranca_rei": 10.0, "rei_zona": -6.0, "rei_raiox": -15.0, "rei_fuga": 8.0, "rei_final": 8.0, "centro": 8.0, "torres": 15.0,
           "desenvolvimento": -12.0, "espaco": 3.0, "pecas_em_risco": -40.0, "casas_fracas": -6.0, "postos_avancados": 25.0}
-_f = Path(__file__).resolve().parent.parent / "posicional.json"
+_f = Path(__file__).resolve().parent.parent / "calibracao" / "posicional.json"
 _dados = json.loads(_f.read_text(encoding="utf-8")) if _f.exists() else {}
 PESOS = {**PESOS0, **_dados.get("pesos", {})}
 REGRA = set(_dados.get("regra", []))   # pesos definidos por regra (não validados pelos dados)

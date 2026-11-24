@@ -26,7 +26,7 @@ def features(idx_bruto, rating, flags):
 
 
 def _carrega_cal():
-    f = Path(__file__).resolve().parent.parent / "calibracao.json"
+    f = Path(__file__).resolve().parent.parent / "calibracao" / "calibracao.json"
     return json.loads(f.read_text(encoding="utf-8")) if f.exists() else None
 
 
@@ -34,7 +34,7 @@ CAL = _carrega_cal()
 
 
 def _carrega_cal_tempo():
-    f = Path(__file__).resolve().parent.parent / "calibracao_tempo.json"
+    f = Path(__file__).resolve().parent.parent / "calibracao" / "calibracao_tempo.json"
     return json.loads(f.read_text(encoding="utf-8")) if f.exists() else None
 
 

@@ -17,7 +17,7 @@ A interface é uma página HTML servida por um pequeno servidor local em Python.
 
 Requer **Python 3.10+** e internet na primeira execução.
 
-- **Windows:** dois cliques em `Chesslyst.pyw` (sem janela de terminal).
+- **Windows:** abra o `Chesslyst.pyw` **com o Python** (é preciso ter o Python instalado: dois cliques se os arquivos `.pyw` já estiverem associados a ele; senão, botão direito → *Abrir com* → Python).
 - **Linux e macOS** (ou pelo terminal): `python Chesslyst.pyw`. Com `--terminal` o programa mostra o que o servidor imprime.
 
 Na primeira vez o programa cria uma pasta `.venv`, instala o `python-chess` e abre a interface no navegador. Nada é instalado fora da pasta do projeto.
@@ -39,15 +39,18 @@ O servidor escuta somente em `127.0.0.1`, recusa pedidos de outros sites e só e
 
 ## Estrutura
 ```
-Chesslyst.pyw                launcher multiplataforma (único arquivo para abrir o programa)
-server.py                  servidor local e API
-indice/                    núcleo: fórmula, explicações, posição, engines, Lichess
-web/                       interface (HTML, JS)
-calibracao*.json           parâmetros calibrados do índice de acerto e do tempo
-posicional.json            pesos do índice de posição
-exemplos/                  partida de demonstração (uso sem internet)
-test_core.py               testes do núcleo
+Chesslyst.pyw              launcher multiplataforma: o único arquivo para abrir o programa
+README.md  LICENSE  .gitignore
+app/
+  server.py                servidor local e API
+  indice/                  núcleo: fórmula, explicações, posição, engines, Lichess, aberturas
+  web/                     interface (HTML, JS)
+  calibracao/              parâmetros calibrados (acerto, tempo) e pesos do índice de posição
+  exemplos/                partida de demonstração (uso sem internet)
+  testes/test_core.py      testes do núcleo
+  requirements.txt
 ```
+O que o programa cria ao rodar (ambiente `.venv`, engines baixadas, `engines.json`, caches e `servidor.log`) fica dentro de `app/` e não vai para o Git.
 
 ## Limites
 O índice mede a dificuldade **objetiva** do lance; não vê estado emocional, cansaço nem preparação. As redes Maia só vão até 1900; acima disso o ajuste vem da calibração. Itens do Índice de Posição marcados com † têm peso definido por regra, não confirmado pelos dados.
@@ -70,6 +73,6 @@ Componentes de terceiros (não redistribuídos aqui; cada um segue sua licença)
 
 Chesslyst analyses chess games and shows four indices per position, each with a plain-language reading (Portuguese and English): the original **engine** evaluation, the **chance of finding the move** for a player of the given rating, a static **position** score, and the quality of the **last move** with an explanation of what it did. The UI is an HTML page served by a small local Python server; engines run natively.
 
-**Run:** Python 3.10+. Double-click `Chesslyst.pyw` (Windows) or run `python Chesslyst.pyw` (Linux/macOS). On first run it creates a `.venv` and installs `python-chess`. Then, in the **Engines** window, download Stockfish (and optionally Lc0 with the Maia networks) or register any UCI engine.
+**Run:** Python 3.10+. On Windows open `Chesslyst.pyw` with Python (double-click if `.pyw` files are associated with it, otherwise right-click → *Open with* → Python), or run `python Chesslyst.pyw` (Linux/macOS). On first run it creates a `.venv` and installs `python-chess`. Then, in the **Engines** window, download Stockfish (and optionally Lc0 with the Maia networks) or register any UCI engine.
 
 **License:** GNU GPL-3.0. Built by Víctor Chaves Santos with Claude (Anthropic, Claude Sonnet 5.5), November 2026.

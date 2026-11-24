@@ -84,12 +84,37 @@ def prepara_ambiente():
             except Exception: pass
 
 
+def servidor_desatualizado():
+    """True se o servidor que está rodando é mais antigo que os arquivos (ex.: depois de atualizar o programa)."""
+    import json
+    try:
+        rodando = json.load(urllib.request.urlopen(URL + "api/codigo", timeout=2))["codigo"]
+    except Exception:
+        return True                      # servidor de uma versão que nem informa o carimbo
+    arqs = [RAIZ / "server.py", *(RAIZ / "indice").glob("*")]
+    return max((f.stat().st_mtime for f in arqs if f.suffix in (".py", ".json")), default=0) > rodando + 1
+
+
+def encerra_servidor():
+    try:
+        urllib.request.urlopen(urllib.request.Request(URL + "api/encerrar", data=b"{}", headers={"Content-Type": "application/json"}), timeout=3)
+    except Exception:
+        pass
+    for _ in range(20):                  # espera a porta ser liberada
+        if not servidor_ativo(): return True
+        time.sleep(0.5)
+    return False
+
+
 def main():
     abrir = "--sem-navegador" not in sys.argv
     if servidor_ativo():
-        print("O Chesslyst já está rodando. Abrindo o navegador…")
-        if abrir: webbrowser.open(URL)
-        return
+        if servidor_desatualizado() and encerra_servidor():
+            print("O servidor em execução era de uma versão anterior: reiniciando…")
+        else:
+            print("O Chesslyst já está rodando. Abrindo o navegador…")
+            if abrir: webbrowser.open(URL)
+            return
     prepara_ambiente()
     if SILENCIOSO:
         log = open(RAIZ / "servidor.log", "w", encoding="utf-8")

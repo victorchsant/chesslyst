@@ -52,7 +52,8 @@ main.quebrado #col-lances{position:static;max-height:none}main.quebrado #col-lan
 .barra.h{flex-direction:row;height:30px;width:calc(var(--sq)*8);align-items:center}
 .barra .t{font-weight:600;color:var(--tx);white-space:nowrap}
 .barra.h .t{width:64px}.barra.h .val{width:92px;text-align:right}
-.barra.v .val{min-height:30px;line-height:1.1}
+.barra.v .t{height:14px;line-height:14px}
+.barra.v .val{flex:none;height:50px;overflow:hidden;line-height:1.1;overflow-wrap:anywhere}   /* altura fixa: a barra tem sempre o mesmo tamanho, só o nível muda */
 .trilho{position:relative;flex:1;background:#202a3d;border-radius:4px;overflow:hidden;border:1px solid var(--bd)}
 .trilho.duo{background:#161b26}
 .enc{position:absolute;background:#f2f2f2}
@@ -185,7 +186,12 @@ body.fixo #lateral{position:sticky;top:6px;align-self:start;max-height:calc(100v
 .janela{position:fixed;top:56px;right:16px;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 72px);z-index:60;display:flex;flex-direction:column;
   background:var(--card);border:1px solid var(--bd);border-radius:12px;box-shadow:0 16px 48px #0008}
 .janela[hidden]{display:none}
-#jan-sobre{width:min(420px,calc(100vw - 32px))}.sobre{padding:14px 16px}.sobre h2{margin:0;font:700 26px Georgia,serif;color:var(--ac)}.sobre .kv{margin:6px 0}.sobre .kv[hidden]{display:none}.sobre a{color:var(--ac)}.sobre .nota{margin-top:12px}
+#jan-sobre{width:min(420px,calc(100vw - 32px))}.abertura{margin:6px 2px 0;font-size:13px;color:var(--mut)}.abertura b{color:var(--tx)}.abertura .eco{display:inline-block;background:var(--card2);border:1px solid var(--bd);border-radius:5px;padding:0 6px;margin-right:6px;font-size:12px;color:var(--ac)}
+.rw[data-d]{cursor:pointer}.rw[data-d]:hover,.rw[data-d].fixo{background:var(--card2);border-radius:5px}.rw.fixo .rn::after{content:' 📌';font-size:10px}
+.dica{display:inline-block;margin-left:5px;color:var(--ac);font-size:13px;cursor:help;vertical-align:baseline;outline:none;font-weight:400;text-transform:none;letter-spacing:0}
+.dica .tip{display:none;position:fixed;z-index:80;width:max-content;max-width:min(300px,86vw);background:var(--bg2);border:1px solid var(--ac);border-radius:8px;padding:8px 10px;color:var(--tx);font:12.5px/1.45 "Segoe UI",sans-serif;box-shadow:0 8px 24px #0006;white-space:normal;text-align:left}
+.dica:hover .tip,.dica:focus .tip{display:block}
+.sobre{padding:14px 16px}.sobre h2{margin:0;font:700 26px Georgia,serif;color:var(--ac)}.sobre .kv{margin:6px 0}.sobre .kv[hidden]{display:none}.sobre a{color:var(--ac)}.sobre .nota{margin-top:12px}
 #jan-eng{width:min(900px,calc(100vw - 32px));right:56px;top:72px}
 .jan-tit{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--bd);font-weight:600;cursor:move;user-select:none;touch-action:none}
 .jan-x{padding:1px 9px;line-height:1.3}
@@ -336,9 +342,11 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
       <div class="slot" id="s-dir"></div><div class="slot" id="s-base"></div>
     </div>
     <div class="strip" id="pl-base"></div>
+    <div id="abertura" class="abertura" hidden></div>
     <div class="nav">
       <button id="n-ini">⏮</button><button id="n-ant">◀</button><button id="n-prox">▶</button><button id="n-fim">⏭</button><button id="n-flip" title="Virar o tabuleiro (tecla F)">⇅ Virar</button>
-      <label class="bol"><input type="checkbox" id="seguir" checked> seguir o lance mais recente</label>
+      <label class="bol"><input type="checkbox" id="seguir" checked> Lance mais recente</label>
+      <label class="bol" title="Som ao chegar um lance novo (partida ao vivo)"><input type="checkbox" id="seguir-som"> Som</label>
     </div>
     <div class="card bloco" data-b="var" id="var-card" hidden><div class="bh"><span id="var-tit">Tabuleiro de variantes</span><span><button id="var2-flip" title="virar o tabuleiro">⇅</button><button id="var2-fecha" title="fechar (Esc)">✕</button></span></div><div class="bc"><div id="var2-info" class="sub"></div><div id="tab2"></div><div class="nav"><button id="v2-ini">⏮</button><button id="v2-ant">◀</button><button id="v2-prox">▶</button><button id="v2-fim">⏭</button></div><div class="mut" style="font-size:12px;text-align:center;margin-top:4px">Com este quadro em foco, ← → andam na variante e Esc fecha.</div></div></div>
     </div>
@@ -395,7 +403,7 @@ function iniciaCfg(){
   $$('.c-slot').forEach(x=>x.innerHTML=`<option value="esq">${t('Esquerda')}</option><option value="dir">${t('Direita')}</option><option value="topo">${t('Em cima')}</option><option value="base">${t('Embaixo')}</option><option value="off">${t('Oculta')}</option>`);
   $('#c-peca').value=cfg.peca;$('#c-tema').value=cfg.tema;$('#c-clara').value=cfg.clara;$('#c-escura').value=cfg.escura;
   $('#c-layout').value=cfg.layout;$('#c-linhas').value=cfg.linhas;$('#c-sq').value=cfg.sq;$('#c-depth').value=cfg.depth;
-  $('#c-som').checked=cfg.som;$('#c-notif').checked=cfg.notif;$('#c-varsep').checked=cfg.varSep;$('#c-neutros').checked=cfg.neutros;$('#c-seta').checked=cfg.seta;$('#c-coord').checked=cfg.coord;$('#c-flip').checked=cfg.flip;
+  $('#c-som').checked=cfg.som;$('#seguir-som').checked=cfg.som;$('#c-notif').checked=cfg.notif;$('#c-varsep').checked=cfg.varSep;$('#c-neutros').checked=cfg.neutros;$('#c-seta').checked=cfg.seta;$('#c-coord').checked=cfg.coord;$('#c-flip').checked=cfg.flip;
   $$('.c-slot').forEach(s=>s.value=cfg.slots[s.dataset.b]);
   $('#c-peca').onchange=e=>{cfg.peca=e.target.value;aplica()};
   $('#c-tema').onchange=e=>{cfg.tema=e.target.value;if(TEMAS[cfg.tema]){cfg.clara=TEMAS[cfg.tema][0];cfg.escura=TEMAS[cfg.tema][1];$('#c-clara').value=cfg.clara;$('#c-escura').value=cfg.escura}aplica()};
@@ -418,7 +426,8 @@ function iniciaCfg(){
   $('#c-cav').value=cfg.cav;$('#c-cav').onchange=e=>{cfg.cav=e.target.value;aplica()};
   $('#c-varsep').onchange=e=>{cfg.varSep=e.target.checked;save()};
   $('#c-neutros').onchange=e=>{cfg.neutros=e.target.checked;aplica()};
-  $('#c-som').onchange=e=>{cfg.som=e.target.checked;save();if(cfg.som)bip()};
+  $('#c-som').onchange=e=>{cfg.som=e.target.checked;$('#seguir-som').checked=cfg.som;save();if(cfg.som)bip()};
+  $('#seguir-som').onchange=e=>{cfg.som=e.target.checked;$('#c-som').checked=cfg.som;save();if(cfg.som)bip()};
   $('#c-notif').onchange=async e=>{cfg.notif=e.target.checked;if(cfg.notif&&'Notification' in window&&Notification.permission!=='granted'){const p=await Notification.requestPermission();if(p!=='granted'){cfg.notif=false;e.target.checked=false}}save()};
   $('#c-coord').onchange=e=>{cfg.coord=e.target.checked;aplica()};
   $('#c-flip').onchange=e=>{cfg.flip=e.target.checked;aplica()};
@@ -454,9 +463,24 @@ function aplica(){
 /* ---------- tabuleiro ---------- */
 function parseFen(f){const [pos,vez,,,,mv]=f.split(' ');const b=[];for(const r of pos.split('/')){const row=[];for(const ch of r){if(/\d/.test(ch))for(let i=0;i<+ch;i++)row.push(null);else row.push(ch)}b.push(row)}return{b,vez,mv:+mv}}
 const sqXY=(sq)=>{const f=sq.charCodeAt(0)-97,r=8-+sq[1];return cfg.flip?[7-f,7-r]:[f,r]};
-function peca(ch,col){
+/* cada cavalo mantém o lado para o qual olha durante a partida toda: a orientação é decidida onde ele começa
+   (colunas a-d espelhadas, conforme a opção Cavalos) e acompanha a peça quando ela salta de uma casa para outra */
+const nomeCasa=(c,r)=>String.fromCharCode(97+c)+(8-r);
+const cavPolitica=w=>cfg.cav==='todos'||(cfg.cav==='pretos'&&!w);   // opção Cavalos: quais cavalos olham para dentro
+function cavInicial(fen){const {b}=parseFen(fen),m=new Map();
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){const ch=b[r][c];if(ch==='N'||ch==='n')m.set(nomeCasa(c,r),c<4)}
+  return m}
+function cavSegue(m0,ucis){const m=new Map(m0);
+  for(const u of ucis){const de=u.slice(0,2),para=u.slice(2,4);
+    if(m.has(de)){const f=m.get(de);m.delete(de);m.delete(para);m.set(para,f)}      // o cavalo salta e leva a orientação junto
+    else{m.delete(para);if(u[4]==='n')m.set(para,para.charCodeAt(0)-97<4)}}   // captura / promoção a cavalo
+  return m}
+function cavDe(varianteAtual){const P=S.pre;if(!P||!P.fens||!P.fens.length||!P.ucis)return null;
+  try{let m=cavSegue(cavInicial(P.fens[0]),P.ucis.slice(0,Math.min(S.cur,P.ucis.length)));
+    if(varianteAtual)m=cavSegue(m,varianteAtual.ucis.slice(0,varianteAtual.k));return m}catch(e){return null}}
+function peca(ch,col,cavInv){
   const w=ch===ch.toUpperCase(),t=ch.toUpperCase();let g;
-  const inv=t==='N'&&cfg.peca!=='letras'&&col!=null&&col<4&&(cfg.cav==='todos'||(cfg.cav==='pretos'&&!w));   // o desenho do cavalo olha para a esquerda: espelha os da metade esquerda
+  const inv=t==='N'&&cfg.peca!=='letras'&&cavPolitica(w)&&(cavInv!==undefined?(cavInv!==!!cfg.flip):(col!=null&&col<4));   // o desenho do cavalo olha para a esquerda: espelha os da metade esquerda
   if(cfg.peca==='letras')g=t;else if(cfg.peca==='contorno')g=(w?H:G)[t];else g=G[t];
   return `<span class="p ${w?'w':'b'}${inv?' inv':''}">${g}${cfg.peca==='letras'?'':'︎'}</span>`;
 }
@@ -465,21 +489,25 @@ const SINAL={brilhante:['!!','#1abc9c'],melhor:['★','#27ae60'],excelente:['!',
 function sanHtml(san){if(!san)return'';const m=san.match(/^(.*?)([+#]?)$/);return m[1]+(m[2]?`<b class="${m[2]==='#'?'mate':'xeq'}">${m[2]}</b>`:'')}
 function sinalLance(r){const x=r&&SINAL[r.jogada_classe_id];return x?`<b class="sg" style="color:${x[1]}">${x[0]}</b>`:''}
 function sinalTab(ant){if(!ant||!ant.move)return null;const x=SINAL[ant.jogada_classe_id];if(x&&x[0]!=='★')return x;if(ant.move.endsWith('#'))return['#','#c0392b'];if(ant.move.endsWith('+'))return['+','#e67e22'];return null}
-function pintaTab(tab,fen,ult,sg,dest,svgId){
+function pintaTab(tab,fen,ult,sg,dest,svgId,cav){
   tab.className='est-'+cfg.peca;
   const {b}=parseFen(fen);let h='';
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
     const fr=cfg.flip?7-r:r,fc=cfg.flip?7-c:c;const p=b[fr][fc];const nome=String.fromCharCode(97+fc)+(8-fr);
-    h+=`<div class="c ${(r+c)%2?'d':'l'} ${ult.includes(nome)?'ult':''}">${nome===dest?`<u class="sinal" style="background:${sg[1]}">${sg[0]}</u>`:''}${cfg.coord&&c===0?`<i class="r">${8-fr}</i>`:''}${cfg.coord&&r===7?`<i class="f">${String.fromCharCode(97+fc)}</i>`:''}${p?peca(p,c):''}</div>`;
+    h+=`<div class="c ${(r+c)%2?'d':'l'} ${ult.includes(nome)?'ult':''}">${nome===dest?`<u class="sinal" style="background:${sg[1]}">${sg[0]}</u>`:''}${cfg.coord&&c===0?`<i class="r">${8-fr}</i>`:''}${cfg.coord&&r===7?`<i class="f">${String.fromCharCode(97+fc)}</i>`:''}${p?peca(p,c,cav?cav.get(nome):undefined):''}</div>`;
   }
-  tab.innerHTML=h+`<svg class="seta" viewBox="0 0 8 8" id="${svgId}"></svg>`;
+  tab.innerHTML=h+`<svg class="seta" viewBox="0 0 8 8" id="${svgId}-d"></svg><svg class="seta" viewBox="0 0 8 8" id="${svgId}"></svg>`;
 }
-function desenhaTab(row){
+function mostraAbertura(){   // nome completo da abertura (lista do Lichess; em português quando o idioma é pt) da posição em que a partida está
+  const el=$('#abertura');if(!el)return;const A=(S.pre&&S.pre.aberturas)||[];const x=A.length?A[Math.min(S.cur,A.length-1)]:null;
+  el.hidden=!x;if(x)el.innerHTML=`<span class="eco">${esc(x[0])}</span><b>${esc(LANG==='pt'?x[2]:x[1])}</b>`;
+}
+function desenhaTab(row){mostraAbertura();setTimeout(()=>{marcaFixo();const it=destAtual||destFixo;if(it)mostraDest(it)},0);
   const fen=V?V.fens[V.k]:row.fen;const ant=S.rows[S.cur-1];
   const uv=V&&V.k>0?V.ucis[V.k-1]:null;
   const ult=V?(uv?[uv.slice(0,2),uv.slice(2,4)]:[]):(ant&&ant.uci?[ant.uci.slice(0,2),ant.uci.slice(2,4)]:[]);
   const sg=V?null:sinalTab(ant),dest=sg&&ant.uci?ant.uci.slice(2,4):'';
-  pintaTab($('#tab'),fen,ult,sg,dest,'seta');
+  pintaTab($('#tab'),fen,ult,sg,dest,'seta',cavDe(V));
   if(V){if(V.ucis[V.k])seta(V.ucis[V.k],'#ffd54a')}else if(cfg.seta&&row.melhor_uci)seta(row.melhor_uci,'#35e0c2');
 }
 function seta(uci,cor,el){
@@ -528,7 +556,7 @@ function linhasHtml(row){
   const L=row.linhas||[];if(!L.length)return'';
   const mn=row.rating?'~'+Math.round(Math.max(1100,Math.min(1900,row.rating))/100)*100:'1900';
   const dica=esc(t('Clique para ver a variante no tabuleiro'));
-  let h=`<h3>${t('Linhas de cálculo (valores originais da engine, sem ajuste)')}${S.engines&&S.engines.referencia?' · '+S.engines.referencia:''} · ${t('profundidade {d}',{d:cfg.depth})}</h3><table class="lin"><tr><th>#</th><th>${t('Lance')}</th><th>${t('Aval. (brancas)')}</th><th title="${esc(t('Chance de acerto: probabilidade de um jogador desse nível (rating ~{n}, modelo Maia) escolher este lance',{n:mn.replace('~','')}))}">${t('Acerto')} ⓘ</th><th>${t('Variante')}</th></tr>`;
+  let h=`<h3>${t('Linhas de cálculo')}${ajuda('Valores originais da engine, sem ajuste dos índices.')}${S.engines&&S.engines.referencia?' · '+S.engines.referencia:''} · ${t('profundidade {d}',{d:cfg.depth})}</h3><table class="lin"><tr><th>#</th><th>${t('Lance')}</th><th>${t('Aval. (brancas)')}</th><th title="${esc(t('Chance de acerto: probabilidade de um jogador desse nível (rating ~{n}, modelo Maia) escolher este lance',{n:mn.replace('~','')}))}">${t('Acerto')} ⓘ</th><th>${t('Variante')}</th></tr>`;
   L.forEach((l,i)=>{const jog=l.san===row.move;
     h+=`<tr data-uci="${l.uci}" data-pv="${esc(l.pv.join(','))}" data-eng="${esc((S.engines&&S.engines.referencia)||'engine')}" title="${dica}"><td>${i+1}</td><td><b>${l.san}</b>${jog?` <span class="mut">${t('▶ jogado')}</span>`:''}</td><td>${ev(l.cp,l.mate)}</td>
     <td><span class="hb" style="width:${Math.round(l.p_humano*60)}px"></span>${Math.round(l.p_humano*100)}%</td><td class="pv">${pvClic(row.fen,l.pv)}</td></tr>`});
@@ -544,15 +572,44 @@ function linhasHtml(row){
 function interpHtml(row){
   const ant=row.ant,lado=row.side==='B'?t('brancas'):t('pretas');
   const mot=row.motivos?row.motivos.split(' | '):[];
-  let h=`<div class="ih"><span class="badge" style="background:${BANDA_COR(row.indice)}">${row.faixa} · ${Math.round(row.indice)}%</span>
+  let h=`<div class="ih"><span class="badge" style="background:${BANDA_COR(row.indice)}">${row.faixa} · ${Math.round(row.indice)}%</span>${ajuda('Chance de Acerto: probabilidade de um jogador do nível (rating) de quem joga encontrar um lance bom nesta posição, calibrada com partidas reais.')}
     <span class="mut">${t('Vez das {lado}',{lado})}${row.rating?' · '+t('rating {r}',{r:row.rating}):''}${row.tempo_restante!=null?' · ⏱ '+fmtT(row.tempo_restante):''}</span></div>
     <p class="ires">${row.resumo}</p>`;
-  if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
-  if(row.avaliacao_texto)h+=`<div class="kv"><span class="k">${t('Avaliação')}</span><div class="v">${row.avaliacao_texto}</div></div>`;
-  h+=`<div class="kv"><span class="k">${t('Posição')}</span><div class="v">${row.posicao_texto}</div></div>`;
-  if(ant)h+=`<div class="kv"><span class="k">${t('Último lance')}</span><div class="v"><b>${ant.lance}</b> <span class="badge" style="background:${CLS_COR[ant.classe_id]||'#999'}">${ant.classe} · ${Math.round(ant.indice)}</span><div>${ant.texto}</div>${ant.tempo?`<div class="mut">⏱ ${ant.tempo}</div>`:''}</div></div>`;
+  if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}${ajuda('Os fatores que mais pesaram na chance de acerto desta posição.')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
+  if(row.avaliacao_texto)h+=`<div class="kv"><span class="k">${t('Avaliação')}${ajuda('Explica a pontuação da engine lendo a linha principal dela (material, mate, vantagem). Não altera o valor original da engine.')}</span><div class="v">${row.avaliacao_texto}</div></div>`;
+  h+=`<div class="kv"><span class="k">${t('Posição')}${ajuda('Índice de Posição: avaliação estática (material, estrutura de peões, atividade das peças, rei), calculada pelo programa sem usar a engine.')}</span><div class="v">${row.posicao_texto}</div></div>`;
+  if(ant)h+=`<div class="kv"><span class="k">${t('Último lance')}${ajuda('Índice de Jogada: qualidade do lance que acabou de ser jogado, comparada ao melhor lance da engine.')}</span><div class="v"><b>${ant.lance}</b> <span class="badge" style="background:${CLS_COR[ant.classe_id]||'#999'}">${ant.classe} · ${Math.round(ant.indice)}</span><div>${ant.texto}</div>${ant.tempo?`<div class="mut">⏱ ${ant.tempo}</div>`:''}</div></div>`;
   return h;
 }
+const ajuda=txt=>`<span class="dica" tabindex="0" role="button" aria-label="${esc(t('Informação'))}">ⓘ<span class="tip">${esc(t(txt))}</span></span>`;   // ⓘ: passe o mouse (ou foque) para ler a explicação
+function posDica(el){const tip=el.querySelector('.tip');if(!tip)return;const r=el.getBoundingClientRect();tip.style.display='block';const w=tip.offsetWidth,h=tip.offsetHeight;tip.style.display='';
+  let x=Math.min(Math.max(8,r.left+r.width/2-w/2),innerWidth-w-8),y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);tip.style.left=x+'px';tip.style.top=y+'px'}
+document.addEventListener('mouseover',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
+document.addEventListener('focusin',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
+/* ---------- destaques no tabuleiro (itens do Índice de Posição) ---------- */
+const DEST_COR={B:'#35e0c2',P:'#ff9f43'};   // cor de quem tem a característica: brancas / pretas
+const destCache={};let destFixo=null,destAtual=null;
+function fenAtual(){const row=S.rows[S.cur];return V?V.fens[V.k]:(row?row.fen:null)}
+function pintaDest(d){
+  const s=$('#seta-d');if(!s)return;let h='';
+  if(d)for(const [sq,lado,tipo] of d.casas||[]){const [x,y]=sqXY(sq),c=DEST_COR[lado];
+    h+=tipo==='tinta'?`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}" opacity=".30"/>`
+      :`<rect x="${x+.04}" y="${y+.04}" width=".92" height=".92" rx=".1" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width=".09"/>`}
+  if(d)for(const [a,z,lado] of d.setas||[]){const c=DEST_COR[lado],[x1,y1]=sqXY(a),[x2,y2]=sqXY(z);
+    const A=[x1+.5,y1+.5],Z=[x2+.5,y2+.5],L=Math.hypot(Z[0]-A[0],Z[1]-A[1])||1,ux=(Z[0]-A[0])/L,uy=(Z[1]-A[1])/L,E=[Z[0]-ux*.3,Z[1]-uy*.3];
+    h+=`<line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="${c}" stroke-width=".1" stroke-linecap="round" opacity=".85"/><polygon points="${Z[0]},${Z[1]} ${E[0]-uy*.15},${E[1]+ux*.15} ${E[0]+uy*.15},${E[1]-ux*.15}" fill="${c}" opacity=".9"/>`}
+  s.innerHTML=h;
+}
+async function mostraDest(item){
+  const fen=fenAtual();if(!fen||!item)return;destAtual=item;const k=fen+'|'+item;
+  if(!destCache[k]){try{destCache[k]=await api('/api/destaque?fen='+encodeURIComponent(fen)+'&item='+encodeURIComponent(item))}catch(e){return}}
+  if(destAtual===item&&fenAtual()===fen)pintaDest(destCache[k]);
+}
+function limpaDest(){destAtual=null;if(destFixo)mostraDest(destFixo);else pintaDest(null)}
+function marcaFixo(){$$('.rw[data-d]').forEach(e=>e.classList.toggle('fixo',e.dataset.d===destFixo))}
+document.addEventListener('mouseover',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r)mostraDest(r.dataset.d)});
+document.addEventListener('mouseout',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r&&!(e.relatedTarget&&r.contains(e.relatedTarget)))limpaDest()});
+document.addEventListener('click',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(!r)return;destFixo=destFixo===r.dataset.d?null:r.dataset.d;marcaFixo();destAtual=null;destFixo?mostraDest(destFixo):pintaDest(null)});
 const fcp=c=>(c>=0?'+':'−')+num(Math.abs(c)/100);
 function cbar(cp,fino){const w=Math.min(50,Math.abs(cp)/6);return `<span class="cbar${fino?' fino':''}"><i class="${cp>=0?'p':'n'}" style="${cp>=0?'left':'right'}:50%;width:${w}%"></i></span>`}
 function posHtml(row){
@@ -560,15 +617,15 @@ function posHtml(row){
   const eng=row.engine_cp!=null?fcp(row.engine_cp):(row.engine_mate!=null?t('mate'):'—');
   const st=(l,v,dica)=>`<div class="st" title="${esc(dica)}"><span>${l}</span><b>${v}</b></div>`;
   let h=`<div class="stats">${st(t('Estático'),fcp(row.posicao_cp),t('material + estrutura, calculado pelo programa sem usar a engine'))}${st(t('Engine'),eng,t('valor original da engine'))}${st(t('Dinâmica/tática'),row.posicao_residuo!=null?fcp(row.posicao_residuo):'—',t('o que a engine enxerga além do estático: tática, iniciativa, ameaças'))}</div>`;
-  const linha=(nome,cp,cls,extra)=>`<div class="rw ${cls}"><span class="rn">${nome}${extra||''}</span>${cbar(cp,cls==='i')}<span class="rv">${Math.abs(cp)<5?'—':fcp(cp)}</span></div>`;
+  const linha=(nome,cp,cls,extra,dd)=>`<div class="rw ${cls}"${dd?` data-d="${dd}"${cls==='g'?` title="${esc(t('Passe o mouse para ver no tabuleiro; clique para fixar'))}"`:''}`:''}><span class="rn">${nome}${extra||''}</span>${cbar(cp,cls==='i')}<span class="rv">${Math.abs(cp)<5?'—':fcp(cp)}</span></div>`;
   G.forEach(g=>{
     const itens=g.itens.filter(i=>cfg.neutros||Math.abs(i.cp)>=3);
-    if(!itens.length){h+=`<div class="gd vazio">${linha(g.nome,g.cp,'g')}</div>`;return}
+    if(!itens.length){h+=`<div class="gd vazio">${linha(g.nome,g.cp,'g','',g.itens.map(i=>i.chave).join(','))}</div>`;return}
     const aberto=cfg.gAberto[g.nome]!==false;
-    h+=`<details class="gd" data-g="${esc(g.nome)}" ${aberto?'open':''}><summary>${linha(g.nome,g.cp,'g')}</summary>`
-      +itens.map(i=>`<div title="${esc(i.desc)}">${linha(i.nome,i.cp,'i',i.regra?` <sup title="${esc(t('peso definido por regra, ainda não validado pelos dados'))}">†</sup>`:'')}</div>`).join('')+'</details>'});
+    h+=`<details class="gd" data-g="${esc(g.nome)}" ${aberto?'open':''}><summary>${linha(g.nome,g.cp,'g','',g.itens.map(i=>i.chave).join(','))}</summary>`
+      +itens.map(i=>`<div title="${esc(i.desc)}">${linha(i.nome,i.cp,'i',i.regra?` <sup title="${esc(t('peso definido por regra, ainda não validado pelos dados'))}">†</sup>`:'',i.chave)}</div>`).join('')+'</details>'});
   if(row.posicao_residuo!=null)h+=`<div class="gd res" title="${esc(t('ameaças, táticas, iniciativa e tudo que o cálculo da engine enxerga além da avaliação estática'))}">${linha(t('Dinâmica / tática'),row.posicao_residuo,'g')}</div>`;
-  h+=`<div class="nota">${t('Valores em peões (1,00 = um peão). Positivo favorece as brancas. † peso definido por regra: os dados não confirmaram esse item.')}</div>`;
+  h+=`<div class="nota">${t('Como ler esta tabela')}${ajuda('Valores em peões (1,00 = um peão). Positivo favorece as brancas. † peso definido por regra: os dados não confirmaram esse item.')}</div>`;
   return h;
 }
 function listaLances(){
@@ -640,6 +697,7 @@ function grafico(){
 
 /* ---------- desenho geral ---------- */
 function desenha(){
+  mostraAbertura();
   const row=S.rows[S.cur];
   const linhasOn=cfg.blocos.linhas!==false;
   $('#lin-lat-card').hidden=!(linhasOn&&cfg.linhas==='lateral');$('#lin-baixo').hidden=!(linhasOn&&cfg.linhas==='embaixo');
@@ -647,7 +705,7 @@ function desenha(){
   if(!row){   // posição ainda sem análise (ou nenhuma análise): o tabuleiro e a lista de lances funcionam normalmente
     const fen=S.pre?S.pre.fens[Math.min(S.cur,S.pre.fens.length-1)]:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const u=S.pre&&S.cur>0?S.pre.ucis[S.cur-1]:null;
-    pintaTab($('#tab'),fen,u?[u.slice(0,2),u.slice(2,4)]:[],null,'','seta');
+    pintaTab($('#tab'),fen,u?[u.slice(0,2),u.slice(2,4)]:[],null,'','seta',cavDe(V));
     $$('.slot').forEach(x=>x.innerHTML='');desenhaPlayers({side:fen.split(' ')[1]==='w'?'B':'P'});
     $('#interp').innerHTML=S.job?`<p class="ires">${t('Esta posição ainda está sendo analisada…')}</p>`:`<p class="ires">${t('Partida carregada. Clique em “▶ Analisar” para calcular os índices.')}</p><div class="mut">${t('Você já pode navegar pelos lances.')}</div>`;
     $('#pos-det').innerHTML='<div class="mut">—</div>';$('#lin-lat').innerHTML='';$('#lin-baixo').innerHTML='';
@@ -678,7 +736,7 @@ function desenhaVar2(){
   $('#var2-info').innerHTML=`<b>${pvTxt(V2.fen0,V2.pv.slice(0,V2.k)).trim()||t('(posição de partida da variante)')}</b> <span class="mut">· ${t('passo {k}/{n}',{k:V2.k,n:V2.pv.length})}</span>`;
   const el=$('#tab2');el.style.setProperty('--sq',Math.max(30,Math.round(cfg.sq*0.62))+'px');
   const uv=V2.k>0?V2.ucis[V2.k-1]:null;
-  pintaTab(el,V2.fens[V2.k],uv?[uv.slice(0,2),uv.slice(2,4)]:[],null,'','seta2');
+  pintaTab(el,V2.fens[V2.k],uv?[uv.slice(0,2),uv.slice(2,4)]:[],null,'','seta2',cavDe(V2));
   if(V2.ucis[V2.k])seta(V2.ucis[V2.k],'#ffd54a',$('#seta2'));
 }
 const totalPos=()=>S.pre?S.pre.fens.length:S.rows.length;
@@ -698,20 +756,36 @@ async function carrega(fonte){   // abre a partida SEM analisar: dá para navega
   if(S.job){try{await api('/api/parar',{id:S.job})}catch(e){}}
   if(S.timer)clearInterval(S.timer);S.job=null;S.rows=[];S.estado='';V=null;V2=null;S.fonte=fonte;S.chave='';S._ult=null;S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';
   status(t('Carregando partida…'));
-  let d;try{d=await api('/api/partida',{fonte})}catch(e){return status(t('Erro: {e}',{e:String(e)}))}
-  if(d.erro)return status(t('Erro: {e}',{e:d.erro}));
+  clearInterval(S.liveTimer);
+  let d;try{d=await api('/api/partida',{fonte})}catch(e){status(t('Erro: {e}',{e:String(e)}));return false}
+  if(d.erro){status(t('Erro: {e}',{e:d.erro}));return false}
   S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;S.cur=S.live?d.fens.length-1:0;
   $('#seguir').checked=false;$('#fonte-det').hidden=true;
   desenha();status(t('Partida carregada: {n} lances. Navegue com ◀ ▶ e clique em “▶ Analisar” para calcular os índices.',{n:d.lances.length}));
+  if(S.live){S.liveTimer=setInterval(()=>acompanhaAoVivo(fonte),15000);status(t('Partida ao vivo: {n} lances até agora. Os lances novos aparecem sozinhos; clique em “▶ Analisar” para calcular os índices.',{n:d.lances.length}))}
+  return true;
+}
+async function acompanhaAoVivo(fonte){   // partida ao vivo ainda não analisada: busca os lances novos a cada 15 s
+  if(S.job||S.fonte!==fonte){clearInterval(S.liveTimer);return}
+  let d;try{d=await api('/api/partida',{fonte})}catch(e){return}
+  if(!d||d.erro||!d.fens||d.fens.length<=(S.pre?S.pre.fens.length:0)&&(d.info||{}).Result===(S.info||{}).Result)return;
+  const noFim=S.cur>=totalPos()-1;S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;
+  if(noFim)S.cur=d.fens.length-1;
+  if((S.info.Result||'*')!=='*')clearInterval(S.liveTimer);
+  desenha();
 }
 function analisar(){if(S.fonte)inicia(S.fonte)}
 async function parar(){if(S.job){try{await api('/api/parar',{id:S.job})}catch(e){}}}
 function aplicaFonteBar(){
   const i=S.info||{};
   $('#fonte-tit').innerHTML=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} <span class="mut">· ${esc(i.Event||'')} · ${esc(i.Result||'')}</span>`:`<span class="mut">${t('Nenhuma partida carregada')}</span>`;
+  const aoVivo=!!S.live&&(i.Result||'*')==='*';   // partida em andamento (resultado ainda '*')
+  $('#live').innerHTML=aoVivo?`<span class="vivo" title="${esc(t('Partida em andamento'))}">● ${t('AO VIVO')}</span>`:(S.live&&i.Result?`<span class="mut">${t('Partida encerrada')} · ${esc(i.Result)}</span>`:'');
   const rodando=!!S.job&&['analisando','ao vivo','esperando'].includes(S.estado);
   $('#b-analisar').hidden=!S.fonte||rodando;$('#b-parar').hidden=!rodando;
 }
+const FONTE_PADRAO={tipo:'rodada',round:'xLgOJ6cb',jogo:0,ao_vivo:true};   // Mundial FIDE 2026, partida 1 (transmissão do Lichess)
+async function carregaInicial(){if(!(await carrega(FONTE_PADRAO)))await carregaExemplo()}
 async function carregaExemplo(){
   status(t('Carregando a partida exemplo recente…'));
   let d=null;try{d=await api('/api/exemplo')}catch(e){}
@@ -725,7 +799,7 @@ async function poll(){
   const seguindo=S.cur===S.rows.length-1||S.rows.length===0;const antes=S.rows.length;
   d.rows.forEach((r,k)=>S.rows[d.desde+k]=r);S.estado=d.estado;S.info=d.info||{};S.engines=d.engines;
   S.lances=d.lances||S.lances;S.esperado=d.esperado||S.esperado;S.atual=d.atual;S.decorrido=d.decorrido;
-  if(d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis};   // lances novos de partidas ao vivo
+  if(d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
   if(S.rows.length&&$('#seguir').checked&&seguindo)S.cur=S.rows.length-1;
   const i=S.info;const jog=i.White?`<b>${i.White}</b> ${i.WhiteElo||''} — <b>${i.Black}</b> ${i.BlackElo||''} · ${i.Event||''} · ${i.Result||''}`:'';
   const vivo=d.estado==='ao vivo'?`<span class="vivo">${t('AO VIVO')}</span> `:'';const np=S.rows.length;
@@ -913,7 +987,7 @@ $('#c-lang').onchange=async e=>{LANG=e.target.value;localStorage.setItem('indice
 if(LANG!=='pt')aplicaIdioma();
 matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{if(cfg.temaUi==='auto')aplica()});
 let rz=null;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(cfg.sqAuto)aplica();else quebra()},150)});   // tabuleiro acompanha o tamanho da janela
-carregaExemplo();
+carregaInicial();
 </script>
 </body>
 </html>

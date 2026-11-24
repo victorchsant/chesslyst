@@ -173,3 +173,114 @@ def indice_posicao(b: chess.Board):
         txt = pre + T("p.vant", g=grau, l=lado)
         txt += ": " + "; ".join(partes) + "." if partes else "."
     return idx, txt, contrib
+
+
+def destaques(b: chess.Board, chaves):
+    """O que marcar no tabuleiro para um item (ou grupo) do Índice de Posição, calculado com as mesmas regras de `_lado`.
+    -> dict(casas=[[casa, lado, tipo]], setas=[[de, para, lado]]); lado 'B'/'P' (cor de quem é a característica);
+    tipo 'anel' (peça ou casa em destaque) ou 'tinta' (casas de uma região)."""
+    if isinstance(chaves, str): chaves = [c for c in chaves.split(",") if c]
+    casas, setas = [], []
+    nm = chess.square_name
+    fase = _fase(b)
+
+    def casa(sq, c, tipo="anel"):
+        x = [nm(sq), "B" if c else "P", tipo]
+        if x not in casas: casas.append(x)
+
+    def seta(a, z, c):
+        x = [nm(a), nm(z), "B" if c else "P"]
+        if x not in setas and len(setas) < 14: setas.append(x)
+
+    for chave in chaves:
+        if chave == "material":
+            for t in VAL:
+                nb, np_ = len(b.pieces(t, True)), len(b.pieces(t, False))
+                if nb != np_:
+                    c = nb > np_
+                    for sq in list(b.pieces(t, c))[: abs(nb - np_)]: casa(sq, c)
+            continue
+        if chave == "centro":
+            for sq in CENTRO: casa(sq, True, "tinta")
+        for c in (True, False):
+            own, opp = b.occupied_co[c], not c
+            r = lambda sq: chess.square_rank(sq) if c else 7 - chess.square_rank(sq)
+            peoes, inim = b.pieces(chess.PAWN, c), b.pieces(chess.PAWN, opp)
+            cols = [0] * 8
+            for sq in peoes: cols[chess.square_file(sq)] += 1
+            if chave == "peoes_dobrados":
+                for sq in peoes:
+                    if cols[chess.square_file(sq)] > 1: casa(sq, c)
+            elif chave == "peoes_isolados":
+                for sq in peoes:
+                    fl = chess.square_file(sq)
+                    if not (cols[max(0, fl - 1)] * (fl > 0) + cols[min(7, fl + 1)] * (fl < 7)): casa(sq, c)
+            elif chave == "peoes_passados":
+                for sq in peoes:
+                    fl = chess.square_file(sq)
+                    if not [s for s in inim if abs(chess.square_file(s) - fl) <= 1 and
+                            (chess.square_rank(s) > chess.square_rank(sq) if c else chess.square_rank(s) < chess.square_rank(sq))]: casa(sq, c)
+            elif chave == "mobilidade":
+                for t in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
+                    for sq in b.pieces(t, c):
+                        alvo = b.attacks_mask(sq) & ~own
+                        for d in chess.SquareSet(alvo): casa(d, c, "tinta")
+                        if chess.popcount(alvo) <= 2: casa(sq, c)        # peça com pouquíssimas casas
+            elif chave == "desenvolvimento":
+                base = 0 if c else 7
+                for t in (chess.KNIGHT, chess.BISHOP):
+                    for sq in b.pieces(t, c):
+                        if chess.square_rank(sq) == base: casa(sq, c)
+            elif chave == "torres":
+                for sq in b.pieces(chess.ROOK, c):
+                    fl = chess.square_file(sq)
+                    if cols[fl] == 0 or r(sq) == 6:
+                        casa(sq, c)
+                        if cols[fl] == 0:
+                            for rk in range(8): casa(chess.square(fl, rk), c, "tinta")
+            elif chave == "centro":
+                for sq in CENTRO:
+                    for a in b.attackers(c, sq): seta(a, sq, c)
+            elif chave == "espaco":
+                for sq in peoes:
+                    if r(sq) >= 3: casa(sq, c)
+            elif chave == "par_de_bispos":
+                if len(b.pieces(chess.BISHOP, c)) >= 2:
+                    for sq in b.pieces(chess.BISHOP, c): casa(sq, c)
+            elif chave == "seguranca_rei":
+                k = b.king(c)
+                if k is not None:
+                    kf, kr = chess.square_file(k), r(k)
+                    zona = chess.SquareSet(chess.BB_KING_ATTACKS[k]) | chess.SquareSet.from_square(k)
+                    for sq in zona: casa(sq, c, "tinta")
+                    for sq in peoes:
+                        if abs(chess.square_file(sq) - kf) <= 1 and 0 < r(sq) - kr <= 2: casa(sq, c)
+                    for sq in zona:
+                        for a in b.attackers(opp, sq): seta(a, sq, opp)
+            elif chave == "rei_final":
+                k = b.king(c)
+                if k is not None: casa(k, c)
+            elif chave == "pecas_em_risco":
+                for t in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
+                    for sq in b.pieces(t, c):
+                        atq = list(b.attackers(opp, sq))
+                        if not atq: continue
+                        menor = min(VAL.get(b.piece_type_at(a), 10_000) for a in atq)
+                        if not b.attackers(c, sq) or menor < VAL[t]:
+                            casa(sq, c)
+                            seta(min(atq, key=lambda a: VAL.get(b.piece_type_at(a), 10_000)), sq, opp)
+            elif chave == "casas_fracas":
+                for fl in range(1, 7):
+                    for rr in (2, 3, 4):
+                        if not any(abs(chess.square_file(p) - fl) == 1 and r(p) < rr for p in peoes):
+                            casa(chess.square(fl, rr if c else 7 - rr), c, "tinta")
+            elif chave == "postos_avancados":
+                for t in (chess.KNIGHT, chess.BISHOP):
+                    for sq in b.pieces(t, c):
+                        if not 4 <= r(sq) <= 6: continue
+                        if not any(b.piece_type_at(a) == chess.PAWN for a in b.attackers(c, sq)): continue
+                        fl = chess.square_file(sq)
+                        if any(abs(chess.square_file(s) - fl) == 1 and
+                               (chess.square_rank(s) > chess.square_rank(sq) if c else chess.square_rank(s) < chess.square_rank(sq)) for s in inim): continue
+                        casa(sq, c)
+    return dict(casas=casas, setas=setas)

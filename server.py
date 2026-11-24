@@ -12,15 +12,24 @@ from indice import pipeline, fontes
 from indice.gerente import Gerente
 from indice.i18n import set_lang, T
 from indice import baixador, relogio
+from indice.aberturas import nomes as nomes_abertura
+from indice.posicional import destaques as destaques_posicao
 from indice.core import analyse
 
 ROOT = Path(__file__).parent
 WEB = ROOT / "web"
-PORT = 8765
+PORT = int(sys.argv[sys.argv.index("--porta") + 1]) if "--porta" in sys.argv else 8765   # --porta N: outra porta (desenvolvimento)
 UA = {"User-Agent": "indice-xadrez-pesquisa"}
 LOCK = threading.Lock()          # uma análise de posição por vez (engines compartilhadas)
 JOBS = {}
 GER = Gerente()
+def _codigo():
+    """Carimbo do código em uso (data da última alteração dos .py): o launcher reinicia um servidor mais antigo que os arquivos."""
+    try: return max(f.stat().st_mtime for f in [Path(__file__).resolve(), *(Path(__file__).resolve().parent / "indice").glob("*")] if f.suffix in (".py", ".json"))
+    except OSError: return 0.0
+
+
+CODIGO = _codigo()
 MANTER = "--manter" in sys.argv        # não encerrar por ociosidade (desenvolvimento / terminal visível)
 PING = {"ultimo": time.time(), "recebeu": False}
 
@@ -99,6 +108,7 @@ def rodar_job(job):
             for m in moves: lances.append(b0.san(m)); b0.push(m)
             job["lances"], job["esperado"] = lances, len(boards)   # a interface mostra tudo desde já e o progresso
             job["fens"], job["ucis"] = [bb.fen() for bb in boards], [m.uci() for m in moves]
+            job["aberturas"] = nomes_abertura(job["fens"])
             if any(i < len(boards) - 1 and raws[i]["fen"] != boards[i].fen() for i in range(min(len(raws), len(boards)))):
                 raws.clear(); job["rows"].clear(); em_livro = True
             for i in range(len(raws), len(boards)):
@@ -190,7 +200,7 @@ def partida(fonte):
     for m in game.mainline_moves():
         lances.append(b.san(m)); ucis.append(m.uci()); b.push(m); fens.append(b.fen())
     info = {k: h.get(k, "") for k in ("White", "Black", "WhiteElo", "BlackElo", "Event", "Result", "Date")}
-    return dict(info=info, lances=lances, fens=fens, ucis=ucis)
+    return dict(info=info, lances=lances, fens=fens, ucis=ucis, aberturas=nomes_abertura(fens))
 
 
 EXEMPLO = {"pgn": None, "titulo": ""}
@@ -283,6 +293,11 @@ class H(BaseHTTPRequestHandler):
                 if EXEMPLO["pgn"]: return self.json(EXEMPLO)
                 f = ROOT / "exemplos" / "teste.pgn"   # sem internet: partida de demonstração incluída
                 return self.json({"pgn": f.read_text(encoding="utf-8") if f.exists() else "", "titulo": "demonstração"})
+            if u.path == "/api/destaque":      # casas/setas a marcar no tabuleiro para um item do Índice de Posição
+                try: return self.json(destaques_posicao(chess.Board(q["fen"]), q.get("item", "")))
+                except Exception as e: return self.json({"erro": str(e)}, 400)
+            if u.path == "/api/codigo":
+                return self.json({"codigo": CODIGO})
             if u.path == "/api/ping":
                 PING["ultimo"], PING["recebeu"] = time.time(), True
                 return self.json({"ok": True})
@@ -303,7 +318,7 @@ class H(BaseHTTPRequestHandler):
                 if not job: return self.json({"erro": "job inexistente"}, 404)
                 desde = max(0, int(q.get("desde", 0)) - 1)
                 return self.json(dict(estado=job["estado"], aviso=job["aviso"], info=job["info"], engines=job["engines"], total=len(job["rows"]),
-                                      versao=job["versao"], desde=desde, rows=job["rows"][desde:], lances=job["lances"], esperado=job["esperado"], fens=job["fens"], ucis=job["ucis"],
+                                      versao=job["versao"], desde=desde, rows=job["rows"][desde:], lances=job["lances"], esperado=job["esperado"], fens=job["fens"], ucis=job["ucis"], aberturas=job.get("aberturas") or [],
                                       atual=job["atual"], decorrido=(None if job["atual"] is None else round(time.time() - job["atual_ini"], 1))))
             # estáticos
             p = "index.html" if u.path in ("/", "") else u.path.lstrip("/")

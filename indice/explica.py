@@ -89,6 +89,50 @@ def _em_risco(board, cor):
     return r
 
 
+_ART_PT = {chess.PAWN: ("o peão", "ao peão", "do peão"), chess.KNIGHT: ("o cavalo", "ao cavalo", "do cavalo"),
+           chess.BISHOP: ("o bispo", "ao bispo", "do bispo"), chess.ROOK: ("a torre", "à torre", "da torre"), chess.QUEEN: ("a dama", "à dama", "da dama")}
+_ART_EN = {chess.PAWN: "the pawn", chess.KNIGHT: "the knight", chess.BISHOP: "the bishop", chess.ROOK: "the rook", chess.QUEEN: "the queen"}
+
+
+def _mobilidade(board, sq):
+    """Casas para onde a peça em `sq` pode ir (sem contar as ocupadas por peças da mesma cor)."""
+    pc = board.piece_at(sq)
+    return len(board.attacks(sq) & ~board.occupied_co[pc.color]) if pc else 0
+
+
+def _no_centro(sq):
+    return 2 <= chess.square_file(sq) <= 5 and 2 <= chess.square_rank(sq) <= 5
+
+
+def _efeito(board, move):
+    """O que o lance faz de concreto na posição (não é material): (id, texto, positivo) ou None.
+    Ex.: 'Desenvolve o cavalo.', 'Dá mais mobilidade ao bispo.', 'Ataca a dama.'"""
+    try:
+        pt = board.piece_type_at(move.from_square)
+        if pt not in _ART_EN or board.is_castling(move): return None
+        cor = board.turn
+        b2 = board.copy(); b2.push(move)
+        art, a_, de_ = (_ART_EN[pt],) * 3 if lang() == "en" else _ART_PT[pt]
+        if not board.is_capture(move):                      # ataca uma peça maior ou sem defesa
+            alvos = [s for s in b2.attacks(move.to_square) if (p := b2.piece_at(s)) and p.color != cor and p.piece_type not in (chess.KING, chess.PAWN)
+                     and (VAL[p.piece_type] > VAL.get(pt, 0) or not b2.is_attacked_by(not cor, s))]
+            if alvos and not (b2.is_attacked_by(not cor, move.to_square) and not b2.is_attacked_by(cor, move.to_square)):
+                alvo = max(alvos, key=lambda s: VAL[b2.piece_type_at(s)])
+                return "ataca", T("x.ataca", p=_n_peca(b2.piece_type_at(alvo), 1)), True
+        recuo = 0 if cor == chess.WHITE else 7
+        if pt in (chess.KNIGHT, chess.BISHOP) and chess.square_rank(move.from_square) == recuo and chess.square_rank(move.to_square) != recuo:
+            return "desenvolve", T("x.desenv", o=art), True
+        if pt == chess.KNIGHT and _no_centro(move.to_square) and not _no_centro(move.from_square):
+            return "centraliza", T("x.centraliza", o=art), True
+        if pt != chess.PAWN:
+            d = _mobilidade(b2, move.to_square) - _mobilidade(board, move.from_square)
+            if d >= 3: return "mob_mais", T("x.mob_mais", o=a_), True
+            if d <= -3: return "mob_menos", T("x.mob_menos", o=de_), False
+    except Exception:
+        return None
+    return None
+
+
 def _r(info, causa, texto):
     """Devolve o texto e, se pedido, registra qual causa foi usada (serve para calibrar)."""
     if info is not None: info["causa"] = causa
@@ -124,19 +168,25 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
         if board.is_capture(move):
             return _r(info, "captura", T("x.captura", p=_n_peca(chess.PAWN if board.is_en_passant(move) else board.piece_type_at(move.to_square), 1)))
         if board.gives_check(move): return _r(info, "xeque", T("x.xeque"))
-        return _r(info, "melhor_generico", T("j.melhor"))
+        ef = _efeito(board, move)
+        ef = ef if ef and ef[2] else None          # só efeitos positivos num bom lance
+        return _r(info, "melhor_generico" + ("+" + ef[0] if ef else ""), T("j.melhor") + (" " + ef[1] if ef else ""))
 
     permitiu = (mate_j is not None and mate_j < 0) or bool(jog["passos"] and _mate_contra(board, raw["pv_jogado"]))
     perdeu_mate = mate_b is not None and mate_b > 0 and (mate_j is None or mate_j <= 0)
     ideia = "" if perdeu_mate and not permitiu else _ideia(board, melhor, best, mate_b, net_j, eval_antes, permitiu)
     melhor_era = T("x.melhor_era", m=san_melhor, i=ideia)
-    if cid == "excelente": return _r(info, "quase", T("x.quase", m=san_melhor))
-    if cid == "bom": return _r(info, "bom", T("x.bom", m=san_melhor))
+    ef = _efeito(board, move)
+    ef = ef if ef and ef[2] else None
+    if cid == "excelente": return _r(info, "quase" + ("+" + ef[0] if ef else ""), T("x.quase", m=san_melhor) + (" " + ef[1] if ef else ""))
+    if cid == "bom": return _r(info, "bom" + ("+" + ef[0] if ef else ""), T("x.bom", m=san_melhor) + (" " + ef[1] if ef and ef[2] else ""))
 
     # ---- imprecisão / erro / erro grave: a causa, em ordem de importância
     falta_ganhar = net_b - net_j
     primeira = next((p for p in jog["passos"] if not p["meu"] and p["cap"]), None)
     if info is not None: info["falta_ganhar"] = falta_ganhar
+
+    idx_perda = next((k for k, p in enumerate(jog["passos"]) if not p["meu"] and p["cap"]), None)   # 1 = logo depois, 3 = dois lances...
 
     def perdeu_algo():
         if jog["n_ganhou"] == 0 and primeira and primeira["destino"] == move.to_square and pm in VAL:
@@ -163,7 +213,12 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
     elif novo_risco and not board.is_capture(move) and not board.gives_check(move): k, causa = "peca_risco", T("x.risco", p=_n_peca(b2.piece_type_at(novo_risco[0]), 1))
     elif board.has_castling_rights(board.turn) and not b2.has_castling_rights(board.turn) and not board.is_castling(move):
         k, causa = "perdeu_roque", T("x.perdeu_roque")
-    else: k, causa = "piorou", T("x.piorou")
+    else:
+        ef = _efeito(board, move)
+        if ef and not ef[2]: k, causa = "piorou+" + ef[0], T("x.piorou_mob", e=ef[1])
+        else: k, causa = "piorou", T("x.piorou")
+    if k in ("perdeu", "perdeu_troca") and idx_perda is not None and idx_perda >= 3:      # perda que não vem logo: diz em quantos lances
+        causa = T("x.perde_em", p=_lista(jog["perdeu"]), n=(idx_perda + 1) // 2)
     texto = causa + (T("x.melhor_era", m=san_melhor, i="") if omite else melhor_era)   # sem repetir o que já foi dito
     if acerto >= 75 and cid in ("erro", "grave"): texto += T("j.facil")
     return _r(info, k, texto)

@@ -1,0 +1,14 @@
+# ambiente e caches
+.venv/
+__pycache__/
+*.pyc
+
+# engines e redes são baixadas pelo usuário (cada uma com a sua licença)
+engines/
+engines.json
+
+# arquivos gerados em uso
+servidor.log
+cache_fontes.json
+dados/
+saida/

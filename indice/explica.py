@@ -7,10 +7,10 @@ from __future__ import annotations
 from collections import Counter
 import chess
 from .i18n import T, lang
-from .posicional import desc_material, material as _material, analise as _analise_pos, _fase, avalia as _avalia_pos
+from .posicional import desc_material, material as _material, analise as _analise_pos, _fase, avalia as _avalia_pos, pc, mc
 from .core import win_pct as _wp
 from .aberturas import nome_da_posicao
-from .i18n import num as _num
+from .i18n import num as _num, P
 
 VAL = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
 # (artigo+singular, plural, feminino?)
@@ -126,7 +126,7 @@ def _efeito(board, move):
                      and (VAL[p.piece_type] > VAL.get(pt, 0) or not b2.is_attacked_by(not cor, s))]
             if alvos and not (b2.is_attacked_by(not cor, move.to_square) and not b2.is_attacked_by(cor, move.to_square)):
                 alvo = max(alvos, key=lambda s: VAL[b2.piece_type_at(s)])
-                return "ataca", T("x.ataca", p=_n_peca(b2.piece_type_at(alvo), 1)), True
+                return "ataca", T("x.ataca", p=pc(b2, alvo)), True
         recuo = 0 if cor == chess.WHITE else 7
         if pt in (chess.KNIGHT, chess.BISHOP) and chess.square_rank(move.from_square) == recuo and chess.square_rank(move.to_square) != recuo:
             return "desenvolve", T("x.desenv", o=art), True
@@ -184,22 +184,22 @@ def _ideias(board, move):
                      and (p.piece_type == chess.KING or (p.piece_type != chess.PAWN and (VAL[p.piece_type] >= VAL.get(pt, 0) or not b2.is_attacked_by(not cor, s))))]
             if len(alvos) >= 2:
                 alvos.sort(key=lambda s: -(99 if b2.piece_type_at(s) == chess.KING else VAL[b2.piece_type_at(s)]))
-                add("garfo", a=_art(b2.piece_type_at(alvos[0])), b=_art(b2.piece_type_at(alvos[1])))
+                add("garfo", a=pc(b2, alvos[0]), b=pc(b2, alvos[1]))
         # 2) cravada contra o rei
         if pt in (chess.BISHOP, chess.ROOK, chess.QUEEN) and seguro:
             for s in b2.attacks(to):
                 p = b2.piece_at(s)
                 if p and p.color != cor and p.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN) and b2.is_pinned(not cor, s) \
                         and (b2.pin(not cor, s) >> to) & 1:
-                    add("cravada", p=_art(p.piece_type)); break
+                    add("cravada", p=pc(b2, s)); break
         # 3) tira uma peça do ataque / protege uma peça atacada
         if not captura:
             f0, f1 = _fracas(board, cor), _fracas(b2, cor)
-            if de in f0 and to not in f1: add("salva", p=_art(pt))
+            if de in f0 and to not in f1: add("salva", p=pc(b2, to))
             else:
                 for s in f0:
                     if s != de and s not in f1 and board.piece_type_at(s) != chess.PAWN:
-                        add("protege", p=_art(board.piece_type_at(s))); break
+                        add("protege", p=pc(b2, s)); break
         # 4) torres
         if pt == chess.ROOK and chess.square_file(de) != fl and not captura:
             outras = [s for s in b2.pieces(chess.ROOK, cor) if s != to and chess.square_file(s) == fl
@@ -219,7 +219,7 @@ def _ideias(board, move):
             if any(b2.piece_type_at(a) == chess.PAWN for a in b2.attackers(cor, to)) and not any(
                     abs(chess.square_file(s) - fl) == 1 and ((chess.square_rank(s) > chess.square_rank(to)) if cor else (chess.square_rank(s) < chess.square_rank(to)))
                     for s in b2.pieces(chess.PAWN, not cor)):
-                add("posto", o=_art(pt), s=chess.square_name(to))
+                add("posto", o=_art(pt), s=mc(chess.square_name(to), [chess.square_name(to)], "B" if cor else "P"))
         # 6) fianchetto
         if pt == chess.BISHOP and to in ((chess.G2, chess.B2) if cor else (chess.G7, chess.B7)):
             frente = chess.square(fl, 2 if cor else 5)
@@ -244,6 +244,7 @@ _PZ = {   # item da análise de posição -> (frase se melhora, frase se piora)
     "mobilidade": ("pz.mob_mais", "pz.mob_menos"), "desenvolvimento": ("pz.desenv_mais", "pz.desenv_menos"),
     "centro": ("pz.centro_mais", "pz.centro_menos"), "espaco": ("pz.espaco_mais", "pz.espaco_menos"),
     "seguranca_rei": ("pz.rei_mais", "pz.rei_menos"), "rei_final": ("pz.reif_mais", "pz.reif_menos"),
+    "rei_zona": ("pz.rzona_mais", "pz.rzona_menos"), "rei_raiox": ("pz.raiox_mais", "pz.raiox_menos"), "rei_fuga": ("pz.fuga_mais", "pz.fuga_menos"),
     "torres": ("pz.torres_mais", "pz.torres_menos"), "par_de_bispos": (None, "pz.bispos_menos"),
     "peoes_dobrados": ("pz.dob_mais", "pz.dob_menos"), "peoes_isolados": ("pz.iso_mais", "pz.iso_menos"),
     "peoes_passados": ("pz.pas_mais", "pz.pas_menos"), "pecas_em_risco": ("pz.risco_mais", "pz.risco_menos"),
@@ -452,7 +453,7 @@ def _nome_vantagem(g):
     """Nome do grupo da análise de posição em linguagem natural, para dizer de onde vem a vantagem (ex.: 'rei longe de ataques')."""
     if g["id"] == "rei":
         it = max(g["itens"], key=lambda i: abs(i["cp"]))
-        return T("gv.reif" if it["chave"] == "rei_final" else "gv.rei")
+        return T({"rei_final": "gv.reif", "rei_fuga": "gv.fuga"}.get(it["chave"], "gv.rei"))
     return T("gv." + g["id"])
 
 
@@ -501,3 +502,24 @@ def _mate_contra(board, ucis):
         if m not in b.legal_moves: return False
         b.push(m)
     return b.is_checkmate() and b.turn == board.turn
+
+
+def texto_repeticao(fens, lances, i):
+    """A posição i já apareceu antes na partida? Repetição de lances e xeque perpétuo (empate)."""
+    try:
+        if i < 4 or i >= len(fens): return ""
+        ep = lambda f: " ".join(f.split()[:4])
+        n = sum(1 for f in fens[:i + 1] if ep(f) == ep(fens[i]))
+        if n < 2: return ""
+        lado_xeque = None
+        for lado in (0, 1):                  # 0 = brancas jogaram o lance j (j par), 1 = pretas
+            if sum(1 for j in range(max(0, i - 6), min(i, len(lances))) if j % 2 == lado and lances[j].endswith(("+", "#"))) >= 2: lado_xeque = lado
+        b = chess.Board(fens[i])
+        if lado_xeque is not None:
+            quem = T("w.brancas") if lado_xeque == 0 else T("w.pretas")
+            resp = b.legal_moves.count() if b.is_check() else None
+            extra = T("rp.so", n=resp, v=P(resp, "rp.resp")) if resp is not None and resp <= 2 else ""
+            return T("rp.perpetuo", l=quem, n=n, e=extra)
+        return T("rp.rep3" if n >= 3 else "rp.rep2", n=n)
+    except Exception:
+        return ""

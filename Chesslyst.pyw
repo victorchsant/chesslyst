@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
 """Inicia o Chesslyst (Windows, Linux e Mac): prepara o ambiente na primeira vez, sobe o servidor e abre o navegador.
 
+NÃO coloque uma linha "#!" (shebang) no topo deste arquivo: no Windows ela faz o py launcher abrir python.exe, com a janela preta de prompt.
 Uso:  dois cliques em Chesslyst.pyw      Windows: sem janela de terminal (o servidor roda oculto)
       python Chesslyst.pyw               Linux/Mac (ou Windows pelo terminal)
       python Chesslyst.pyw --terminal    mostra o que o servidor imprime; Ctrl+C encerra

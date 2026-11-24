@@ -11,7 +11,7 @@ from . import fontes
 from .core import Candidate, Position, analyse, win_pct, indice_jogada, nome_classe
 from .explica import explicar_lance, explicar_avaliacao, explicar_porque
 from .i18n import T
-from .posicional import indice_posicao, analise as analise_posicao, texto_debilidades
+from .posicional import indice_posicao, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei
 
 ROOT = Path(__file__).resolve().parent.parent
 def _acha(nome):
@@ -234,7 +234,10 @@ def motivos_do_porque(raw, pos, r, ap):
 def linha(raw, pos, r):
     """Linha de resultados de uma posição. Sem lance jogado (posição atual), os campos de jogada ficam vazios."""
     brancas = raw["side"] == "B"
-    ip, tp, contrib = indice_posicao(chess.Board(raw["fen"]))
+    _l0 = raw["linhas"][0] if raw.get("linhas") else None
+    ip, tp, contrib = indice_posicao(chess.Board(raw["fen"]), (_l0["cp"] if _l0 and _l0.get("mate") is None else None))
+    postos = texto_postos(chess.Board(raw["fen"]))   # postos avançados, em uma frase curta
+    rei_txt = texto_rei(chess.Board(raw["fen"]))     # rei sob pressão (xeque, casas de fuga, raio-x)
     deb = texto_debilidades(chess.Board(raw["fen"]))   # quem tem mais debilidades e se estão sendo aproveitadas
     ecp = raw["linhas"][0]["cp"] if raw["linhas"] else None   # avaliação ORIGINAL da engine (brancas), só para o resíduo
     ap = analise_posicao(chess.Board(raw["fen"]), ecp)
@@ -244,7 +247,7 @@ def linha(raw, pos, r):
              engine_cp=raw["linhas"][0]["cp"] if raw["linhas"] else None,
              engine_mate=raw["linhas"][0]["mate"] if raw["linhas"] else None,
              indice=round(r.index, 1), indice_bruto=round(r.index_bruto, 1), faixa=r.band,
-             posicao_brancas=round(ip, 1), posicao_texto=(tp + (" " + deb if deb else "")),
+             posicao_brancas=round(ip, 1), posicao_texto=(tp + (" " + deb if deb else "") + (" " + postos if postos else "") + (" " + rei_txt if rei_txt else "")),
              material_brancas=round(ap["material_idx"], 1), estrutura_brancas=round(ap["estrutura_idx"], 1),
              posicao_cp=ap["cp"], material_cp=ap["material_cp"], posicao_grupos=ap["grupos"], posicao_residuo=ap["residuo"],
              posicao_componentes={k: round(v) for k, v in contrib.items() if abs(v) >= 3},

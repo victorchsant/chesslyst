@@ -15,12 +15,12 @@ from .i18n import T, num, P, lang
 VAL = {chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330, chess.ROOK: 500, chess.QUEEN: 900}
 
 ITENS = ["material", "peoes_dobrados", "peoes_isolados", "peoes_passados", "mobilidade", "desenvolvimento", "torres", "centro",
-         "espaco", "par_de_bispos", "seguranca_rei", "rei_final", "pecas_em_risco", "casas_fracas", "postos_avancados"]
+         "espaco", "par_de_bispos", "seguranca_rei", "rei_zona", "rei_raiox", "rei_fuga", "rei_final", "pecas_em_risco", "casas_fracas", "postos_avancados"]
 GRUPOS = [   # (id, componentes)
     ("material", ["material"]),
     ("estrutura", ["peoes_dobrados", "peoes_isolados", "peoes_passados"]),
     ("atividade", ["mobilidade", "desenvolvimento", "torres", "centro", "espaco", "par_de_bispos"]),
-    ("rei", ["seguranca_rei", "rei_final"]),
+    ("rei", ["seguranca_rei", "rei_zona", "rei_raiox", "rei_fuga", "rei_final"]),
     ("debilidades", ["pecas_em_risco", "casas_fracas"]),
     ("postos", ["postos_avancados"]),
 ]
@@ -31,13 +31,46 @@ def desc_item(k): return T(f"it.{k}.d")
 
 
 PESOS0 = {"material": 1.0, "mobilidade": 4.0, "par_de_bispos": 30.0, "peoes_dobrados": -15.0, "peoes_isolados": -12.0,
-          "peoes_passados": 12.0, "seguranca_rei": 10.0, "rei_final": 8.0, "centro": 8.0, "torres": 15.0,
+          "peoes_passados": 12.0, "seguranca_rei": 10.0, "rei_zona": -6.0, "rei_raiox": -15.0, "rei_fuga": 8.0, "rei_final": 8.0, "centro": 8.0, "torres": 15.0,
           "desenvolvimento": -12.0, "espaco": 3.0, "pecas_em_risco": -40.0, "casas_fracas": -6.0, "postos_avancados": 25.0}
 _f = Path(__file__).resolve().parent.parent / "posicional.json"
 _dados = json.loads(_f.read_text(encoding="utf-8")) if _f.exists() else {}
 PESOS = {**PESOS0, **_dados.get("pesos", {})}
 REGRA = set(_dados.get("regra", []))   # pesos definidos por regra (não validados pelos dados)
 CENTRO = [chess.D4, chess.E4, chess.D5, chess.E5]
+
+_NOME_PT = {chess.PAWN: ("peão", "m"), chess.KNIGHT: ("cavalo", "m"), chess.BISHOP: ("bispo", "m"), chess.ROOK: ("torre", "f"),
+            chess.QUEEN: ("dama", "f"), chess.KING: ("rei", "m")}
+_NOME_EN = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop", chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
+
+
+def mc(txt, casas=None, lado=None, item=None):
+    """Trecho em negrito da interpretação. Ao passar o mouse, a tela marca no tabuleiro as `casas` (ou o item de posição `item`)."""
+    at = ' class="mc"'
+    if casas: at += ' data-c="' + ",".join(casas) + '"'
+    if lado: at += f' data-l="{lado}"'
+    if item: at += f' data-i="{item}"'
+    return f"<b{at}>{txt}</b>"
+
+
+def pc(b, sq, extra=None, cap=False):
+    """'o bispo preto em b4' em negrito, ligado à casa (e a casas extras) no tabuleiro."""
+    p = b.piece_at(sq)
+    nome = chess.square_name(sq)
+    if p is None: return mc(nome, [nome])
+    if lang() == "en":
+        txt = f"the {'white' if p.color else 'black'} {_NOME_EN[p.piece_type]} on {nome}"
+    else:
+        n, g = _NOME_PT[p.piece_type]
+        cor = ("branca" if g == "f" else "branco") if p.color else ("preta" if g == "f" else "preto")
+        txt = f"{'a' if g == 'f' else 'o'} {n} {cor} em {nome}"
+    if cap: txt = txt[:1].upper() + txt[1:]
+    return mc(txt, [nome] + [chess.square_name(x) for x in (extra or [])], "B" if p.color else "P")
+
+
+def _lista_casas(nomes):
+    nomes = list(nomes)
+    return nomes[0] if len(nomes) == 1 else ", ".join(nomes[:-1]) + T("db.e") + nomes[-1]
 
 
 def material(b):
@@ -74,8 +107,10 @@ def _lado(b, c, fase):
         kf, kr = chess.square_file(k), r(k)
         escudo = sum(1 for sq in peoes if abs(chess.square_file(sq) - kf) <= 1 and 0 < r(sq) - kr <= 2)
         zona = chess.SquareSet(chess.BB_KING_ATTACKS[k]) | chess.SquareSet.from_square(k)
-        atq = sum(len(b.attackers(opp, s)) for s in zona)
-        f["seguranca_rei"] = fase * (escudo - 0.6 * atq)
+        f["seguranca_rei"] = fase * escudo                                   # escudo de peões
+        f["rei_zona"] = fase * sum(_PESO_ATQ[b.piece_type_at(a)] for s in zona for a in b.attackers(opp, s)) / 4   # casas da zona sob ataque
+        f["rei_raiox"] = (0.5 + 0.5 * fase) * len(_raiox(b, k, opp))         # peças de longo alcance apontadas ao rei com uma peça no meio
+        f["rei_fuga"] = fase * min(4, len(_fuga(b, k, c)))                   # casas de fuga livres e não atacadas
         f["rei_final"] = (1 - fase) * (3.5 - (abs(chess.square_file(k) - 3.5) + abs(chess.square_rank(k) - 3.5)) / 2)
     for sq in CENTRO:
         f["centro"] += len(b.attackers(c, sq)) * 0.5 + (1.0 if b.piece_at(sq) == chess.Piece(chess.PAWN, c) else 0)
@@ -112,6 +147,27 @@ def _lado(b, c, fase):
                    for s in inim): continue
             f["postos_avancados"] += peso
     return f
+
+
+_PESO_ATQ = {chess.PAWN: 1, chess.KNIGHT: 2, chess.BISHOP: 2, chess.ROOK: 3, chess.QUEEN: 5, chess.KING: 0}
+
+
+def _raiox(b, k, opp):
+    """Peças de longo alcance de `opp` alinhadas com o rei em `k` (na linha certa para o seu movimento) com exatamente uma peça no meio."""
+    out = []
+    for sq in b.pieces(chess.BISHOP, opp) | b.pieces(chess.ROOK, opp) | b.pieces(chess.QUEEN, opp):
+        pt = b.piece_type_at(sq)
+        df, dr = abs(chess.square_file(sq) - chess.square_file(k)), abs(chess.square_rank(sq) - chess.square_rank(k))
+        diag, reta = df == dr, df == 0 or dr == 0
+        if not ((pt == chess.BISHOP and diag) or (pt == chess.ROOK and reta) or (pt == chess.QUEEN and (diag or reta))): continue
+        meio = chess.between(sq, k) & b.occupied
+        if chess.popcount(meio) == 1: out.append((sq, chess.msb(meio)))
+    return out
+
+
+def _fuga(b, k, c):
+    """Casas vizinhas ao rei livres (sem peça própria) e não atacadas pelo adversário."""
+    return [s for s in chess.SquareSet(chess.BB_KING_ATTACKS[k]) if not (b.occupied_co[c] >> s) & 1 and not b.is_attacked_by(not c, s)]
 
 
 def componentes(b: chess.Board) -> dict:
@@ -156,22 +212,27 @@ def desc_material(mat):
     return T(k) if k else T("m.mais", n=max(n, 1))
 
 
-def indice_posicao(b: chess.Board):
-    """Índice de Posição 0-100 (50 = equilibrado; >50 favorece as brancas), texto curto e contribuições."""
+def indice_posicao(b: chess.Board, engine_cp=None):
+    """Índice de Posição 0-100 (50 = equilibrado; >50 favorece as brancas), texto curto e contribuições.
+    A estimativa estática tem erro típico de ~1,7 peão contra o Stockfish, então 'clara' só vale para valores realmente altos."""
     cp, contrib = avalia(b)
     idx = win_pct(cp)
     maiores = sorted(((k, v) for k, v in contrib.items() if k != "material"), key=lambda kv: -abs(kv[1]))[:3]
-    partes = [T("p.item", nome=nome_item(k).lower(), l=T("w.brancas") if v > 0 else T("w.pretas"), v=num(abs(v) / 100, 2))
-              for k, v in maiores if abs(v) >= 8]
     mat = contrib["material"]
     pre = T("p.mat", l=T("w.brancas") if mat > 0 else T("w.pretas"), d=desc_material(mat)) if abs(mat) >= 50 else ""
-    if abs(cp - mat) < 15:
+    din = abs(cp - mat)
+    if din < 40:
         txt = pre + T("p.eq")
     else:
-        lado = T("w.brancas") if cp - mat > 0 else T("w.pretas")
-        grau = T("g.leve") if abs(cp - mat) < 40 else (T("g.clara") if abs(cp - mat) < 100 else T("g.grande"))
-        txt = pre + T("p.vant", g=grau, l=lado)
-        txt += ": " + "; ".join(partes) + "." if partes else "."
+        lado_b = cp - mat > 0
+        grau = T("g.leve") if din < 100 else (T("g.moderada") if din < 200 else (T("g.clara") if din < 350 else T("g.grande")))
+        txt = pre + T("p.vant", g=grau, l=T("w.brancas") if lado_b else T("w.pretas")) + "."
+        fav = {True: [], False: []}
+        for k, v in maiores:
+            if abs(v) >= 8: fav[v > 0].append(mc(T("pf." + k), None, None, item=k))
+        for lado, itens in ((lado_b, fav[lado_b]), (not lado_b, fav[not lado_b])):
+            if itens: txt += " " + T("p.favor", l=T("w.brancas") if lado else T("w.pretas"), i=T("db.e").join(itens))
+        if engine_cp is not None and abs(engine_cp) < 40 and din >= 100: txt += " " + T("p.motor_eq")
     return idx, txt, contrib
 
 
@@ -249,16 +310,32 @@ def destaques(b: chess.Board, chaves):
             elif chave == "par_de_bispos":
                 if len(b.pieces(chess.BISHOP, c)) >= 2:
                     for sq in b.pieces(chess.BISHOP, c): casa(sq, c)
-            elif chave == "seguranca_rei":
+            elif chave == "seguranca_rei":      # escudo de peões
                 k = b.king(c)
                 if k is not None:
                     kf, kr = chess.square_file(k), r(k)
-                    zona = chess.SquareSet(chess.BB_KING_ATTACKS[k]) | chess.SquareSet.from_square(k)
-                    for sq in zona: casa(sq, c, "tinta")
+                    casa(k, c)
                     for sq in peoes:
                         if abs(chess.square_file(sq) - kf) <= 1 and 0 < r(sq) - kr <= 2: casa(sq, c)
+            elif chave == "rei_zona":           # casas ao redor do rei sob ataque, com as setas dos atacantes
+                k = b.king(c)
+                if k is not None:
+                    zona = chess.SquareSet(chess.BB_KING_ATTACKS[k]) | chess.SquareSet.from_square(k)
                     for sq in zona:
-                        for a in b.attackers(opp, sq): seta(a, sq, opp)
+                        ats = list(b.attackers(opp, sq))
+                        if ats:
+                            casa(sq, c, "tinta")
+                            seta(max(ats, key=lambda a: _PESO_ATQ[b.piece_type_at(a)]), sq, opp)
+            elif chave == "rei_raiox":          # linha do raio-x até o rei e a peça que está no meio
+                k = b.king(c)
+                if k is not None:
+                    for sq, meio in _raiox(b, k, opp):
+                        seta(sq, k, opp); casa(meio, c)
+            elif chave == "rei_fuga":           # casas de fuga do rei
+                k = b.king(c)
+                if k is not None:
+                    casa(k, c)
+                    for sq in _fuga(b, k, c): casa(sq, c, "tinta")
             elif chave == "rei_final":
                 k = b.king(c)
                 if k is not None: casa(k, c)
@@ -289,35 +366,80 @@ def destaques(b: chess.Board, chaves):
 
 
 def texto_debilidades(b: chess.Board) -> str:
-    """Quem tem mais debilidades (casas fracas e peças expostas) e se o adversário já as aproveita. Vazio quando não há diferença clara."""
+    """Quem tem mais debilidades (casas fracas e peças expostas) e se o adversário já as aproveita. Vazio quando não há diferença clara.
+    Casas e peças saem em negrito e são marcadas no tabuleiro ao passar o mouse."""
     casas = destaques(b, "casas_fracas")["casas"]
     risco = destaques(b, "pecas_em_risco")["casas"]
     info = {}
     for c in (chess.WHITE, chess.BLACK):
         lado = "B" if c else "P"
         fracas = [chess.parse_square(x[0]) for x in casas if x[1] == lado and x[2] == "tinta"]
-        expostas = [chess.parse_square(x[0]) for x in risco if x[1] == lado and c != b.turn]   # quem joga agora pode simplesmente salvar a peça: não conta
-        ocupa = [(sq, b.piece_type_at(sq)) for sq in fracas if (p := b.piece_at(sq)) and p.color != c and p.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)]
-        controla = [sq for sq in fracas if any(b.piece_type_at(a) in (chess.KNIGHT, chess.BISHOP) for a in b.attackers(not c, sq))]
+        expostas = [chess.parse_square(x[0]) for x in risco if x[1] == lado and c != b.turn]   # quem joga agora pode salvar a peça: não conta
+        ocupa = [sq for sq in fracas if (p := b.piece_at(sq)) and p.color != c and p.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)]
+        controla = []
+        for sq in fracas:
+            ats = [a for a in b.attackers(not c, sq) if b.piece_type_at(a) in (chess.KNIGHT, chess.BISHOP)]
+            if ats: controla.append((sq, ats[0]))
         info[c] = dict(fracas=fracas, expostas=expostas, ocupa=ocupa, controla=controla, nota=len(fracas) + 3 * len(expostas))
     fraco = chess.WHITE if info[chess.WHITE]["nota"] >= info[chess.BLACK]["nota"] else chess.BLACK
-    d = info[fraco]
-    explorada = bool(d["ocupa"] or d["controla"] or d["expostas"])      # o adversário já mexe nelas: vale falar mesmo com poucas
-    if d["nota"] - info[not fraco]["nota"] < (3 if explorada else 5): return ""
-    # o que são as debilidades
+    d, o = info[fraco], info[not fraco]
+    explorada = bool(d["ocupa"] or d["controla"] or d["expostas"])
+    if d["nota"] - o["nota"] < (3 if explorada else 5): return ""
+    lado = "B" if fraco == chess.WHITE else "P"
     partes = []
-    if len(d["fracas"]) - len(info[not fraco]["fracas"]) >= 3: partes.append(T("db.casas"))
-    if d["expostas"]: partes.append(T("db.pecas"))
+    if len(d["fracas"]) - len(o["fracas"]) >= 3:
+        prio = [x for x in d["ocupa"]] + [x[0] for x in d["controla"]]
+        ordem = list(dict.fromkeys(prio + d["fracas"]))   # sem repetir casas
+        nomes = [chess.square_name(x) for x in ordem[:4]]
+        partes.append(T("db.casas_em", s=mc(_lista_casas(nomes), nomes, lado)))
+    if d["expostas"]:
+        partes.append(T("db.pecas_em", p=T("db.e").join(pc(b, x) for x in d["expostas"][:2])))
     if not partes: return ""
     quem = T("w.brancas") if fraco == chess.WHITE else T("w.pretas")
     base = T("db.mais", l=quem, o=T("db.e").join(partes))
-    # estão sendo aproveitadas?
     como = []
-    if d["expostas"]: como.append(T("db.sob_ataque", n=len(d["expostas"]), v=P(len(d["expostas"]), "db.peca")))
-    if d["ocupa"]:
-        sq, pt = d["ocupa"][0]
-        como.append(T("db.ocupa", p=T("db.p" + str(pt)), s=chess.square_name(sq)))
-    elif d["controla"] and T("db.casas") in partes:
-        sqs = (T("db.e")).join(chess.square_name(x) for x in d["controla"][:2])
-        como.append(T("db.controla1" if len(d["controla"]) == 1 else "db.controla", s=sqs))
+    if d["expostas"]: como.append(T("db.ja_atacadas"))
+    if d["ocupa"] and T("db.casas_em", s="") and len(d["fracas"]) - len(o["fracas"]) >= 3:
+        como.append(T("db.ocupa", p=pc(b, d["ocupa"][0])))
+    elif d["controla"] and len(d["fracas"]) - len(o["fracas"]) >= 3:
+        sq, at = d["controla"][0]
+        como.append(T("db.controla", p=pc(b, at), s=mc(chess.square_name(sq), [chess.square_name(sq)], lado)))
     return base + " " + (T("db.aproveita", c=T("db.e").join(como)) if como else T("db.nao"))
+
+
+def texto_postos(b: chess.Board) -> str:
+    """Comentário breve dos postos avançados. Ex.: 'Posto avançado: o bispo preto em f5.' (em negrito, marcado ao passar o mouse)."""
+    itens = []
+    for sq, lado, _ in destaques(b, "postos_avancados")["casas"]:
+        s_ = chess.parse_square(sq)
+        if b.piece_at(s_) is not None: itens.append(pc(b, s_))
+    if not itens: return ""
+    itens = itens[:3]
+    return T("po.um" if len(itens) == 1 else "po.varios", l=T("db.e").join(itens) if len(itens) <= 2 else ", ".join(itens[:-1]) + T("db.e") + itens[-1])
+
+
+def texto_rei(b: chess.Board) -> str:
+    """Quando um dos reis está sob pressão (xeque com poucas respostas, poucas casas de fuga, casas ao redor atacadas, raio-x), diz isso
+    numa frase. O rei sai em negrito e, ao passar o mouse, a tela marca ele e as casas ao redor que estão atacadas."""
+    melhor = None
+    for c in (chess.WHITE, chess.BLACK):
+        k = b.king(c)
+        if k is None: continue
+        zona = list(chess.SquareSet(chess.BB_KING_ATTACKS[k]))
+        atacadas_sq = [s for s in zona if b.is_attacked_by(not c, s)]
+        fuga = len(_fuga(b, k, c))
+        raiox = len(_raiox(b, k, not c))
+        em_xeque = b.turn == c and b.is_check()
+        respostas = b.legal_moves.count() if (b.turn == c) else None
+        nota = (3 if em_xeque else 0) + (4 - min(fuga, 4)) + len(atacadas_sq) + 2 * raiox
+        if melhor is None or nota > melhor[0]: melhor = (nota, c, k, atacadas_sq, fuga, raiox, em_xeque, respostas)
+    if melhor is None: return ""
+    nota, c, k, atacadas_sq, fuga, raiox, em_xeque, respostas = melhor
+    partes = []
+    if em_xeque and respostas is not None and respostas <= 3:
+        partes.append(T("rk.xeque", n=respostas, v=P(respostas, "rk.resp")))
+    if fuga <= 1: partes.append(T("rk.fuga"))
+    if len(atacadas_sq) >= 2: partes.append(T("rk.zona"))
+    if raiox: partes.append(T("rk.raiox"))
+    if nota < 6 or len(partes) < 2: return ""
+    return T("rk.base", k=pc(b, k, extra=atacadas_sq, cap=True), m=", ".join(partes))

@@ -13,7 +13,7 @@ from indice.gerente import Gerente
 from indice.i18n import set_lang, T
 from indice import baixador, relogio
 from indice.aberturas import nomes as nomes_abertura
-from indice.explica import explicar_subida
+from indice.explica import explicar_subida, texto_repeticao
 from indice.posicional import destaques as destaques_posicao
 from indice.core import analyse
 
@@ -222,12 +222,15 @@ def push_row(job, raw, i):
             pos = pipeline.para_posicao(raw, GER.cfg.get("divergencia_peso", 0.0))
             row = pipeline.linha(raw, pos, analyse(pos))
         row["idx"] = i
+        row["repeticao_texto"] = texto_repeticao(job.get("fens") or [], job.get("lances") or [], i)   # repetição de lances / xeque perpétuo
         row["ant"] = _ant(job["rows"][i - 1], _subida(job, i) or "") if i > 0 and i - 1 < len(job["rows"]) else None
         if i < len(job["rows"]): job["rows"][i] = row
         else: job["rows"].append(row)
         job["versao"] += 1
+        row["_v"] = job["versao"]            # versão em que esta linha mudou: o cliente pede as que mudaram depois do que ele já viu
         if i + 1 < len(job["rows"]):   # a linha seguinte deve mostrar a jogada anterior atualizada
             job["rows"][i + 1]["ant"] = _ant(row, _subida(job, i + 1) or "")
+            job["rows"][i + 1]["_v"] = job["versao"]
 
 
 def traduz_job(job, lang):
@@ -365,8 +368,10 @@ class H(BaseHTTPRequestHandler):
                 job = JOBS.get(q.get("id"))
                 if not job: return self.json({"erro": "job inexistente"}, 404)
                 desde = max(0, int(q.get("desde", 0)) - 1)
+                v = int(q.get("v", -1))
+                mudadas = [r for r in job["rows"][:desde] if r.get("_v", 0) > v] if v >= 0 else []   # linhas já enviadas que mudaram (ex.: lance ao vivo que acabou de ser analisado)
                 return self.json(dict(estado=job["estado"], aviso=job["aviso"], info=job["info"], engines=job["engines"], total=len(job["rows"]),
-                                      versao=job["versao"], desde=desde, rows=job["rows"][desde:], lances=job["lances"], esperado=job["esperado"], fens=job["fens"], ucis=job["ucis"], aberturas=job.get("aberturas") or [],
+                                      versao=job["versao"], desde=desde, rows=job["rows"][desde:], mudadas=mudadas, lances=job["lances"], esperado=job["esperado"], fens=job["fens"], ucis=job["ucis"], aberturas=job.get("aberturas") or [],
                                       atual=job["atual"], decorrido=(None if job["atual"] is None else round(time.time() - job["atual_ini"], 1))))
             # estáticos
             p = "index.html" if u.path in ("/", "") else u.path.lstrip("/")

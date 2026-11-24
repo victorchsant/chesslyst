@@ -94,6 +94,7 @@ table.lin tr:hover{background:var(--card2)}
 .hb{display:inline-block;height:8px;background:var(--ac);border-radius:3px;vertical-align:middle;margin-right:5px}
 .lances{position:relative;max-height:300px;overflow:auto;font-size:13.5px;padding-right:4px}
 .par-l{display:grid;grid-template-columns:36px 1fr 1fr;gap:1px 4px;align-items:center}
+.pl-res{grid-column:1/-1;margin-top:6px;padding:4px 0;border-top:1px solid var(--bd);text-align:center;font:700 16px Georgia,serif;color:var(--ac);letter-spacing:1px}
 .pl-n{color:var(--mut);text-align:right;font-size:12px;padding-right:2px}
 .lances .m{padding:2px 8px;border-radius:5px;cursor:pointer;white-space:nowrap}
 .lances .m:hover{background:var(--card2)}.lances .m.on{background:var(--ac);color:var(--pri-tx)}
@@ -131,10 +132,14 @@ table.lin tr[data-pv]{cursor:pointer}
 .sub{color:var(--mut);font-size:12.5px;margin-bottom:6px}
 #blocos-bar{padding:2px 16px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .chip{border-radius:14px;padding:2px 12px;font-size:12.5px;opacity:.55}.chip.on{opacity:1;background:#35e0c222;border-color:var(--ac);color:var(--ac)}
-.strip{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:13px;max-width:calc(var(--sq)*8 + 130px);min-height:28px}
+.strip{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:13px;min-height:28px}
+#area-tab{display:flex;flex-direction:column;align-items:center}   /* tudo centralizado com o tabuleiro */
+#area-tab>.strip,#area-tab>.resultado,#area-tab>.abertura{box-sizing:border-box;width:calc(var(--sq)*8 + 4px);max-width:100%}
+#area-tab>.abertura{text-align:center}
 .pd{display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid #888}.pd.bl{background:#f2f2f2}.pd.pr{background:#222}
 .vez{color:var(--ac);font-size:12px;font-weight:700}.clk{margin-left:auto;font-family:Consolas,monospace;background:var(--bg2);border:1px solid var(--bd);border-radius:5px;padding:1px 8px}
-.sinal{position:absolute;right:2px;top:2px;z-index:4;min-width:calc(var(--sq)*.3);height:calc(var(--sq)*.3);border-radius:50%;color:#fff;font:700 calc(var(--sq)*.17)/calc(var(--sq)*.3) "Segoe UI";text-align:center;text-decoration:none;box-shadow:0 0 0 1px #0008;padding:0 2px}
+.sinal{position:absolute;right:2px;top:2px;z-index:4;min-width:calc(var(--sq)*.3);height:calc(var(--sq)*.3);border-radius:50%;color:#fff;font:700 calc(var(--sq)*.17)/1 "Segoe UI";display:flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;box-shadow:0 0 0 1px #0008;padding:0}
+.sinal svg{display:block;width:62%;height:62%}   /* o "+" do xeque é desenhado: a fonte o deixava fora do centro do círculo */
 .lances .m{display:inline-flex;align-items:center;gap:1px}
 .lances .pend{opacity:.35;cursor:progress}.lances .run{opacity:1;animation:pisca 1s infinite;outline:1px dashed var(--ac)}
 .sg{margin-left:2px;font-size:12px}.xeq{color:#f39c12;font-weight:700}.mate{color:#e74c3c;font-weight:800}
@@ -212,7 +217,11 @@ body.completa #lateral .bloco.recolhido{align-self:start}
 .janela{position:fixed;top:56px;right:16px;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 72px);z-index:60;display:flex;flex-direction:column;
   background:var(--card);border:1px solid var(--bd);border-radius:12px;box-shadow:0 16px 48px #0008}
 .janela[hidden]{display:none}
-#jan-sobre{width:min(420px,calc(100vw - 32px))}.abertura{margin:6px 2px 0;font-size:13px;color:var(--mut)}.abertura b{color:var(--tx)}.abertura .eco{display:inline-block;background:var(--card2);border:1px solid var(--bd);border-radius:5px;padding:0 6px;margin-right:6px;font-size:12px;color:var(--ac)}
+#jan-sobre{width:min(420px,calc(100vw - 32px))}.resultado{display:flex;align-items:center;gap:12px;margin:8px 2px 0;padding:6px 12px;border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:10px;background:var(--card)}
+.resultado b{font:700 clamp(28px,calc(var(--sq)*.62),44px)/1 Georgia,serif;color:var(--tx);letter-spacing:1px;white-space:nowrap}
+.resultado span{color:var(--mut);font-size:13px;line-height:1.3}
+.abertura{margin:6px 2px 0;font-size:13px;color:var(--mut)}.abertura b{color:var(--tx)}.abertura .eco{display:inline-block;background:var(--card2);border:1px solid var(--bd);border-radius:5px;padding:0 6px;margin-right:6px;font-size:12px;color:var(--ac)}
+.mc{font-weight:700;border-bottom:1px dotted currentColor;cursor:help;border-radius:3px;padding:0 1px;transition:background .12s}.mc:hover{background:color-mix(in srgb,var(--ac) 24%,transparent)}
 .rw[data-d]{cursor:pointer}.rw[data-d]:hover,.rw[data-d].fixo{background:var(--card2);border-radius:5px}.rw.fixo .rn::after{content:' 📌';font-size:10px}
 .dica,.info{display:inline-flex;align-items:center;justify-content:center;width:1.12em;height:1.12em;margin-left:.45em;color:var(--ac);cursor:help;vertical-align:-.22em;outline:none;position:relative;text-transform:none;letter-spacing:0;line-height:0;border-radius:50%;transition:background .15s}   /* o tamanho e o alinhamento acompanham a fonte da linha em que o ícone está */
 .dica .ic,.info .ic{display:block;flex:none}
@@ -237,7 +246,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
   <button class="tb" id="b-jan-eng" title="Engines e modelo de jogadores">🖥 Engines</button>
   <div class="grow"></div>
   <span id="live"></span>
-  <button class="tb" id="b-jan-sobre" title="Sobre o Chesslyst">ℹ Sobre</button>
+  <button class="tb" id="b-jan-sobre" title="Sobre o Chesslyst">Sobre</button>
   <button id="b-tema" title="Alternar tema claro/escuro">☀</button>
   <select id="c-lang" title="Idioma / Language"><option value="pt">Português</option><option value="en">English</option></select>
 </header>
@@ -332,7 +341,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
   </div>
 </div></div>
 
-<div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>ℹ Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
+<div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
   <div class="kv"><span class="k">Versão</span><div class="v">0.1.0</div></div>
@@ -373,6 +382,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
       <div class="slot" id="s-dir"></div><div class="slot" id="s-base"></div>
     </div>
     <div class="strip" id="pl-base"></div>
+    <div id="resultado" class="resultado" hidden></div>
     <div id="abertura" class="abertura" hidden></div>
     <div class="nav">
       <button id="n-ini">⏮</button><button id="n-ant">◀</button><button id="n-prox">▶</button><button id="n-fim">⏭</button><button id="n-flip" title="Virar o tabuleiro (tecla F)">⇅ Virar</button>
@@ -550,11 +560,16 @@ function pintaTab(tab,fen,ult,sg,dest,svgId,cav){
   const {b}=parseFen(fen);let h='';
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
     const fr=cfg.flip?7-r:r,fc=cfg.flip?7-c:c;const p=b[fr][fc];const nome=String.fromCharCode(97+fc)+(8-fr);
-    h+=`<div class="c ${(r+c)%2?'d':'l'} ${ult.includes(nome)?'ult':''}">${nome===dest?`<u class="sinal" style="background:${sg[1]}">${sg[0]}</u>`:''}${cfg.coord&&c===0?`<i class="r">${8-fr}</i>`:''}${cfg.coord&&r===7?`<i class="f">${String.fromCharCode(97+fc)}</i>`:''}${p?peca(p,c,cav?cav.get(nome):undefined):''}</div>`;
+    h+=`<div class="c ${(r+c)%2?'d':'l'} ${ult.includes(nome)?'ult':''}">${nome===dest?`<u class="sinal" style="background:${sg[1]}">${sg[0]==='+'?'<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.6v6.8M1.6 5h6.8" stroke="#fff" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>':sg[0]}</u>`:''}${cfg.coord&&c===0?`<i class="r">${8-fr}</i>`:''}${cfg.coord&&r===7?`<i class="f">${String.fromCharCode(97+fc)}</i>`:''}${p?peca(p,c,cav?cav.get(nome):undefined):''}</div>`;
   }
   tab.innerHTML=h+`<svg class="seta" viewBox="0 0 8 8" id="${svgId}-d"></svg><svg class="seta" viewBox="0 0 8 8" id="${svgId}"></svg>`;
 }
-function mostraAbertura(){   // nome completo da abertura (lista do Lichess; em português quando o idioma é pt) da posição em que a partida está
+function mostraResultado(){   // resultado da partida em números grandes, perto do tabuleiro (só quando a partida terminou)
+  const el=$('#resultado');if(!el)return;const r=(S.info&&S.info.Result)||'';
+  const m={'1-0':['1 – 0',t('Vitória das brancas')],'0-1':['0 – 1',t('Vitória das pretas')],'1/2-1/2':['½ – ½',t('Empate')]}[r];
+  el.hidden=!m;if(m)el.innerHTML=`<b>${m[0]}</b><span>${m[1]}<br>${t('Resultado da partida')}</span>`;
+}
+function mostraAbertura(){mostraResultado();   // nome completo da abertura (lista do Lichess; em português quando o idioma é pt) da posição em que a partida está
   const el=$('#abertura');if(!el)return;const A=(S.pre&&S.pre.aberturas)||[];const x=A.length?A[Math.min(S.cur,A.length-1)]:null;
   el.hidden=!x;if(x)el.innerHTML=`<span class="eco">${esc(x[0])}</span><b>${esc(LANG==='pt'?x[2]:x[1])}</b>`;
 }
@@ -645,6 +660,7 @@ function interpHtml(row){
     <span class="mut">${t('Vez das {lado}',{lado})}${row.rating?' · '+t('rating {r}',{r:row.rating}):''}${row.tempo_restante!=null?' · ⏱ '+fmtT(row.tempo_restante):''}</span></div>
     <p class="ires">${row.resumo}</p>`;
   if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}${ajuda('Os fatores que mais pesaram na chance de acerto desta posição.')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
+  if(row.repeticao_texto)h+=`<div class="kv"><span class="k">${t('Repetição')}</span><div class="v">${row.repeticao_texto}</div></div>`;
   if(row.avaliacao_texto)h+=`<div class="kv"><span class="k">${t('Avaliação')}${ajuda('Explica a pontuação da engine lendo a linha principal dela (material, mate, vantagem). Não altera o valor original da engine.')}</span><div class="v">${row.avaliacao_texto}</div></div>`;
   h+=`<div class="kv"><span class="k">${t('Posição')}${ajuda('Índice de Posição: avaliação estática (material, estrutura de peões, atividade das peças, rei), calculada pelo programa sem usar a engine.')}</span><div class="v">${row.posicao_texto}</div></div>`;
   if(ant)h+=`<div class="kv"><span class="k">${t('Último lance')}${ajuda('Índice de Jogada: qualidade do lance que acabou de ser jogado, comparada ao melhor lance da engine.')}</span><div class="v"><b>${ant.lance}</b> <span class="badge" style="background:${CLS_COR[ant.classe_id]||'#999'}">${ant.classe} · ${Math.round(ant.indice)}</span><div>${ant.texto}</div>${ant.tempo?`<div class="mut">⏱ ${ant.tempo}</div>`:''}</div></div>`;
@@ -662,7 +678,7 @@ const destCache={};let destFixo=null,destAtual=null,ULT=[];   // ULT: casas do �
 function fenAtual(){const row=S.rows[S.cur];return V?V.fens[V.k]:(row?row.fen:null)}
 function pintaDest(d){
   const s=$('#seta-d');if(!s)return;let h='';
-  if(d)for(const [sq,lado,tipo] of d.casas||[]){if(ULT.includes(sq))continue;const [x,y]=sqXY(sq),c=DEST_COR[lado];
+  if(d)for(const [sq,lado,tipo] of d.casas||[]){if(ULT.includes(sq)&&!d.forca)continue;const [x,y]=sqXY(sq),c=DEST_COR[lado];
     h+=tipo==='tinta'?`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}" opacity=".30"/>`
       :`<rect x="${x+.04}" y="${y+.04}" width=".92" height=".92" rx=".1" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width=".09"/>`}
   if(d)for(const [a,z,lado] of d.setas||[]){const c=DEST_COR[lado],[x1,y1]=sqXY(a),[x2,y2]=sqXY(z);
@@ -679,7 +695,11 @@ async function mostraDest(item){
 }
 function limpaDest(){destAtual=null;if(destFixo)mostraDest(destFixo);else pintaDest(null)}
 function marcaFixo(){$$('.rw[data-d]').forEach(e=>e.classList.toggle('fixo',e.dataset.d===destFixo))}
-document.addEventListener('mouseover',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r)mostraDest(r.dataset.d)});
+document.addEventListener('mouseover',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r)mostraDest(r.dataset.d);
+  const m=e.target.closest&&e.target.closest('.mc');if(!m)return;   // negrito da interpretação: marca no tabuleiro a(s) casa(s) ou o item citado
+  if(m.dataset.i){mostraDest(m.dataset.i);return}
+  const c=(m.dataset.c||'').split(',').filter(Boolean);if(c.length){destAtual=null;pintaDest({casas:c.map(q=>[q,m.dataset.l||'B','anel']),setas:[],forca:true})}});
+document.addEventListener('mouseout',e=>{const m=e.target.closest&&e.target.closest('.mc');if(m&&!(e.relatedTarget&&m.contains(e.relatedTarget)))limpaDest()});
 document.addEventListener('mouseout',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r&&!(e.relatedTarget&&r.contains(e.relatedTarget)))limpaDest()});
 document.addEventListener('click',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(!r)return;destFixo=destFixo===r.dataset.d?null:r.dataset.d;marcaFixo();destAtual=null;destFixo?mostraDest(destFixo):pintaDest(null)});
 const fcp=c=>(c>=0?'+':'−')+num(Math.abs(c)/100);
@@ -708,6 +728,8 @@ function listaLances(){
   let h='<div class="par-l">',k=0,n=base;
   if(!primeiraBrancas&&L.length){h+=`<div class="pl-n">${n}.</div><span class="m vazio">…</span>${cel(0)}`;k=1;n++}
   for(;k<L.length;k+=2,n++)h+=`<div class="pl-n">${n}.</div>${cel(k)}${k+1<L.length?cel(k+1):'<span></span>'}`;
+  const fim={'1-0':'1–0','0-1':'0–1','1/2-1/2':'½–½'}[(S.info&&S.info.Result)||''];   // o resultado fecha a notação, como no PGN
+  if(fim&&L.length)h+=`<div class="pl-res" title="${esc(t('Resultado da partida'))}">${fim}</div>`;
   h+='</div>';
   const box=$('#lances');const st=box.scrollTop;box.innerHTML=L.length?h:'<span class="mut">—</span>';box.scrollTop=st;   // mantém onde você estava
   if(!box._rol){box._rol=1;['wheel','touchmove','pointerdown'].forEach(ev=>box.addEventListener(ev,()=>{S._rol=Date.now()},{passive:true}))}
@@ -825,7 +847,7 @@ function vai(i){V=null;foco2=false;const n=totalPos();if(!n)return;
 async function api(u,corpo){const r=await fetch(u,corpo?{method:'POST',headers:{'Content-Type':'application/json','X-Lang':LANG},body:JSON.stringify(corpo)}:{headers:{'X-Lang':LANG}});return r.json()}
 function status(x){$('#status').innerHTML=x}
 async function inicia(fonte){   // começa a analisar a partida já carregada (mantém o tabuleiro e a posição atual)
-  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.rows=[];S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;
+  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.rows=[];S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;
   S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';$('#seguir').checked=S.live;desenha();
   status(t('Iniciando análise… (a primeira posição leva alguns segundos)'));
   const r=await api('/api/job',{fonte,depth:cfg.depth,lang:LANG});S.job=r.id;poll();S.timer=setInterval(poll,800);
@@ -872,10 +894,10 @@ async function carregaExemplo(){
   status(t('Exemplo recente: {x}. Navegue com ◀ ▶ e clique em “▶ Analisar”.',{x:t(d.titulo)}));
 }
 async function poll(){
-  if(!S.job)return;let d;try{d=await api(`/api/job?id=${S.job}&desde=${S.rows.length}`)}catch(e){return}
+  if(!S.job)return;let d;try{d=await api(`/api/job?id=${S.job}&desde=${S.rows.length}&v=${S.versao||0}`)}catch(e){return}
   if(d.erro){status(t('Erro: {e}',{e:d.erro}));clearInterval(S.timer);return}
   const seguindo=S.cur===S.rows.length-1||S.rows.length===0;const antes=S.rows.length;
-  d.rows.forEach((r,k)=>S.rows[d.desde+k]=r);S.estado=d.estado;S.info=d.info||{};S.engines=d.engines;
+  (d.mudadas||[]).forEach(r=>{S.rows[r.idx]=r});d.rows.forEach((r,k)=>S.rows[d.desde+k]=r);S.versao=d.versao;S.estado=d.estado;S.info=d.info||{};S.engines=d.engines;
   S.lances=d.lances||S.lances;S.esperado=d.esperado||S.esperado;S.atual=d.atual;S.decorrido=d.decorrido;
   if(d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
   if(S.rows.length&&$('#seguir').checked&&!V)S.cur=S.rows.length-1;   // marcado: mantém no lance mais recente e atualiza
@@ -1060,7 +1082,7 @@ function aplicaIdioma(){
 }
 $('#c-lang').value=LANG;
 $('#c-lang').onchange=async e=>{LANG=e.target.value;localStorage.setItem('indiceLang',LANG);
-  if(S.job){try{await api('/api/idioma',{id:S.job,lang:LANG})}catch(x){}S.rows=[];S.chave='';await poll()}
+  if(S.job){try{await api('/api/idioma',{id:S.job,lang:LANG})}catch(x){}S.rows=[];S.chave='';S.versao=0;await poll()}
   aplicaIdioma()};
 if(LANG!=='pt')aplicaIdioma();
 matchMedia('(prefers-color-scheme: light)').addEventListener('change',()=>{if(cfg.temaUi==='auto')aplica()});

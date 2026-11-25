@@ -34,10 +34,16 @@ def _n_peca(pt, n):
 
 
 def _lista(tipos):
-    """'um cavalo e um peão' (no máximo dois grupos, do mais valioso ao menos)."""
+    """'um cavalo e um peão' (todos os tipos, do mais valioso ao menos: esconder um deles mudaria a conta)."""
     c = Counter(tipos)
-    itens = sorted(c.items(), key=lambda kv: -VAL[kv[0]])[:2]
-    return (" and " if lang() == "en" else " e ").join(_n_peca(pt, n) for pt, n in itens)
+    itens = [_n_peca(pt, n) for pt, n in sorted(c.items(), key=lambda kv: -VAL[kv[0]])]
+    e = " and " if lang() == "en" else " e "
+    return itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + e + itens[-1]
+
+
+def _por(vai, vem):
+    """'dois cavalos' ou, quando algo é dado em troca, 'dois cavalos por um bispo'."""
+    return T("m.por", g=_lista(vai), p=_lista(vem)) if vem else _lista(vai)
 
 
 def _retomada(b, casa):
@@ -232,7 +238,7 @@ def _justifica(board, linha, tomada=None):
     mv = chess.Move.from_uci(linha["uci"]); pv = linha.get("pv_uci") or [linha["uci"]]
     if linha.get("mate") is not None and (linha["mate"] > 0) == bool(board.turn): return None   # a avaliação ao lado já diz "mate em N"
     seq = _seq(board, pv, tomada=tomada)
-    if seq["liquido"] >= 1.5 and seq["ganhou"] and _vale(board, linha): return T("pq.j_ganha", p=_lista(seq["ganhou"]))
+    if seq["liquido"] >= 1.5 and seq["ganhou"] and _vale(board, linha): return T("pq.j_ganha", p=_por(seq["ganhou"], seq["perdeu"]))
     if e_retomada(board, linha["uci"], tomada): return T("pq.j_retoma", s=chess.square_name(mv.to_square))
     if board.is_castling(mv): return T("pq.j_roque")
     if board.is_capture(mv):
@@ -269,7 +275,7 @@ def _ideia(board, melhor, seq_b, mate_b, net_j, eval_antes, permitiu_mate=False,
     """Complemento do 'O melhor era X': o que o melhor lance fazia."""
     if permitiu_mate: return T("x.i_evita_mate")
     if mate_b is not None and mate_b > 0: return T("x.i_mate", n=mate_b)
-    if seq_b["liquido"] >= 1.5 and seq_b["ganhou"]: return T("x.i_ganha", p=_lista(seq_b["ganhou"]))
+    if seq_b["liquido"] >= 1.5 and seq_b["ganhou"]: return T("x.i_ganha", p=_por(seq_b["ganhou"], seq_b["perdeu"]))
     try:
         m = chess.Move.from_uci(melhor["uci"])
         if board.gives_check(m): return T("x.i_xeque")
@@ -555,7 +561,7 @@ def explicar_porque(raw, pos, ap=None):
             primeiro = next((k for k, p in enumerate(seq["passos"]) if p["meu"] and p["cap"]), None)
             if not (mate is not None and mate > 0) and seq["liquido"] >= 1.5 and seq["ganhou"] and primeiro is not None \
                     and _vale(board, ln) and not e_retomada(board, ln["uci"], tomada):
-                out.append(T("pq.ganha", m=san, p=_lista(seq["ganhou"]), n=primeiro // 2 + 1, v=P(primeiro // 2 + 1, "w.lances"),
+                out.append(T("pq.ganha", m=san, p=_por(seq["ganhou"], seq["perdeu"]), n=primeiro // 2 + 1, v=P(primeiro // 2 + 1, "w.lances"),
                              l=_notacao(board, ln.get("pv_uci"), max(primeiro + 2, _ate_o_saldo(seq)))))
             elif not em_teoria or _justifica(board, ln, tomada):
                 out.append(T("pq.ideia", i=_linha_engine(board, ln, tomada)))
@@ -605,7 +611,7 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
         b2 = board.copy(); b2.push(move)
         if b2.is_checkmate(): return _r(info, "mate1", T("x.mate1"))
         if cid == "brilhante" and net_j <= -2 and eval_depois >= 55 and jog["perdeu"]:
-            return _r(info, "sacrificio", T("x.sacrificio", p=_lista(jog["perdeu"])))
+            return _r(info, "sacrificio", T("x.sacrificio", p=_por(jog["perdeu"], jog["ganhou"])))
         if mate_b is not None and mate_b > 0: return _r(info, "mate_forcado", T("x.mate_forcado", n=mate_b))
         if cid == "brilhante": return _r(info, "preciso", T("x.preciso"))
         if board.is_castling(move): return _r(info, "roque", T("x.roque"))
@@ -669,7 +675,7 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
     elif perda_confirmada and perda >= 1 and jog["perdeu"] and falta_ganhar >= 1 and perda >= falta_ganhar / 2:
         k, causa = perdeu_algo()          # o lance custa material (e o melhor lance não custava o mesmo)
     elif ganho_confirmado and falta_ganhar >= 1.5 and best["ganhou"]:
-        k, causa, omite = "deixou_ganhar", T("x.deixou_ganhar", p=_lista(best["ganhou"])), True
+        k, causa, omite = "deixou_ganhar", T("x.deixou_ganhar", p=_por(best["ganhou"], best["perdeu"])), True
     elif eval_antes >= 90 and eval_depois < 60: k, causa = "escapar", T("x.escapar")
     elif eval_antes >= 40 and eval_depois < 15: k, causa = "perdida", T("x.perdida")
     elif eval_antes >= 60 and eval_depois < 45: k, causa = "vantagem", T("x.vantagem")
@@ -683,14 +689,14 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
         elif pz and not pz[2]: k, causa = "piorou+pz_" + pz[0], T("x.piorou_mob", e=pz[1])
         else: k, causa = "piorou", T("x.piorou")
     if k in ("perdeu", "perdeu_troca") and idx_perda is not None and idx_perda >= 3:      # perda que não vem logo: diz em quantos lances
-        causa = T("x.perde_em", p=_lista(jog["perdeu"]), n=(idx_perda + 1) // 2)
+        causa = T("x.perde_em", p=_por(jog["perdeu"], jog["ganhou"]), n=(idx_perda + 1) // 2)
     prova = ""                                  # a variante que sustenta a causa, quando ela é longa
     if k in ("perdeu", "perdeu_troca"): prova = _linha_longa(board, jog)
     elif k == "permitiu_mate": prova = _linha_do_mate(board, raw["pv_jogado"])
     texto = causa + prova + (T("x.melhor_era", m=san_melhor, i="") if omite else melhor_era)   # sem repetir o que já foi dito
     if k == "deixou_ganhar": texto += _linha_longa(board, best)
     elif k == "perdeu_mate": texto += _linha_do_mate(board, melhor.get("pv_uci"))
-    elif best["ganhou"] and ideia == T("x.i_ganha", p=_lista(best["ganhou"])): texto += _linha_longa(board, best)
+    elif best["ganhou"] and ideia == T("x.i_ganha", p=_por(best["ganhou"], best["perdeu"])): texto += _linha_longa(board, best)
     if acerto >= 75 and cid in ("erro", "grave"): texto += T("j.facil")
     return _r(info, k, texto)
 
@@ -725,12 +731,13 @@ def explicar_avaliacao(raw, info=None):
     seq = _seq(board, L[0]["pv_uci"], tomada=raw.get("tomada"))
     do_lado = (fav == board.turn)                  # o favorecido é quem joga na posição?
     ganhou = seq["ganhou"] if do_lado else seq["perdeu"]     # peças que o favorecido ganha (saldo)
+    entregou = seq["perdeu"] if do_lado else seq["ganhou"]    # e as que ele dá em troca
     liquido = seq["liquido"] if do_lado else -seq["liquido"]
     causa, k = None, "posicional"
     if liquido >= 1.5 and ganhou and abs(cp) >= 100:
         # primeiro lance da variante em que o favorecido captura uma dessas peças
         quando = next((i for i, p in enumerate(seq["passos"]) if p["cap"] in ganhou and p["meu"] == do_lado), len(seq["passos"]))
-        causa, k = T("a.c_perde", l=outro, p=_lista(ganhou), w=_quando(quando)), "perde_material"
+        causa, k = T("a.c_perde", l=outro, p=_por(ganhou, entregou), w=_quando(quando)), "perde_material"
     else:
         mat = _material(board) * (1 if fav == chess.WHITE else -1)
         real = desc_material(board)

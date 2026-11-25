@@ -11,7 +11,7 @@ relevância (0 a 100) calculada sobre a posição; só os mais relevantes entram
 from __future__ import annotations
 import chess
 from .core import win_pct
-from .explica import _mlance, _seq, _ideias, _lista, _linha_longa, _linha_do_mate, _vale
+from .explica import _mlance, _seq, _ideias, _lista, _linha_longa, _linha_do_mate, _vale, _por
 from .posicional import (mc, CENTRO, VAL, peoes_passados, peoes_isolados, peoes_dobrados, ilhas, cavalos, cavalo_mal,
                          bispos_maus, pecas_desprotegidas, destaques, _raiox, _fuga, _PESO_ATQ, _NOME_PT, _NOME_EN)
 from .i18n import T, P, lang
@@ -211,7 +211,7 @@ def taticas(rows, fens, a, b, limite=2):
             seq = _seq(tab, L0["pv_uci"], 5)
             y = _ideias(tab, mv)
             if y and y[0][0] in ("garfo", "cravada"): tipo, extra, peso = y[0][0], y[0][1], 60 + 5 * max(0, seq["liquido"])
-            elif seq["liquido"] >= 2 and seq["ganhou"] and len(seq["passos"]) >= 3 and _vale(tab, L0, 150): tipo, extra, peso = "ganho", _lista(seq["ganhou"]), 55 + 5 * seq["liquido"]
+            elif seq["liquido"] >= 2 and seq["ganhou"] and len(seq["passos"]) >= 3 and _vale(tab, L0, 150): tipo, extra, peso = "ganho", _por(seq["ganhou"], seq["perdeu"]), 55 + 5 * seq["liquido"]
         if not tipo: continue
         jogou = r.get("uci") == L0["uci"]
         if not jogou and (r.get("jogado_perda") or 0) < 5: continue          # havia outro caminho igualmente bom

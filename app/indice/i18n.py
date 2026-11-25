@@ -110,6 +110,7 @@ TXT = {
     "x.i_retoma": (", completando a troca em {s}", ", completing the exchange on {s}"),
     "pq.j_retoma": ("completa a troca em {s}", "completes the exchange on {s}"),
     "w.lances": ("lance|lances", "move|moves"),
+    "m.por": ("{g} por {p}", "{g} for {p}"),
     "m.a_mais": ("{a} a mais", "{a} up"), "m.contra": ("{a} contra {b}", "{a} against {b}"),
     "p.trunfos": ("Pelos critérios de posição, as {l} têm mais trunfos, mas a engine vê o jogo equilibrado.", "By positional criteria {l} has more assets, but the engine sees a balanced game."),
     "y.sai_xeque": ("Sai do xeque.", "Gets out of check."), "yg.sai_xeque": ("saindo do xeque", "getting out of check"),

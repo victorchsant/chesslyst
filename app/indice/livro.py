@@ -17,6 +17,7 @@ from .focos import fases, fase_de, focos
 from .explica import _mlance, _notacao, _fmt_av, _ideias, _minusc, _lista, _material
 from .posicional import mc, peoes_passados, peoes_isolados, peoes_dobrados, bispos_maus
 from .i18n import T, lang
+from .relogio import fmt as fmt_tempo
 from .marcas import marca, vazia, citadas, lances_citados, do_texto, do_lance, da_linha, COR, BOA, RUIM
 from .posicional import pecas_desprotegidas
 
@@ -27,7 +28,7 @@ MAX_VARIANTES = 3       # diagramas de variante (os momentos que mais custaram)
 FORTES = ["garfo", "cravada", "dobra", "setima", "posto", "passado", "aberta", "semi", "fianchetto", "quebra"]
 BOAS = ("brilhante", "melhor", "excelente")
 FRACAS = ("imprecisao", "erro", "grave")
-SINAIS = {"brilhante": "!!", "excelente": "!", "imprecisao": "?!", "erro": "?", "grave": "??"}
+SINAIS = {"brilhante": "!!", "imprecisao": "?!", "erro": "?", "grave": "??"}   # "excelente" não leva "!": é um pouco abaixo do melhor
 
 
 def _numero(b):
@@ -173,6 +174,33 @@ def _a_favor(r):
     return " ".join(frases)
 
 
+def _retoma_anterior(rows, fens, i):
+    """O lance i retoma na casa em que o lance anterior capturou (a troca só se completa nele)."""
+    if i <= 0 or i >= len(rows) or not rows[i].get("uci") or not rows[i - 1].get("uci"): return False
+    if rows[i]["uci"][2:4] != rows[i - 1]["uci"][2:4]: return False
+    antes = chess.Board(fens[i - 1]); atual = chess.Board(fens[i])
+    return antes.is_capture(chess.Move.from_uci(rows[i - 1]["uci"])) and atual.is_capture(chess.Move.from_uci(rows[i]["uci"]))
+
+
+def reflexoes(rows, minimo=600, quantas=2):
+    """As jogadas em que mais se pensou na partida (pelo menos `minimo` segundos)."""
+    longas = [i for i, r in enumerate(rows) if r.get("move") and (r.get("tempo_gasto") or 0) >= minimo]
+    return sorted(sorted(longas, key=lambda i: -rows[i]["tempo_gasto"])[:quantas])
+
+
+def _par_reflexao(rows, fens, i):
+    r = rows[i]; t = chess.Board(fens[i]); x = _lance_txt(rows, fens, i)
+    melhor = (r.get("linhas") or [None])[0]
+    html = T("lv.refletiu", x=x, l=_lado(r["side"] == "B"), t=fmt_tempo(r["tempo_gasto"]))
+    setas = [[r["uci"][:2], r["uci"][2:4], COR[t.turn]]]
+    if melhor and melhor["uci"] != r["uci"]:
+        html += " " + T("lv.refletiu_outro", m=_mlance(t, chess.Move.from_uci(melhor["uci"]), melhor["san"]))
+        setas.append([melhor["uci"][:2], melhor["uci"][2:4], BOA])
+    else:
+        html += " " + T("lv.refletiu_igual")
+    return dict(rotulo=T("lv.r_relogio"), html=html, marca=marca([], setas, fens[i], T("mk.antes", x=_numero(t) + r["move"])))
+
+
 def _ideias_jogo(rows, fens, a, b, limite=3):
     """Os lances do trecho com uma ideia clara, que a engine aprova. -> itens (na ordem da partida), cada um com a marca."""
     achadas = []
@@ -181,7 +209,7 @@ def _ideias_jogo(rows, fens, a, b, limite=3):
         if not r.get("uci") or r.get("jogada_classe_id") not in BOAS: continue
         t = chess.Board(fens[i])
         y = _ideias(t, chess.Move.from_uci(r["uci"]))
-        if y and y[0][0] in FORTES: achadas.append((FORTES.index(y[0][0]), i, y[0][0], y[0][1]))
+        if y and y[0][0] in FORTES and y[0][0] != "quebra": achadas.append((FORTES.index(y[0][0]), i, y[0][0], y[0][1]))
     escolhidas, tipos = [], set()
     for _, i, tipo, frase in sorted(achadas):
         if tipo in tipos: continue
@@ -209,19 +237,24 @@ def _avaliacao_trecho(rows, a, b):
     return T("lv.av_mudou", de=T(f"mc.e{estados[0]}"), para=T(f"mc.e{estados[-1]}"), a=_aval(seg[0]), b=_aval(seg[-1]))
 
 
-def _linha_trecho(rows, fens, a, b, titulo, fase, tipo="trecho", extra=""):
+def _linha_trecho(rows, fens, a, b, titulo, fase, tipo="trecho", extra="", pensadas=()):
     ini, fim = chess.Board(fens[a]), _fim_de(rows, fens, b)
     pecas, saldo = _trocas(ini, fim)
     estrutura, casas = _estrutura(ini, fim)
+    aberta = _retoma_anterior(rows, fens, b)       # o trecho acaba no meio de uma troca: saldo e estrutura ainda não valem
+    if aberta: pecas, saldo, estrutura, casas = "", "", "", []
     ideias = _ideias_jogo(rows, fens, a, b, 2 if tipo == "abertura" else 3)
     deslizes = [i for i in range(a, b) if rows[i].get("jogada_classe_id") in FRACAS]
     lista = focos(rows, fens, fase, a, b)
+    if aberta: lista = [f for f in lista if f["id"] not in ("material", "debilidades", "peoes", "protecao")]
     par = []
-    if extra: par.append(dict(rotulo="", html=extra))
+    if extra: par.append(dict(rotulo="", html=extra, marca=None))
     par.append(dict(rotulo=T("lv.r_lances"), html=_notacao_jogo(rows, fens, a, b), lances=True, seq=0))
     corpo = " ".join(x for x in (_avaliacao_trecho(rows, a, b) if tipo != "abertura" else "", pecas, saldo) if x)
     if fim.is_checkmate(): corpo = " ".join(x for x in (pecas, T("lv.fim_mate")) if x)
+    if aberta: corpo = " ".join(x for x in (corpo, T("lv.troca_aberta", s=rows[b - 1]["uci"][2:4])) if x)
     if corpo: par.append(dict(rotulo=T("lv.r_correu"), html=corpo))
+    par += [_par_reflexao(rows, fens, i) for i in pensadas if a <= i < b]
     par += _grupo(T("lv.r_ideias"), ideias)
     if deslizes:
         itens = []
@@ -276,13 +309,14 @@ def _frases_curtas(texto, limite):
     return " ".join(out)
 
 
-def _linha_momento(rows, fens, m, antes, tem_variante, fase):
+def _linha_momento(rows, fens, m, antes, tem_variante, fase, pensadas=()):
     i = m["i"]; r = rows[i]
     crit = r.get("critico")
     par = []
     if antes: par.append(dict(rotulo=T("lv.r_ate"), html=antes, lances=True))
     principal = []
-    if crit: principal.append(crit["texto"])
+    falha = (crit or {}).get("falha")
+    if crit: principal.append(crit["texto"].replace(" " + falha["texto"], "") if falha else crit["texto"])
     if r.get("jogada_texto") and (not crit or (crit["tipo"] == "unico" and not crit.get("achou"))): principal.append(r["jogada_texto"])
     if not crit and r.get("avaliacao_texto"): principal.append(r["avaliacao_texto"])
     variantes_no_texto = []
@@ -293,7 +327,12 @@ def _linha_momento(rows, fens, m, antes, tem_variante, fase):
         melhor = (r.get("linhas") or [None])[0]
         if melhor: mk["setas"] = marca([], mk["setas"] + do_lance(m["fen"], melhor["uci"], BOA, alvos=alvos)["setas"])["setas"]
         par.append(dict(rotulo="", html=texto, marca=mk))
-        par += variantes_no_texto
+        # a continuação do melhor lance já aparece como linha da engine: não se escreve duas vezes
+        par += [x for x in variantes_no_texto if not (m["variantes"] and x.get("cor") == BOA)]
+    if falha:
+        par.append(dict(rotulo=T("lv.r_se", s=falha["san"]), html=falha["texto"], item=True, lances=True, cor=RUIM,
+                        marca=da_linha(m["fen"], falha["pv"], RUIM, 4, T("mk.antes", x=m["titulo"]))))
+    if i in pensadas: par.append(_par_reflexao(rows, fens, i))
     # por que era difícil (motivos curtos da chance de acerto; as linhas da engine já aparecem abaixo)
     curtos = [x for x in (r.get("motivos") or "").split(" | ") if x and "<br>" not in x and "data-s=" not in x]
     if curtos: par.append(dict(rotulo=T("lv.r_dificuldade"), html=" ".join(curtos[:2])))
@@ -383,14 +422,16 @@ def _sem_repeticao(linhas):
 def montar_livro(rows, raws, fens, momentos, fim_teoria, abertura):
     """-> lista de linhas (diagrama + texto), na ordem da partida, com os trechos cortados nas mudanças de fase."""
     jogados = sum(1 for r in rows if r.get("move"))
+    pensadas = reflexoes(rows)
     lista = fases(rows, fens, fim_teoria)
     linhas = []
     ini = 0
     if lista and jogados:
         k = min(lista[0][2], momentos[0]["i"] if momentos else jogados)
+        while k < jogados and _retoma_anterior(rows, fens, k) and not (momentos and momentos[0]["i"] == k): k += 1
         if k >= 4:
             titulo = abertura["titulo"] if abertura else T("fc.f_abertura")
-            linhas.append(_linha_trecho(rows, fens, 0, k, titulo, "abertura", "abertura", abertura["texto"] if abertura else ""))
+            linhas.append(_linha_trecho(rows, fens, 0, k, titulo, "abertura", "abertura", abertura["texto"] if abertura else "", pensadas))
             ini = k
     com_variante = [m for m in momentos if m["variantes"] and (rows[m["i"]].get("jogado_perda") or 0) >= 10]
     com_variante = {m["i"] for m in sorted(com_variante, key=lambda m: -rows[m["i"]]["jogado_perda"])[:MAX_VARIANTES]}
@@ -408,22 +449,27 @@ def montar_livro(rows, raws, fens, momentos, fim_teoria, abertura):
         return pedacos
 
     def trechos(a, b, ultimo=False):
-        pedacos = blocos(a, b)
-        for n_p, (fase, x0, y0) in enumerate(pedacos):
+        cortes = []                                        # (fase, início, fim) de todos os trechos
+        for fase, x0, y0 in blocos(a, b):
             partes = max(1, -(-(y0 - x0) // MAX_TRECHO))
-            cortes = [x0 + round((y0 - x0) * k / partes) for k in range(partes + 1)]
-            for k in range(partes):
-                x, y = cortes[k], cortes[k + 1]
-                n1, n2 = chess.Board(fens[x]).fullmove_number, chess.Board(fens[y - 1]).fullmove_number
-                titulo = T("lv.t_lances", a=n1, b=n2) if n1 != n2 else T("lv.t_lance", a=n1)
-                if ultimo and k == partes - 1 and n_p == len(pedacos) - 1: titulo = T("lv.t_desfecho", t=titulo)
-                linhas.append(_linha_trecho(rows, fens, x, y, titulo, fase))
+            pontos_ = [x0 + round((y0 - x0) * k / partes) for k in range(partes + 1)]
+            cortes += [[fase, pontos_[k], pontos_[k + 1]] for k in range(partes)]
+        for k in range(len(cortes) - 1):                   # nenhum corte entre uma captura e a retomada
+            y = cortes[k][2]
+            while y < cortes[k + 1][2] and _retoma_anterior(rows, fens, y): y += 1
+            cortes[k][2] = cortes[k + 1][1] = y
+        cortes = [c for c in cortes if c[2] > c[1]]
+        for n_t, (fase, x, y) in enumerate(cortes):
+            n1, n2 = chess.Board(fens[x]).fullmove_number, chess.Board(fens[y - 1]).fullmove_number
+            titulo = T("lv.t_lances", a=n1, b=n2) if n1 != n2 else T("lv.t_lance", a=n1)
+            if ultimo and n_t == len(cortes) - 1: titulo = T("lv.t_desfecho", t=titulo)
+            linhas.append(_linha_trecho(rows, fens, x, y, titulo, fase, pensadas=pensadas))
 
     for m in momentos:
         i = m["i"]; antes = ""
         if i - ini >= MIN_TRECHO: trechos(ini, i)
         elif i > ini: antes = _notacao_jogo(rows, fens, ini, i)
-        linhas.append(_linha_momento(rows, fens, m, antes, i in com_variante, fase_de(lista, i)))
+        linhas.append(_linha_momento(rows, fens, m, antes, i in com_variante, fase_de(lista, i), pensadas))
         if i in com_variante:
             v = _linha_variante(rows, raws, fens, m); v["fase"] = fase_de(lista, i); linhas.append(v)
         ini = max(ini, i + 1 if rows[i].get("move") else i)

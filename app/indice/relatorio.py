@@ -9,11 +9,13 @@ import html, re
 import chess
 from .explica import _notacao, _mlance, _fmt_av, _SAN
 from .precisao import numeros as _numeros
+from .relogio import fmt as fmt_tempo
+from .livro import reflexoes
 from .livro import montar_livro, fio_da_partida
 from .focos import fases, perfil
 from .i18n import T, P, num, lang
 
-SINAIS = {"brilhante": "!!", "excelente": "!", "imprecisao": "?!", "erro": "?", "grave": "??"}
+SINAIS = {"brilhante": "!!", "imprecisao": "?!", "erro": "?", "grave": "??"}   # "excelente" não leva "!": é um pouco abaixo do melhor
 MAX_PRINCIPAIS, MAX_COMPLETO = 8, 40
 COR_MELHOR, COR_JOGADO = "#1e9e5a", "#e0383e"
 
@@ -227,6 +229,20 @@ def _falas_bloco(l):
     return [x for x in out if x["texto"].strip(" .")]
 
 
+def _fim_por_repeticao(rows, fens, resultado):
+    """Quando a partida acaba em empate com a posição final repetida três vezes: a frase que conta como terminou."""
+    if resultado != "1/2-1/2" or not rows: return ""
+    posicoes = list(fens) + ([rows[-1]["fen_depois"]] if rows[-1].get("move") and rows[-1].get("fen_depois") else [])
+    chave = lambda f: " ".join(f.split()[:4])
+    vezes = [k for k, f in enumerate(posicoes) if chave(f) == chave(posicoes[-1])]
+    if len(vezes) < 3: return ""
+    texto = T("rel.repeticao", n=len(vezes), m=chess.Board(posicoes[vezes[0]]).fullmove_number)
+    for lado, nome in (("B", T("w.brancas")), ("P", T("w.pretas"))):
+        if sum(1 for r in rows[vezes[0]:] if r.get("side") == lado and (r.get("move") or "").endswith("+")) >= 2:
+            texto += " " + T("rel.rep_xeques", l=nome)
+    return texto
+
+
 def montar(job: dict, modo: str = "completo") -> dict:
     """Relatório completo da análise feita até agora. modo: "principais" (momentos que decidem) ou "completo"."""
     rows = [r for r in job.get("rows") or [] if r]
@@ -253,7 +269,11 @@ def montar(job: dict, modo: str = "completo") -> dict:
         nome = eco[1] if lang() == "en" else eco[2]
         k = min(max(ult_teoria, 1), len(rows) - 1)
         texto = T("rel.ab_texto", e=eco[0], a=nome)
-        if teoria: texto += " " + T("rel.ab_teoria", n=chess.Board(fens[ult_teoria]).fullmove_number)
+        if teoria:
+            texto += " " + T("rel.ab_teoria", n=chess.Board(fens[ult_teoria]).fullmove_number)
+            if ult_teoria < len(rows) - 1 and rows[ult_teoria].get("move"):      # o lance que levou a uma posição pouco vista
+                b_ = chess.Board(fens[ult_teoria])
+                texto += " " + T("rel.saiu_teoria", x=_numero(b_) + _mlance(b_, chess.Move.from_uci(rows[ult_teoria]["uci"]), rows[ult_teoria]["move"]))
         falas = [dict(texto=f, v=-1, k=0) for f in _frases(para_voz(texto))]
         abertura = dict(titulo=f"{eco[0]} · {nome}", texto=texto, fen=fens[k], lances=_trecho(rows, fens, 0, k), falas=falas)
 
@@ -328,6 +348,18 @@ def montar(job: dict, modo: str = "completo") -> dict:
         if not r.get("uci") or not r.get("fen_depois"): continue
         b_ = chess.Board(fens[i])
         imagens.append(dict(i=i, fen=r["fen_depois"], uci=r["uci"], rotulo=_numero(b_) + r["move"] + SINAIS.get(r.get("jogada_classe_id"), "")))
+    # o relógio e a forma como a partida acabou
+    pensadas = reflexoes(rows, quantas=1)
+    for i in pensadas:
+        r = rows[i]; b_ = chess.Board(fens[i])
+        fio.append(T("lv.fio_relogio", x=_numero(b_) + _mlance(b_, chess.Move.from_uci(r["uci"]), r["move"]) + SINAIS.get(r.get("jogada_classe_id"), ""),
+                     l=T("w.brancas") if r["side"] == "B" else T("w.pretas"), t=fmt_tempo(r["tempo_gasto"])))
+    fim = _fim_por_repeticao(rows, fens, res)
+    if fim:
+        desfecho = f"{desfecho} {fim}"
+        conclusao["texto"] += " " + fim
+        conclusao["falas"] += [dict(texto=f, v=-1, k=0) for f in _frases(para_voz(fim))]
+        if livro: livro[-1]["paragrafos"].append(dict(rotulo=T("lv.r_terminou"), html=fim, marca=None))
     for l in livro: l["falas"] = _falas_bloco(l)
     falas_topo = capa["falas"] + voz_resumo() + [dict(texto=f, v=-1, k=0) for f in _frases(para_voz(" ".join([fases_txt, desfecho] + [x + "." if not x.endswith(".") else x for x in fio])))]
     falas_numeros = [dict(texto=T("rel.voz_numeros"), v=-1, k=0)] + voz_resumo()

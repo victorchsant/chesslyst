@@ -222,7 +222,10 @@ def push_row(job, raw, i):
             row = pipeline.linha_final(chess.Board(raw["fen"]), raw.get("rating"), raw.get("tempo"))
         else:
             pos = pipeline.para_posicao(raw, GER.cfg.get("divergencia_peso", 0.0))
-            row = pipeline.linha(raw, pos, analyse(pos))
+            row = pipeline.linha(raw, pos, analyse(pos), job["raws"][i - 1] if 0 < i <= len(job.get("raws") or []) else None)
+            res = (job.get("info") or {}).get("Result")
+            if raw.get("move") is None and res in ("1-0", "0-1", "1/2-1/2"):      # partida encerrada: não há lance a escolher
+                row["motivos"] = T("f.encerrada", r=res)
         row["idx"] = i
         row["repeticao_texto"] = texto_repeticao(job.get("fens") or [], job.get("lances") or [], i)   # repetição de lances / xeque perpétuo
         row["ant"] = _ant(job["rows"][i - 1], _subida(job, i) or "") if i > 0 and i - 1 < len(job["rows"]) else None

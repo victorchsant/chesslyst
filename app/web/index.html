@@ -167,7 +167,7 @@ html[data-tema="claro"] .cbar i.p{box-shadow:inset 0 0 0 1px #9aa6bd}
 #popvar.solta{pointer-events:none}
 #popvar .pv-dica{font-size:11px;color:var(--mut);margin-top:5px;max-width:calc(var(--sq)*8)}
 #tabpop{position:relative;display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border:2px solid #000;border-radius:3px;user-select:none;width:max-content}
-.mc[data-f]{cursor:pointer}table.lin tr[data-pv] td:nth-child(2) b{cursor:pointer;border-radius:3px;padding:0 2px}table.lin tr[data-pv] td:nth-child(2) b:hover,table.lin .pvm.pv-fixo,table.lin b.pv-fixo{background:color-mix(in srgb,var(--ac) 28%,transparent)}
+.antigo{color:var(--mut);font-size:.93em}.antigo .mc{color:inherit}.mc[data-f]{cursor:pointer}table.lin tr[data-pv] td:nth-child(2) b{cursor:pointer;border-radius:3px;padding:0 2px}table.lin tr[data-pv] td:nth-child(2) b:hover,table.lin .pvm.pv-fixo,table.lin b.pv-fixo{background:color-mix(in srgb,var(--ac) 28%,transparent)}
 #popvar .pv-abre{width:100%;font-size:12px}.mc.pv-fixo{background:color-mix(in srgb,var(--ac) 28%,transparent)}
 #tab2{position:relative;display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border:2px solid #000;border-radius:3px;user-select:none;margin:6px auto;width:max-content}
 #var-card{max-width:calc(var(--sq)*8 + 130px);margin-top:10px;border-color:#ffd54a}
@@ -356,7 +356,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.2.5</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.2.6</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -414,7 +414,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     <div class="card bloco" data-b="interp"><div class="bh"><span>Interpretação do lance</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc" id="interp"><div class="mut">Escolha um jogo acima.</div></div></div>
     <div class="card bloco" data-b="pos"><div class="bh"><span>Posição em detalhes</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc" id="pos-det"><div class="mut">—</div></div></div>
     <div class="card bloco" data-b="lances"><div class="bh"><span>Lances</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc"><div class="lances" id="lances"></div>
-      <div class="leg2">!! brilhante · ★ melhor lance · ! excelente · ?! imprecisão · ? erro · ?? erro grave · <b class="xeq">+</b> xeque · <b class="mate">#</b> xeque-mate · <b style="color:#e0383e">◆</b> momento crítico · cinza = ainda em análise</div></div></div>
+      <div class="leg2">!! brilhante · ★ melhor lance · ✓ excelente · ?! imprecisão · ? erro · ?? erro grave · <b class="xeq">+</b> xeque · <b class="mate">#</b> xeque-mate · <b style="color:#e0383e">◆</b> momento crítico · cinza = ainda em análise</div></div></div>
     <div class="card bloco" data-b="graf"><div class="bh"><span>Os índices ao longo da partida</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc"><canvas id="graf"></canvas>
       <div class="leg"><span><i style="background:var(--c-eng)"></i>Engine</span><span><i style="background:var(--c-pos)"></i>Posição</span><span><i style="background:var(--c-mat)"></i>Material</span><span><i style="background:var(--c-ace)"></i>Acerto</span><span><i style="background:var(--c-jog)"></i>Jogada</span></div><div id="numeros-bloco" hidden><div class="sub" id="numeros-tit"></div><div id="numeros"></div></div></div></div>
     <div class="card bloco" data-b="linhas" id="lin-lat-card"><div class="bh"><span>Linhas de cálculo</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc" id="lin-lat"></div></div>
@@ -569,7 +569,7 @@ function peca(ch,col,cavInv){
   return `<span class="p ${w?'w':'b'}${inv?' inv':''}">${g}${cfg.peca==='letras'||vetor?'':'︎'}</span>`;
 }
 let V=null,V2=null,foco2=false;   // V: variante no tabuleiro principal; V2: no tabuleiro separado
-const SINAL={brilhante:['!!','#1abc9c'],melhor:['★','#27ae60'],excelente:['!','#2ecc71'],imprecisao:['?!','#d4ac0d'],erro:['?','#e67e22'],grave:['??','#e74c3c']};
+const SINAL={brilhante:['!!','#1abc9c'],melhor:['★','#27ae60'],excelente:['✓','#2ecc71'],imprecisao:['?!','#d4ac0d'],erro:['?','#e67e22'],grave:['??','#e74c3c']};
 function sanHtml(san){if(!san)return'';const m=san.match(/^(.*?)([+#]?)$/);return m[1]+(m[2]?`<b class="${m[2]==='#'?'mate':'xeq'}">${m[2]}</b>`:'')}
 function sinalLance(r){const x=r&&SINAL[r.jogada_classe_id];return x?`<b class="sg" style="color:${x[1]}">${x[0]}</b>`:''}
 function sinalTab(ant){if(!ant||!ant.move)return null;const x=SINAL[ant.jogada_classe_id];if(x&&x[0]!=='★')return x;if(ant.move.endsWith('#'))return['#','#c0392b'];if(ant.move.endsWith('+'))return['+','#e67e22'];return null}

@@ -112,7 +112,7 @@ window.EN_DICT = {
   'Os índices ao longo da partida': 'The indices over the game',
   'recolher/expandir': 'collapse/expand',
   'Escolha um jogo acima.': 'Pick a game above.',
-  '!! brilhante · ★ melhor lance · ! excelente · ?! imprecisão · ? erro · ?? erro grave ·': '!! brilliant · ★ best move · ! excellent · ?! inaccuracy · ? mistake · ?? blunder ·',
+  '!! brilhante · ★ melhor lance · ✓ excelente · ?! imprecisão · ? erro · ?? erro grave ·': '!! brilliant · ★ best move · ✓ excellent · ?! inaccuracy · ? mistake · ?? blunder ·',
   'xeque ·': 'check ·',
   'xeque-mate · cinza = ainda em análise': 'checkmate · gray = still being analyzed',
   'Blocos:': 'Blocks:',

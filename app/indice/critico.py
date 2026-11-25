@@ -9,7 +9,7 @@ Ficam de fora a teoria de abertura, o lance forçado e a posição que já estav
 from __future__ import annotations
 import chess
 from .core import win_pct
-from .explica import _mlance, _notacao, _justifica, _fmt_av
+from .explica import _mlance, _notacao, _justifica, _fmt_av, _seq, _ate_o_saldo, _lista
 from .i18n import T, num
 
 MIN_GAP = 15      # pontos de chance de vitória entre o melhor lance e o segundo
@@ -23,6 +23,20 @@ def estado(w_brancas: float) -> int:
     if w_brancas >= 62: return 1
     if w_brancas > 38: return 0
     return -1 if w_brancas > 20 else -2
+
+
+def _por_que_falha(tab, linha, tomada):
+    """O que acontece com a segunda opção: a linha da engine e, quando ela custa material, o que se entrega."""
+    pv = linha.get("pv_uci") or []
+    if len(pv) < 2: return ""
+    s = _mlance(tab, chess.Move.from_uci(linha["uci"]), linha["san"])
+    seq = _seq(tab, pv, tomada=tomada)
+    if seq["liquido"] <= -1.5 and seq["perdeu"]:
+        l = _notacao(tab, [p["move"].uci() for p in seq["passos"]], _ate_o_saldo(seq))
+        lado = T("w.brancas") if tab.turn else T("w.pretas")
+        if seq["ganhou"]: return T("mc.falha_troca", s=s, l=l, lado=lado, p=_lista(seq["perdeu"]), g=_lista(seq["ganhou"]))
+        return T("mc.falha_mat", s=s, l=l, lado=lado, p=_lista(seq["perdeu"]))
+    return T("mc.falha", s=s, l=_notacao(tab, pv, 4))
 
 
 def momento_critico(raw: dict, acerto: float):
@@ -53,7 +67,7 @@ def momento_critico(raw: dict, acerto: float):
     mv = chess.Move.from_uci(melhor["uci"])
     m_txt = _mlance(tab, mv, melhor["san"])
     a_txt = _fmt_av(melhor["cp"], melhor["mate"])
-    just = _justifica(tab, melhor)
+    just = _justifica(tab, melhor, raw.get("tomada"))
     lado = T("w.brancas") if brancas else T("w.pretas")
     achou = None if depois is None else perda <= 3
 
@@ -66,6 +80,7 @@ def momento_critico(raw: dict, acerto: float):
         av_jog = _fmt_av(None if cp is None else cp * sinal, None if mate is None else mate * sinal) if (cp is not None or mate) else None
 
     frases = []
+    falha_item = None
     if virada:
         frases.append(T("mc.virada", x=jog_txt, de=T(f"mc.e{e_antes}"), para=T(f"mc.e{e_depois}"), a=a_txt, b=av_jog or T("mc.mate_dado")))
         frases.append(T("mc.indicado", m=m_txt, j=(": " + just) if just else ""))
@@ -79,6 +94,11 @@ def momento_critico(raw: dict, acerto: float):
             frases.append(T("mc.unico", m=m_txt, a=a_txt, s=_mlance(tab, chess.Move.from_uci(s["uci"]), s["san"]),
                             sa=_fmt_av(s["cp"], s["mate"]), d=num(gap, 0)))
         if just: frases.append(T("mc.porque", j=just))
+        if s:
+            falha = _por_que_falha(tab, s, raw.get("tomada"))
+            if falha:
+                frases.append(falha)
+                falha_item = dict(texto=falha, san=s["san"], pv=(s.get("pv_uci") or [])[:4])
         resto = (melhor.get("pv_uci") or [])[1:5]
         if resto:
             b2 = tab.copy(); b2.push(mv)
@@ -87,4 +107,4 @@ def momento_critico(raw: dict, acerto: float):
         elif jog_txt: frases.append(T("mc.jogou", l=lado, x=jog_txt, p=num(perda, 0)))
     peso = 60 + perda if virada else gap * (1 - acerto / 120) + (8 if achou else 0)
     return dict(tipo="virada" if virada else "unico", titulo=T("mc.t_virada" if virada else "mc.t_unico"),
-                texto=" ".join(frases), peso=round(peso, 1), achou=achou)
+                texto=" ".join(frases), peso=round(peso, 1), achou=achou, falha=falha_item)

@@ -9,10 +9,10 @@ from pathlib import Path
 import chess, chess.engine, chess.pgn
 from . import fontes
 from .core import Candidate, Position, analyse, win_pct, indice_jogada, nome_classe
-from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao
+from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao, tomada_de, e_retomada
 from .critico import momento_critico
 from .i18n import T
-from .posicional import indice_posicao, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei, texto_pecas
+from .posicional import indice_posicao, desc_material, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei, texto_pecas
 
 from .caminhos import DADOS as ROOT       # engines baixadas ficam na pasta de dados do usuário
 def _acha(nome):
@@ -233,15 +233,47 @@ def motivos_do_porque(raw, pos, r, ap):
     return novos[:1] + base + novos[1:] if novos and "teoria" in r.flags else base + novos
 
 
-def linha(raw, pos, r):
-    """Linha de resultados de uma posição. Sem lance jogado (posição atual), os campos de jogada ficam vazios."""
+def _unidades_posicao(fen, ecp):
+    """As frases da análise de posição de uma posição, separadas para se comparar com as da posição anterior.
+    -> (índice 0-100, contribuições, [frases])."""
+    b = chess.Board(fen)
+    ip, tp, contrib = indice_posicao(b, ecp)
+    corte = tp.find(". ") + 2 if desc_material(b) else 0
+    unidades = [x for x in (tp[:corte].strip(), tp[corte:].strip()) if x]
+    # debilidades (quem tem mais e se são aproveitadas), postos avançados, peças mal postas e rei sob pressão
+    unidades += [x for x in (texto_debilidades(b), texto_postos(b), texto_pecas(b), texto_rei(b)) if x]
+    return ip, contrib, unidades
+
+
+def _ecp(raw):
+    l0 = raw["linhas"][0] if raw.get("linhas") else None
+    return l0["cp"] if l0 and l0.get("mate") is None else None
+
+
+def _texto_posicao(unidades, anteriores):
+    """O que é novo vem primeiro; o que já valia na posição anterior fica depois, apagado, como lembrete."""
+    puro = lambda x: re.sub(r"<[^>]+>", "", x)
+    ja = {puro(x) for x in anteriores}
+    novas = [x for x in unidades if puro(x) not in ja]
+    antigas = [x for x in unidades if puro(x) in ja]
+    if not antigas: return " ".join(novas)
+    velho = f'<span class="antigo">{T("p.como_antes" if novas else "p.sem_mudanca")} {" ".join(antigas)}</span>'
+    return (" ".join(novas) + " " if novas else "") + velho
+
+
+def linha(raw, pos, r, ant=None):
+    """Linha de resultados de uma posição. Sem lance jogado (posição atual), os campos de jogada ficam vazios.
+    `ant` = dados brutos da posição anterior: diz se há uma troca em andamento e o que mudou na posição."""
+    tomada = tomada_de(ant, raw["fen"])
+    raw = dict(raw, tomada=tomada)
     brancas = raw["side"] == "B"
-    _l0 = raw["linhas"][0] if raw.get("linhas") else None
-    ip, tp, contrib = indice_posicao(chess.Board(raw["fen"]), (_l0["cp"] if _l0 and _l0.get("mate") is None else None))
-    postos = texto_postos(chess.Board(raw["fen"]))   # postos avançados, em uma frase curta
-    rei_txt = texto_rei(chess.Board(raw["fen"]))     # rei sob pressão (xeque, casas de fuga, raio-x)
-    pecas_txt = texto_pecas(chess.Board(raw["fen"]))   # cavalos mal colocados, bispos ruins, peões passados avançados
-    deb = texto_debilidades(chess.Board(raw["fen"]))   # quem tem mais debilidades e se estão sendo aproveitadas
+    ip, contrib, unidades = _unidades_posicao(raw["fen"], _ecp(raw))
+    if tomada and raw.get("linhas") and e_retomada(chess.Board(raw["fen"]), raw["linhas"][0]["uci"], tomada):
+        # no meio da troca, material e "peças expostas" enganam: a posição só se avalia depois da retomada
+        tp = T("p.troca", s=chess.square_name(tomada[0]))
+    else:
+        antes = _unidades_posicao(ant["fen"], _ecp(ant))[2] if ant and ant.get("fen") else []
+        tp = _texto_posicao(unidades, antes)
     ecp = raw["linhas"][0]["cp"] if raw["linhas"] else None   # avaliação ORIGINAL da engine (brancas), só para o resíduo
     ap = analise_posicao(chess.Board(raw["fen"]), ecp)
     d = dict(ply=raw["ply"], side=raw["side"], move=raw["move"], uci=raw["uci"], rating=raw["rating"],
@@ -250,7 +282,7 @@ def linha(raw, pos, r):
              engine_cp=raw["linhas"][0]["cp"] if raw["linhas"] else None,
              engine_mate=raw["linhas"][0]["mate"] if raw["linhas"] else None,
              indice=round(r.index, 1), indice_bruto=round(r.index_bruto, 1), faixa=r.band,
-             posicao_brancas=round(ip, 1), posicao_texto=(tp + (" " + deb if deb else "") + (" " + postos if postos else "") + (" " + pecas_txt if pecas_txt else "") + (" " + rei_txt if rei_txt else "")),
+             posicao_brancas=round(ip, 1), posicao_texto=tp,
              material_brancas=round(ap["material_idx"], 1), estrutura_brancas=round(ap["estrutura_idx"], 1),
              posicao_cp=ap["cp"], material_cp=ap["material_cp"], posicao_grupos=ap["grupos"], posicao_residuo=ap["residuo"],
              posicao_componentes={k: round(v) for k, v in contrib.items() if abs(v) >= 3},
@@ -270,6 +302,9 @@ def linha(raw, pos, r):
         depois = win_pct(cp, mate)  # de quem jogou, depois do lance
         perda = round(r.eval_pct - depois, 1)
         nota, cid, txt = indice_jogada(perda, r.index, r.eval_pct, depois)
+        preferido = raw["linhas"][0]["san"] if raw.get("linhas") else raw["move"]
+        if cid == "melhor" and raw["move"] != preferido:      # "melhor lance" é só o primeiro da engine
+            cid, txt = "excelente", T("x.igual" if perda <= 0.5 else "x.quase", m=preferido)
         txt = explicar_lance(raw, cid, r.index, r.eval_pct, depois) or txt   # explicação concreta (material, mate, xeque...)
         txt = marca_notacao(txt, tab, variantes + [raw.get("pv_jogado")])
         d.update(jogada_indice=round(nota, 1), jogada_classe=nome_classe(cid), jogada_classe_id=cid, jogada_texto=txt, jogado_perda=perda)

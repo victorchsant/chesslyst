@@ -47,12 +47,15 @@ Depois de analisar, **📑 Relatório** monta, a partir da análise já feita:
 - **Livro interativo**: um único arquivo `.html`, que abre em qualquer navegador, com um passador em cada tabuleiro;
 - o relatório segue a *Aparência* escolhida (estilo das peças e cores do tabuleiro);
 - **focos por fase**, escolhidos pelo programa: abertura (desenvolvimento, centro, mobilidade, peças protegidas), meio-jogo (táticas, rei, debilidades, peças soltas, mobilidade) e final (táticas, atividade do rei, estrutura de peões, material). Nem toda partida chega ao final;
+- o relatório conta **como a partida terminou** em empate por repetição, onde ela saiu da teoria e as reflexões mais longas no relógio; no momento crítico com um só lance, mostra **por que a segunda opção falha**;
 - **tabela final** com os números da partida.
 
 ### Momento Crítico e precisão
 - **Momento Crítico:** só um lance resolve a posição e ele não é óbvio, ou o lance jogado muda o rumo da partida.
 - **Precisão** de cada jogador (0 a 100), pelo método usado pelo Lichess: nota de cada lance pelos pontos de chance de vitória perdidos, combinando a média ponderada pela oscilação da avaliação com a média harmônica. Como a engine e a profundidade podem ser outras, o número pode diferir do Lichess.
 - Quando um ganho, uma perda ou um mate só se decide numa **linha mais longa**, o texto escreve a variante da engine.
+- O texto só diz que um lado ganha material quando a avaliação da engine confirma; uma retomada é descrita como troca.
+- Na notação, **★** é o primeiro lance da engine e **✓** um lance excelente; os sinais **!!**, **?!**, **?** e **??** marcam brilhantes, imprecisões e erros.
 
 As ideias, as fases e os focos são identificados por regras sobre a análise da engine: descrevem ações concretas, mas não reconhecem planos estratégicos longos.
 

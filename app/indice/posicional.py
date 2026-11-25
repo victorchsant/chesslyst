@@ -130,9 +130,9 @@ def cavalos(b, c):
 
 
 def cavalo_mal(sq, casas):
-    """Cavalo na borda (colunas a/h ou fileiras 1/8) com até 3 casas úteis, ou em qualquer lugar com até 2."""
+    """Cavalo na borda (colunas a/h ou fileiras 1/8) com até 2 casas úteis, ou em qualquer lugar com no máximo 1."""
     borda = chess.square_file(sq) in (0, 7) or chess.square_rank(sq) in (0, 7)
-    return len(casas) <= (3 if borda else 2)
+    return len(casas) <= (2 if borda else 1)
 
 
 def bispos_maus(b, c):
@@ -144,7 +144,8 @@ def bispos_maus(b, c):
     for sq in b.pieces(chess.BISHOP, c):
         meus = [p for p in b.pieces(chess.PAWN, c) if 2 <= chess.square_file(p) <= 5 and cor_casa(p) == cor_casa(sq)]
         travados = [p for p in meus if 0 <= p + (8 if c else -8) < 64 and b.piece_type_at(p + (8 if c else -8)) == chess.PAWN]
-        if len(meus) >= 2 and travados and rel(sq) <= max(map(rel, meus)) and chess.popcount(b.attacks_mask(sq) & ~b.occupied_co[c]) <= 3:
+        # o bispo tem de estar ATRÁS de um peão travado: o bispo que já saiu da cadeia (como o de f4 no Sistema Londres) não conta
+        if len(meus) >= 2 and travados and rel(sq) < max(map(rel, travados)) and chess.popcount(b.attacks_mask(sq) & ~b.occupied_co[c]) <= 3:
             out.append((sq, meus))
     return out
 
@@ -335,11 +336,38 @@ def analise(b: chess.Board, engine_cp=None):
                 grupos=grupos, residuo=residuo, engine_cp=engine_cp)
 
 
-def desc_material(mat):
-    """Vantagem material por extenso ("uma peça a mais")."""
-    n = round(abs(mat) / 100)
-    k = {1: "m.peao", 2: "m.dois", 3: "m.peca", 4: "m.peca_peao", 5: "m.torre", 9: "m.dama"}.get(n)
-    return T(k) if k else T("m.mais", n=max(n, 1))
+_MAT_PT = {chess.PAWN: ("um peão", "peões", False), chess.KNIGHT: ("um cavalo", "cavalos", False), chess.BISHOP: ("um bispo", "bispos", False),
+           chess.ROOK: ("uma torre", "torres", True), chess.QUEEN: ("uma dama", "damas", True)}
+_VALOR_PECA = {chess.QUEEN: 9, chess.ROOK: 5, chess.BISHOP: 3, chess.KNIGHT: 3, chess.PAWN: 1}
+
+
+def _pecas_por_extenso(contagem):
+    out = []
+    for t in _VALOR_PECA:
+        n = contagem.get(t, 0)
+        if not n: continue
+        if lang() == "en":
+            nome = _NOME_EN[t]
+            out.append(f"a {nome}" if n == 1 else ({2: "two", 3: "three"}.get(n, str(n)) + f" {nome}s"))
+        else:
+            um, plural, fem = _MAT_PT[t]
+            out.append(um if n == 1 else ({2: "duas" if fem else "dois", 3: "três"}.get(n, str(n)) + f" {plural}"))
+    e = " and " if lang() == "en" else " e "
+    return out[0] if len(out) == 1 else ", ".join(out[:-1]) + e + out[-1]
+
+
+def desc_material(b):
+    """A diferença de material pelas PEÇAS do tabuleiro (sem os pesos do índice posicional).
+    -> (quem está na frente: True = brancas, "um cavalo a mais" | "uma torre contra um bispo e um peão") ou None se empata."""
+    dif = {t: len(b.pieces(t, True)) - len(b.pieces(t, False)) for t in _VALOR_PECA}
+    saldo = sum(_VALOR_PECA[t] * n for t, n in dif.items())
+    if not saldo: return None
+    lider = saldo > 0
+    sinal = 1 if lider else -1
+    meus = {t: sinal * n for t, n in dif.items() if sinal * n > 0}
+    outros = {t: -sinal * n for t, n in dif.items() if sinal * n < 0}
+    if not meus: return None
+    return lider, (T("m.contra", a=_pecas_por_extenso(meus), b=_pecas_por_extenso(outros)) if outros else T("m.a_mais", a=_pecas_por_extenso(meus)))
 
 
 def indice_posicao(b: chess.Board, engine_cp=None):
@@ -349,20 +377,22 @@ def indice_posicao(b: chess.Board, engine_cp=None):
     idx = win_pct(cp)
     maiores = sorted(((k, v) for k, v in contrib.items() if k != "material"), key=lambda kv: -abs(kv[1]))[:3]
     mat = contrib["material"]
-    pre = T("p.mat", l=T("w.brancas") if mat > 0 else T("w.pretas"), d=desc_material(mat)) if abs(mat) >= 50 else ""
+    real = desc_material(b)
+    pre = T("p.mat", l=T("w.brancas") if real[0] else T("w.pretas"), d=real[1]) if real else ""
     din = abs(cp - mat)
     if din < 40:
         txt = pre + T("p.eq")
     else:
         lado_b = cp - mat > 0
         grau = T("g.leve") if din < 100 else (T("g.moderada") if din < 200 else (T("g.clara") if din < 350 else T("g.grande")))
-        txt = pre + T("p.vant", g=grau, l=T("w.brancas") if lado_b else T("w.pretas")) + "."
+        engine_eq = engine_cp is not None and abs(engine_cp) < 40 and din >= 100
+        lado = T("w.brancas") if lado_b else T("w.pretas")
+        txt = pre + (T("p.trunfos", l=lado) if engine_eq else T("p.vant", g=grau, l=lado) + ".")
         fav = {True: [], False: []}
         for k, v in maiores:
             if abs(v) >= 8: fav[v > 0].append(mc(T("pf." + k), None, None, item=k))
         for lado, itens in ((lado_b, fav[lado_b]), (not lado_b, fav[not lado_b])):
             if itens: txt += " " + T("p.favor", l=T("w.brancas") if lado else T("w.pretas"), i=itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + T("db.e") + itens[-1])
-        if engine_cp is not None and abs(engine_cp) < 40 and din >= 100: txt += " " + T("p.motor_eq")
     return idx, txt, contrib
 
 

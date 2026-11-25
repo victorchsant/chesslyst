@@ -7,7 +7,7 @@ falado, já sem a notação abreviada ("Cf3" vira "cavalo f 3") para a voz do na
 from __future__ import annotations
 import html, re
 import chess
-from .explica import _notacao, _mlance, _fmt_av
+from .explica import _notacao, _mlance, _fmt_av, _SAN
 from .precisao import numeros as _numeros
 from .livro import montar_livro, fio_da_partida
 from .focos import fases, perfil
@@ -60,6 +60,7 @@ def para_voz(trecho: str) -> str:
     s = re.sub(r"<b\b([^>]*)>(.*?)</b>", negrito, s, flags=re.S)
     s = re.sub(r"<[^>]+>", " ", s)
     s = html.unescape(s)
+    s = re.sub(r"(?<=\d)[!?]+|(?<=xeque)[!?]+|(?<=check)[!?]+|(?<=mate)[!?]+|(?<=pequeno)[!?]+|(?<=grande)[!?]+|(?<=castle)[!?]+", "", s)
     en = lang() == "en"
     s = re.sub(r"\(\s*\+(\d+[.,]\d+)\s*\)", lambda m: (f", evaluation plus {m.group(1)}," if en else f", avaliação mais {m.group(1)},"), s)
     s = re.sub(r"\(\s*[−-](\d+[.,]\d+)\s*\)", lambda m: (f", evaluation minus {m.group(1)}," if en else f", avaliação menos {m.group(1)},"), s)
@@ -206,7 +207,27 @@ def _data(info):
     return f"{a}-{mes}-{d}" if lang() == "en" else f"{d}/{mes}/{a}"
 
 
-def montar(job: dict, modo: str = "principais") -> dict:
+def _falas_bloco(l):
+    """O que a voz diz num bloco: cada fala aponta o comentário (p) e, nas variantes e lances, o passo no tabuleiro (s, k)."""
+    titulo = _SAN.sub(lambda x: falado(x.group(0)), l["titulo"]).replace("?", "").replace("!", "")
+    out = [dict(texto=f, p=-1) for f in _frases(para_voz(f"{l['selo']}. {titulo}."))]
+    for n, p in enumerate(l["paragrafos"]):
+        rotulo = _SAN.sub(lambda x: falado(x.group(0)), p.get("rotulo") or "")
+        if p.get("cab"):
+            out.append(dict(texto=rotulo + ".", p=-1)); continue
+        seq = p.get("seq")
+        if p.get("lances") and seq is not None and seq < len(l["seqs"]):
+            out.append(dict(texto=rotulo + ".", p=n, s=seq, k=0))
+            out += [dict(texto=falado(re.sub(r"^\d+(?:\.|…)|[!?]+$", "", x["rotulo"])) + ".", p=n, s=seq, k=k)
+                    for k, x in enumerate(l["seqs"][seq]["passos"]) if k]
+            continue
+        texto = para_voz(p["html"])
+        if rotulo: texto = f"{rotulo}. {texto}"
+        out += [dict(texto=f, p=n) for f in _frases(texto)]
+    return [x for x in out if x["texto"].strip(" .")]
+
+
+def montar(job: dict, modo: str = "completo") -> dict:
     """Relatório completo da análise feita até agora. modo: "principais" (momentos que decidem) ou "completo"."""
     rows = [r for r in job.get("rows") or [] if r]
     raws = (job.get("raws") or [])[:len(rows)]
@@ -214,7 +235,8 @@ def montar(job: dict, modo: str = "principais") -> dict:
     if not rows: return dict(erro=T("rel.sem"))
     fens = [r["fen"] for r in rows]
     info = job.get("info") or {}
-    completo = modo == "completo"
+    completo = True                       # o relatório cobre sempre a partida inteira
+    modo = "completo"
     jogados = sum(1 for r in rows if r.get("move"))
     total = len(job.get("lances") or [])
     nomes = {"B": info.get("White") or T("w.brancas"), "P": info.get("Black") or T("w.pretas")}
@@ -305,7 +327,9 @@ def montar(job: dict, modo: str = "principais") -> dict:
         if not r.get("uci") or not r.get("fen_depois"): continue
         b_ = chess.Board(fens[i])
         imagens.append(dict(i=i, fen=r["fen_depois"], uci=r["uci"], rotulo=_numero(b_) + r["move"] + SINAIS.get(r.get("jogada_classe_id"), "")))
+    for l in livro: l["falas"] = _falas_bloco(l)
+    falas_topo = capa["falas"] + voz_resumo() + [dict(texto=f, v=-1, k=0) for f in _frases(para_voz(" ".join([fases_txt, desfecho] + [x + "." if not x.endswith(".") else x for x in fio])))]
     falas_numeros = [dict(texto=T("rel.voz_numeros"), v=-1, k=0)] + voz_resumo()
-    return dict(modo=modo, livro=livro, fio=fio, fases=fases_txt, desfecho=desfecho, imagens=imagens, capa=capa, numeros=numeros, extremos=extremos, falas_numeros=falas_numeros, falas_resumo=voz_resumo(), abertura=abertura, momentos=momentos, conclusao=conclusao,
+    return dict(modo=modo, falas_topo=falas_topo, livro=livro, fio=fio, fases=fases_txt, desfecho=desfecho, imagens=imagens, capa=capa, numeros=numeros, extremos=extremos, falas_numeros=falas_numeros, falas_resumo=voz_resumo(), abertura=abertura, momentos=momentos, conclusao=conclusao,
                 grafico=[r["engine_brancas"] for r in rows], marcos=[dict(i=m["i"], rotulo=m["titulo"], critico=m["tipo"] == "critico") for m in momentos],
                 tabela=tabela)

@@ -288,7 +288,7 @@ async def handle(metodo, caminho, query_json, corpo_json, lang):
             job = JOBS.get(body.get("id"))
             if not job: return _ok({"erro": T("rel.sem")})
             set_lang(job["lang"])
-            return _ok(relatorio.montar(job, body.get("modo", "principais")))
+            return _ok(relatorio.montar(job))
         if caminho == "/api/partida":
             try: return _ok(await partida(body["fonte"]))
             except Exception as e: return _ok({"erro": str(e)})

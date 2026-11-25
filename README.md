@@ -39,7 +39,9 @@ PGN colado ou arquivo · partida do Lichess (por ID, inclusive ao vivo) · trans
 
 ### Relatório da partida
 Depois de analisar, **📑 Relatório** monta, a partir da análise já feita:
-- **Slides** com diagramas marcados, variantes clicáveis e **áudio com a voz do navegador**;
+- **Slides** com os mesmos diagramas, comentários e passadores do PDF e do livro interativo, e **áudio com a voz do navegador**, que destaca o comentário lido e mostra as marcações dele;
+- **marcações por comentário:** nos slides, no livro interativo e na prévia do PDF, clicar num comentário mostra no tabuleiro as casas e setas dele (nas variantes, setas numeradas), na posição a que ele se refere;
+- variantes recuadas, como itens do momento a que pertencem;
 - **PDF** no estilo de livro (tabuleiro à esquerda, explicação à direita), com as páginas preenchidas por miniaturas dos lances, salvo pela janela de impressão (*Salvar como PDF*);
 - **Livro interativo**: um único arquivo `.html`, que abre em qualquer navegador, com um passador em cada tabuleiro;
 - **focos por fase**, escolhidos pelo programa: abertura (desenvolvimento, centro, mobilidade, peças protegidas), meio-jogo (táticas, rei, debilidades, peças soltas, mobilidade) e final (táticas, atividade do rei, estrutura de peões, material). Nem toda partida chega ao final;

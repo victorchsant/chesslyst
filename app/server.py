@@ -419,7 +419,7 @@ class H(BaseHTTPRequestHandler):
             try:
                 with job["lk"]:
                     set_lang(job["lang"])
-                    return self.json(relatorio.montar(job, body.get("modo", "principais")))
+                    return self.json(relatorio.montar(job))
             except Exception as e:
                 return self.json({"erro": repr(e)}, 500)
         if u.path == "/api/partida":

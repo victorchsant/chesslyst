@@ -365,6 +365,8 @@ TXT = {
     'lv.fio_unico': ('{x}: só um lance resolvia, e as {l} não o jogaram.', '{x}: only one move worked, and {l} did not play it.'),
     'lv.fio_outro': ('{x}: {c} das {l}.', '{x}: {c} by {l}.'),
     # ---------- fases e focos da partida
+    'mk.antes': ('posição antes de {x}', 'position before {x}'), 'mk.depois': ('posição depois de {x}', 'position after {x}'),
+    'mk.no_lance': ('posição do lance {n}', 'position at move {n}'),
     'fc.desenvolvimento': ('Desenvolvimento', 'Development'),
     'fc.centro': ('Controle do centro', 'Center control'),
     'fc.mobilidade': ('Mobilidade', 'Mobility'),

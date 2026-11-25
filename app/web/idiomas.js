@@ -357,5 +357,12 @@ window.EN_DICT = {
   'Clássico (desenho nítido)': 'Classic (crisp drawing)',
   'Clássico (fonte do sistema)': 'Classic (system font)',
   'Peças': 'Pieces',
-  'Desenho de Colin M.L. Burnett (GFDL, BSD e GPL), distribuído no python-chess': 'Drawing by Colin M.L. Burnett (GFDL, BSD and GPL), distributed with python-chess'
+  'Desenho de Colin M.L. Burnett (GFDL, BSD e GPL), distribuído no python-chess': 'Drawing by Colin M.L. Burnett (GFDL, BSD and GPL), distributed with python-chess',
+  /* ---- marcações do relatório ---- */
+  'Marcações no tabuleiro:': 'Board markings:',
+  'ataque ou peça mal defendida': 'attack or badly defended piece',
+  'melhor lance': 'best move',
+  'Clique num comentário para ver as marcações dele.': 'Click a comment to see its markings.',
+  'Clique para ver no tabuleiro': 'Click to see it on the board',
+  'Marcações do comentário': 'Comment markings'
 };

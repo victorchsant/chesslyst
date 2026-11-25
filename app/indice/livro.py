@@ -17,6 +17,8 @@ from .focos import fases, fase_de, focos
 from .explica import _mlance, _notacao, _fmt_av, _ideias, _minusc, _lista, _material
 from .posicional import mc, peoes_passados, peoes_isolados, peoes_dobrados, bispos_maus
 from .i18n import T, lang
+from .marcas import marca, vazia, citadas, lances_citados, do_texto, do_lance, da_linha, COR, BOA, RUIM
+from .posicional import pecas_desprotegidas
 
 MAX_PASSOS_ATE = 10     # quantos lances o passador de um momento mostra antes da posição
 MIN_TRECHO = 6          # meios-lances: menos que isso entra junto do momento seguinte
@@ -80,7 +82,42 @@ def _sequencia(rotulo, fen0, ucis, cor="#2563eb"):
 
 
 def _paragrafos_focos(lista):
-    return [dict(rotulo=f["nome"], html=f["html"], foco=f["id"]) for f in lista]
+    out = []
+    for f in lista:
+        if f.get("itens"):      # táticas: um item por golpe
+            out.append(dict(rotulo=f["nome"], html="", cab=True, foco=f["id"]))
+            out += [dict(rotulo="", html=x["html"], item=True, marca=x["marca"]) for x in f["itens"]]
+        else:
+            out.append(dict(rotulo=f["nome"], html=f["html"], foco=f["id"], marca=f["marca"]))
+    return out
+
+
+def _grupo(rotulo, itens):
+    """Um título e os seus itens recuados."""
+    return ([dict(rotulo=rotulo, html="", cab=True)] + [dict(dict(rotulo="", item=True), **x) for x in itens]) if itens else []
+
+
+def _item_variante(rotulo, notacao, cor, seq, fen, ucis):
+    return dict(rotulo=rotulo, html=notacao, lances=True, item=True, cor=cor, seq=seq, marca=da_linha(fen, ucis, cor))
+
+
+def _soltas_marcas(b, limite=4):
+    """Peças atacadas mais vezes do que defendidas: anel vermelho no diagrama."""
+    out = []
+    for cor in (True, False):
+        for sq in pecas_desprotegidas(b, cor):
+            if b.piece_type_at(sq) != chess.PAWN and len(b.attackers(not cor, sq)) > len(b.attackers(cor, sq)):
+                out.append([chess.square_name(sq), "D", "anel"])
+    return out[:limite]
+
+
+def _completa_marcas(l):
+    """Todo comentário sem marca própria ganha a automática (casas e lances citados); marcas vazias são descartadas."""
+    for p in l["paragrafos"]:
+        if p.get("cab"): continue
+        if "marca" not in p and not p.get("lances"): p["marca"] = do_texto(p["html"], l["fen"])
+        if p.get("marca") is not None and vazia(p["marca"]): p["marca"] = None
+    return l
 
 
 # ---------------------------------------------------------------- o que mudou entre duas posições
@@ -137,7 +174,7 @@ def _a_favor(r):
 
 
 def _ideias_jogo(rows, fens, a, b, limite=3):
-    """Os lances do trecho com uma ideia clara, que a engine aprova. -> lista de frases (na ordem da partida)."""
+    """Os lances do trecho com uma ideia clara, que a engine aprova. -> itens (na ordem da partida), cada um com a marca."""
     achadas = []
     for i in range(a, b):
         r = rows[i]
@@ -150,7 +187,13 @@ def _ideias_jogo(rows, fens, a, b, limite=3):
         if tipo in tipos: continue
         tipos.add(tipo); escolhidas.append((i, frase))
         if len(escolhidas) == limite: break
-    return [T("lv.ideia", m=_lance_txt(rows, fens, i), l=_lado(rows[i]["side"] == "B"), f=_minusc(f)) for i, f in sorted(escolhidas)]
+    out = []
+    for i, f in sorted(escolhidas):
+        t = chess.Board(fens[i])
+        html = T("lv.ideia", m=_lance_txt(rows, fens, i), l=_lado(rows[i]["side"] == "B"), f=_minusc(f))
+        alvos = [x[0] for x in citadas(f)]
+        out.append(dict(html=html, marca=do_lance(fens[i], rows[i]["uci"], COR[t.turn], citadas(f), T("mk.antes", x=_numero(t) + rows[i]["move"]), alvos)))
+    return out
 
 
 def _avaliacao_trecho(rows, a, b):
@@ -175,30 +218,52 @@ def _linha_trecho(rows, fens, a, b, titulo, fase, tipo="trecho", extra=""):
     lista = focos(rows, fens, fase, a, b)
     par = []
     if extra: par.append(dict(rotulo="", html=extra))
-    par.append(dict(rotulo=T("lv.r_lances"), html=_notacao_jogo(rows, fens, a, b), lances=True))
+    par.append(dict(rotulo=T("lv.r_lances"), html=_notacao_jogo(rows, fens, a, b), lances=True, seq=0))
     corpo = " ".join(x for x in (_avaliacao_trecho(rows, a, b) if tipo != "abertura" else "", pecas, saldo) if x)
     if fim.is_checkmate(): corpo = " ".join(x for x in (pecas, T("lv.fim_mate")) if x)
     if corpo: par.append(dict(rotulo=T("lv.r_correu"), html=corpo))
-    if ideias: par.append(dict(rotulo=T("lv.r_ideias"), html=" ".join(ideias)))
+    par += _grupo(T("lv.r_ideias"), ideias)
     if deslizes:
         itens = []
         for i in sorted(sorted(deslizes, key=lambda i: -(rows[i].get("jogado_perda") or 0))[:3]):
             r = rows[i]; t = chess.Board(fens[i])
             melhor = r["linhas"][0] if r.get("linhas") else None
             x = _lance_txt(rows, fens, i)
-            if melhor and melhor["uci"] != r["uci"]: x += " " + T("lv.preferia", m=_mlance(t, chess.Move.from_uci(melhor["uci"]), melhor["san"]))
-            itens.append(x)
-        par.append(dict(rotulo=T("lv.r_deslizes"), html="; ".join(itens) + "."))
+            setas = [[r["uci"][:2], r["uci"][2:4], RUIM]]
+            if melhor and melhor["uci"] != r["uci"]:
+                x += " " + T("lv.preferia", m=_mlance(t, chess.Move.from_uci(melhor["uci"]), melhor["san"]))
+                setas.append([melhor["uci"][:2], melhor["uci"][2:4], BOA])
+            itens.append(dict(html=x + ".", marca=marca([], setas, fens[i], T("mk.antes", x=_numero(t) + r["move"]))))
+        par += _grupo(T("lv.r_deslizes"), itens)
     if estrutura and not any(f["id"] in ("peoes", "debilidades") for f in lista): par.append(dict(rotulo=T("lv.r_mudou"), html=estrutura))
     par += _paragrafos_focos(lista)
-    marcas = [x for f in lista for x in f["casas"]] or casas
-    vistos = {}
-    for x in marcas: vistos.setdefault(x[0], x)
+    # no diagrama: o que os focos marcam nesta mesma posição (as marcas de outras posições aparecem ao clicar no comentário)
+    daqui = [f["marca"] for f in lista if not f.get("itens") and not f["marca"]["fen"] and f["id"] not in ("material", "centro")]
+    do_diagrama = marca([x for m_ in daqui for x in m_["casas"] if x[2] == "anel"][:10] or casas,
+                        [x for m_ in daqui for x in m_["setas"]][:5])
+    do_diagrama["casas"] = marca(do_diagrama["casas"] + _soltas_marcas(fim))["casas"]
     ult = rows[b - 1]["uci"]
     seq = _sequencia(T("lv.seq_trecho"), fens[a], [rows[i]["uci"] for i in range(a, b)])
-    return dict(tipo=tipo, fase=fase, selo=T("fc.f_" + fase), titulo=titulo, fen=fim.fen(), setas=[], casas=list(vistos.values())[:6],
+    return dict(tipo=tipo, fase=fase, selo=T("fc.f_" + fase), titulo=titulo, fen=fim.fen(), setas=do_diagrama["setas"], casas=do_diagrama["casas"],
                 ult=[ult[:2], ult[2:4]], legenda=[], figura=T("lv.fig_apos", x=_numero(chess.Board(fens[b - 1])) + rows[b - 1]["move"]),
                 paragrafos=par, seqs=[seq] if seq else [], inicial=-1)
+
+
+def _separa_linhas(html, r, fen):
+    """Tira do texto do momento as frases que são variantes da engine: elas viram itens recuados, com as setas numeradas."""
+    itens = []
+    for chave, primeiro in (("pq.cont", (r.get("linhas") or [{}])[0].get("uci")), ("pq.resposta", r.get("uci"))):
+        prefixo = T(chave, l="\x00").split("\x00")[0]
+        m = re.search(re.escape(prefixo) + r".*?</b>[!?]*\.(?=\s|$)", html, flags=re.S)
+        if not m or not primeiro: continue
+        b = chess.Board(fen); mv = chess.Move.from_uci(primeiro)
+        if mv not in b.legal_moves: continue
+        nota = T("mk.depois", x=_numero(b) + b.san(mv)); b.push(mv)
+        frase = m.group(0)
+        itens.append(dict(rotulo=prefixo.strip().rstrip(":"), html=frase[len(prefixo):], item=True, lances=True,
+                          cor=BOA if chave == "pq.cont" else RUIM, marca=da_linha(b.fen(), lances_citados(frase), BOA if chave == "pq.cont" else COR[b.turn], 3, nota)))
+        html = (html[:m.start()] + html[m.end():]).replace("  ", " ").strip()
+    return html, itens
 
 
 def _frases_curtas(texto, limite):
@@ -220,21 +285,47 @@ def _linha_momento(rows, fens, m, antes, tem_variante, fase):
     if crit: principal.append(crit["texto"])
     if r.get("jogada_texto") and (not crit or (crit["tipo"] == "unico" and not crit.get("achou"))): principal.append(r["jogada_texto"])
     if not crit and r.get("avaliacao_texto"): principal.append(r["avaliacao_texto"])
-    if principal: par.append(dict(rotulo="", html=" ".join(principal)))
+    variantes_no_texto = []
+    if principal:
+        texto, variantes_no_texto = _separa_linhas(" ".join(principal), r, m["fen"])
+        alvos = [x[0] for x in citadas(texto)]
+        mk = marca(m["casas"] + citadas(texto), m["setas"])
+        melhor = (r.get("linhas") or [None])[0]
+        if melhor: mk["setas"] = marca([], mk["setas"] + do_lance(m["fen"], melhor["uci"], BOA, alvos=alvos)["setas"])["setas"]
+        par.append(dict(rotulo="", html=texto, marca=mk))
+        par += variantes_no_texto
     # por que era difícil (motivos curtos da chance de acerto; as linhas da engine já aparecem abaixo)
     curtos = [x for x in (r.get("motivos") or "").split(" | ") if x and "<br>" not in x and "data-s=" not in x]
     if curtos: par.append(dict(rotulo=T("lv.r_dificuldade"), html=" ".join(curtos[:2])))
     lista = focos(rows, fens, fase, max(0, i - 4), i, 3)
     # um foco além do texto do momento: o mais relevante para esta posição (os golpes já estão no texto do momento)
     par += _paragrafos_focos([f for f in lista if f["id"] != "taticas"][:1 if tem_variante or crit else 2])
-    for v in ([] if tem_variante else m["variantes"]):      # com diagrama de variante logo abaixo, as linhas ficam nele
-        par.append(dict(rotulo=v["titulo"], html=v["notacao"], lances=True, cor=v["cor"]))
-    meta = f"{T('lv.aval')}: {m['aval']} · {T('lv.acerto')}: {m['acerto']}% ({m['faixa']})"
     a = max(0, i - MAX_PASSOS_ATE)
     seqs = [_sequencia(T("lv.seq_ate"), fens[a], [rows[k]["uci"] for k in range(a, i)])]
+    base = 1 if seqs[0] else 0
     seqs += [_sequencia(v["titulo"], m["fen"], [p["uci"] for p in v["passos"]], v["cor"]) for v in m["variantes"]]
     seqs = [x for x in seqs if x]
-    return dict(tipo="momento", fase=fase, selo=T("fc.f_" + fase) + " · " + m["selo"], titulo=m["titulo"], meta=meta, fen=m["fen"], setas=m["setas"], casas=m["casas"], ult=[],
+    for n, v in enumerate([] if tem_variante else m["variantes"]):      # com diagrama de variante logo abaixo, as linhas ficam nele
+        par.append(_item_variante(v["titulo"], v["notacao"], v["cor"], base + n, m["fen"], [p["uci"] for p in v["passos"]]))
+    meta = f"{T('lv.aval')}: {m['aval']} · {T('lv.acerto')}: {m['acerto']}% ({m['faixa']})"
+    # no diagrama: melhor lance e lance jogado, as peças citadas e as atacadas sem defesa suficiente
+    tab = chess.Board(m["fen"])
+    # as ameaças do melhor lance aparecem ao clicar no comentário; se o clique não acrescentaria nada ao diagrama,
+    # ele mostra a resposta ao lance jogado
+    casas_d = marca(m["casas"] + _soltas_marcas(tab))["casas"]
+    setas_d = marca([], m["setas"])["setas"]
+    principal = next((p for p in par if p.get("marca") and p["rotulo"] == "" and not p.get("item")), None)
+    if principal:
+        mk = principal["marca"]
+        novo = any(x not in setas_d for x in mk["setas"]) or any(x not in casas_d for x in mk["casas"])
+        jogada = m["variantes"][1] if len(m["variantes"]) > 1 else None
+        if not novo and jogada and len(jogada["passos"]) > 1:
+            depois = jogada["passos"][0]
+            principal["marca"] = da_linha(depois["fen"], [q["uci"] for q in jogada["passos"][1:]], RUIM, 3, T("mk.depois", x=depois["rotulo"]))
+        elif not novo and m["variantes"]:          # o lance jogado foi o melhor: o clique mostra a linha da engine
+            linha = m["variantes"][0]
+            principal["marca"] = da_linha(m["fen"], [q["uci"] for q in linha["passos"]], BOA, 3, T("mk.antes", x=linha["passos"][0]["rotulo"]))
+    return dict(tipo="momento", i=i, fase=fase, selo=T("fc.f_" + fase) + " · " + m["selo"], titulo=m["titulo"], meta=meta, fen=m["fen"], setas=setas_d, casas=casas_d, ult=[],
                 legenda=m["legenda"], figura=T("lv.fig_antes", x=m["titulo"]), paragrafos=par, seqs=seqs,
                 inicial=len(seqs[0]["passos"]) - 1 if seqs and i > a else -1)
 
@@ -250,14 +341,17 @@ def _linha_variante(rows, raws, fens, m):
         mv = chess.Move.from_uci(p["uci"])
         y = _ideias(t, mv)
         if y and len(ideias) < 3 and y[0][0] not in ("salva",):
-            ideias.append(T("lv.ideia", m=_numero(t) + _mlance(t, mv), l=_lado(t.turn), f=_minusc(y[0][1])))
+            alvos = [x[0] for x in citadas(y[0][1])]
+            ideias.append(dict(html=T("lv.ideia", m=_numero(t) + _mlance(t, mv), l=_lado(t.turn), f=_minusc(y[0][1])),
+                               marca=do_lance(t.fen(), p["uci"], COR[t.turn], citadas(y[0][1]), T("mk.antes", x=_numero(t) + t.san(mv)), alvos)))
         t.push(mv)
     pecas, saldo = _trocas(ini, t)
     estrutura, casas = _estrutura(ini, t)
-    par = [dict(rotulo=T("lv.r_linha"), html=v["notacao"], lances=True, cor=v["cor"])]
-    if ideias: par.append(dict(rotulo=T("lv.r_ideias"), html=" ".join(ideias)))
-    for outra in m["variantes"][1:]:
-        par.append(dict(rotulo=outra["titulo"], html=outra["notacao"], lances=True, cor=outra["cor"]))
+    ucis = [q["uci"] for q in v["passos"]]
+    par = [_item_variante(T("lv.r_linha"), v["notacao"], v["cor"], 0, m["fen"], ucis)]
+    par += _grupo(T("lv.r_ideias"), ideias)
+    for n, outra in enumerate(m["variantes"][1:], 1):
+        par.append(_item_variante(outra["titulo"], outra["notacao"], outra["cor"], n, m["fen"], [q["uci"] for q in outra["passos"]]))
     corpo = " ".join(x for x in (pecas, saldo, estrutura) if x)
     if corpo: par.append(dict(rotulo=T("lv.r_muda"), html=corpo))
     fecho = T("lv.var_aval", a=_fmt_av(melhor["cp"], melhor["mate"]))
@@ -266,6 +360,7 @@ def _linha_variante(rows, raws, fens, m):
     par.append(dict(rotulo=T("rel.avaliacao"), html=fecho))
     p = v["passos"][-1]
     seqs = [x for x in (_sequencia(o["titulo"], m["fen"], [q["uci"] for q in o["passos"]], o["cor"]) for o in m["variantes"]) if x]
+    casas = marca(casas + _soltas_marcas(chess.Board(p["fen"])))["casas"]
     return dict(tipo="variante", seqs=seqs, inicial=-1, selo=T("lv.s_variante"), titulo=T("lv.t_variante", m=melhor["san"]), fen=p["fen"], setas=[], casas=casas,
                 ult=[p["uci"][:2], p["uci"][2:4]], legenda=[], figura=T("lv.fig_apos", x=p["rotulo"]), paragrafos=par)
 
@@ -333,7 +428,7 @@ def montar_livro(rows, raws, fens, momentos, fim_teoria, abertura):
             v = _linha_variante(rows, raws, fens, m); v["fase"] = fase_de(lista, i); linhas.append(v)
         ini = max(ini, i + 1 if rows[i].get("move") else i)
     if jogados > ini: trechos(ini, jogados, ultimo=True)
-    return _sem_repeticao(linhas)
+    return [_completa_marcas(l) for l in _sem_repeticao(linhas)]
 
 
 def fio_da_partida(rows, fens, momentos, abertura):

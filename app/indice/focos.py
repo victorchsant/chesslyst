@@ -15,6 +15,7 @@ from .explica import _mlance, _seq, _ideias, _lista
 from .posicional import (mc, CENTRO, VAL, peoes_passados, peoes_isolados, peoes_dobrados, ilhas, cavalos, cavalo_mal,
                          bispos_maus, pecas_desprotegidas, destaques, _raiox, _fuga, _PESO_ATQ, _NOME_PT, _NOME_EN)
 from .i18n import T, P, lang
+from .marcas import marca, do_lance, citadas, COR, BOA, RUIM
 
 ABERTURA, MEIO, FINAL = "abertura", "meio", "final"
 MENORES_EM_CASA = {True: (chess.B1, chess.G1, chess.C1, chess.F1), False: (chess.B8, chess.G8, chess.C8, chess.F8)}
@@ -41,10 +42,17 @@ def _peca(b, s):
     return mc(f"{n} {nome}", [nome], _L(p.color))
 
 
-def _foco(chave, nota, frases, casas=()):
+def _foco(chave, nota, frases, casas=(), setas=(), extra=(), fen=None, nota_pos=""):
+    """`casas` = [(casa, cor da peça)] viram anéis; `extra` já vem no formato da marca; `fen` quando a marca vale em outra posição."""
     texto = " ".join(f for f in frases if f)
+    if not texto: return None
+    aneis = [[chess.square_name(s), _L(c), "anel"] for s, c in casas]
     return dict(id=chave, nome=T("fc." + chave), nota=min(100, round(nota)), html=texto,
-                casas=[[chess.square_name(s), _L(c), "anel"] for s, c in casas][:6]) if texto else None
+                marca=marca(list(extra) + aneis, setas, fen, nota_pos))
+
+
+def _seta(a, z, cor): return [chess.square_name(a), chess.square_name(z), cor]
+def _tinta(s, lado): return [chess.square_name(s), lado, "tinta"]
 
 
 # ---------------------------------------------------------------- fases
@@ -133,7 +141,8 @@ def _desenvolvimento(b):
     if abs(d) >= 1 or rocou[True] != rocou[False]:
         frente = d > 0 if d else rocou[True]
         partes.append(T("fc.dev_frente", l=_lado(frente)))
-    return _foco("desenvolvimento", 70 + 10 * abs(d), partes)
+    casas = [(sq, c) for c in (True, False) for sq in _em_casa(b, c)] + [(b.king(c), c) for c in (True, False)]
+    return _foco("desenvolvimento", 70 + 10 * abs(d), partes, casas)
 
 
 def _controle_centro(b):
@@ -143,7 +152,13 @@ def _controle_centro(b):
         peoes = [s for s in CENTRO if b.piece_at(s) == chess.Piece(chess.PAWN, c)]
         if peoes: partes.append(T("fc.peoes_centro", l=_cap(_lado(c)), s=_casas(peoes, c)))
     partes.append(T("fc.centro_igual", a=w, b=p) if abs(w - p) <= 1 else T("fc.centro_mais", l=_lado(w > p), a=max(w, p), b=min(w, p)))
-    return _foco("centro", 55 + 6 * abs(w - p), partes)
+    setas = []
+    for c in (True, False):            # quem aponta para as casas centrais (peões e peças menores primeiro)
+        meus = []
+        for alvo in CENTRO:
+            meus += [(b.piece_type_at(a), a, alvo) for a in b.attackers(c, alvo) if b.piece_type_at(a) in (chess.PAWN, chess.KNIGHT, chess.BISHOP)]
+        setas += [_seta(a, alvo, COR[c]) for _, a, alvo in sorted(meus)[:4]]
+    return _foco("centro", 55 + 6 * abs(w - p), partes, setas=setas, extra=[_tinta(sq, "B") for sq in CENTRO])
 
 
 def _mobilidade(b):
@@ -154,7 +169,11 @@ def _mobilidade(b):
         presas += [(s, c) for s, uteis in cavalos(b, c) if cavalo_mal(s, uteis)]
         presas += [(s, c) for s, _ in bispos_maus(b, c)]
     if presas: partes.append(T("fc.presas", p=_junta([_peca(b, s) for s, _ in presas[:3]])))
-    return _foco("mobilidade", 25 + 2.5 * abs(w - p) + 18 * len(presas), partes, presas)
+    casas_livres = []
+    for sq, c in presas[:3]:
+        uteis = b.attacks(sq) & ~b.occupied_co[c]
+        casas_livres += [_tinta(x, _L(c)) for x in uteis]
+    return _foco("mobilidade", 25 + 2.5 * abs(w - p) + 18 * len(presas), partes, presas, extra=casas_livres)
 
 
 def _protecao(b):
@@ -166,7 +185,12 @@ def _protecao(b):
         if soltas:
             partes.append(T("fc.soltas", l=_cap(_lado(c)), p=_junta([_peca(b, s) for s in soltas[:3]]))); nota += 8 * len(soltas)
         casas += [(s, c) for s in atacadas + soltas]
-    return _foco("protecao", nota, partes or [T("fc.protegidas")], casas)
+    vermelhas, setas = [], []
+    for sq, c in casas:
+        vermelhas.append([chess.square_name(sq), "D", "anel"])
+        ats = list(b.attackers(not c, sq))
+        if ats: setas.append(_seta(min(ats, key=lambda a: VAL.get(b.piece_type_at(a), 10_000)), sq, RUIM))
+    return _foco("protecao", nota, partes or [T("fc.protegidas")], setas=setas, extra=vermelhas)
 
 
 # ---------------------------------------------------------------- focos do meio-jogo e do final
@@ -202,14 +226,19 @@ def taticas(rows, fens, a, b, limite=2):
 
 def _foco_taticas(rows, fens, a, b):
     L = taticas(rows, fens, a, b)
-    frases = []
+    itens = []
     for i, tipo, extra, jogou, _ in L:
         tab = chess.Board(fens[i]); r = rows[i]; L0 = r["linhas"][0]
         num = f"{tab.fullmove_number}." if tab.turn else f"{tab.fullmove_number}…"
         m = num + _mlance(tab, chess.Move.from_uci(L0["uci"]), L0["san"])
         o_que = T("fc.t_mate", n=extra) if tipo == "mate" else (T("fc.t_ganho", p=extra) if tipo == "ganho" else extra[:1].lower() + extra[1:].rstrip("."))
-        frases.append(T("fc.t_feito" if jogou else "fc.t_perdido", m=m, l=_lado(tab.turn), o=o_que))
-    return _foco("taticas", max((p for *_, p in L), default=0) + 10, frases)
+        frase = T("fc.t_feito" if jogou else "fc.t_perdido", m=m, l=_lado(tab.turn), o=o_que)
+        alvos = [x[0] for x in citadas(frase)]
+        mk = do_lance(fens[i], L0["uci"], BOA, citadas(frase), T("mk.antes", x=num + L0["san"]), alvos)
+        if not jogou and r.get("uci") and r["uci"] != L0["uci"]: mk["setas"].append([r["uci"][:2], r["uci"][2:4], RUIM])
+        itens.append(dict(html=frase, marca=mk))
+    if not itens: return None
+    return dict(id="taticas", nome=T("fc.taticas"), nota=min(100, round(max(p for *_, p in L) + 10)), html="", itens=itens, marca=itens[0]["marca"])
 
 
 def _foco_rei(rows, fens, a, b):
@@ -223,21 +252,26 @@ def _foco_rei(rows, fens, a, b):
             if melhor is None or p[0] > melhor[0][0]: melhor = (p, c, i, tab)
     if not melhor: return None
     (indice, atacantes, escudo, fuga, raios, atacadas), c, i, tab = melhor
-    frases, casas = [], []
+    frases, casas, setas, zona = [], [], [], []
     if indice >= 6:
         k = tab.king(c)
         frases.append(T("fc.rei_pressao", l=_lado(c), k=mc(chess.square_name(k), [chess.square_name(x) for x in [k] + atacadas], _L(c)),
                         n=tab.fullmove_number, a=_junta([_peca(tab, s) for s in atacantes[:3]]), e=escudo, pe=P(escudo, "fc.peao"), f=fuga, fc_=P(fuga, "pos.casa")))
         if raios: frases.append(T("fc.rei_raiox"))
         casas = [(k, c)]
+        zona = [_tinta(x, "D") for x in atacadas]
+        for a_ in atacantes[:5]:
+            alvo = [x for x in atacadas if x in tab.attacks(a_)]
+            if alvo: setas.append(_seta(a_, k if k in alvo else alvo[0], RUIM))
     else:
         frases.append(T("fc.rei_seguro"))
     if sum(xeques.values()): frases.append(T("fc.xeques", a=xeques[True], b=xeques[False]))
-    return _foco("rei", indice * 7 if indice >= 6 else 18 + 6 * sum(xeques.values()), frases, casas)
+    return _foco("rei", indice * 7 if indice >= 6 else 18 + 6 * sum(xeques.values()), frases, casas, setas, zona,
+                 tab.fen() if indice >= 6 else None, T("mk.no_lance", n=tab.fullmove_number) if indice >= 6 else "")
 
 
 def _foco_debilidades(b):
-    frases, casas, peso = [], [], {}
+    frases, casas, peso, vermelhas = [], [], {}, []
     marcas = destaques(b, "casas_fracas")["casas"]
     for c in (True, False):
         fracas = [chess.parse_square(x[0]) for x in marcas if x[1] == _L(c) and x[2] == "tinta"]
@@ -247,11 +281,13 @@ def _foco_debilidades(b):
         if iso: itens.append(T("fc.deb_iso" if len(iso) == 1 else "fc.deb_isos", s=_casas(iso, c)))
         if dob: itens.append(T("fc.deb_dob", s=_casas(dob, c)))
         if ocupadas:
-            itens.append(T("fc.deb_ocupada", p=_junta([_peca(b, s) for s in ocupadas[:2]]))); casas += [(s, c) for s in ocupadas[:2]]
+            itens.append(T("fc.deb_ocupada", p=_junta([_peca(b, s) for s in ocupadas[:2]])))
+            vermelhas += [[chess.square_name(s), "D", "anel"] for s in ocupadas[:2]]
         peso[c] = len(iso) + len(dob) + 2 * len(ocupadas)
-        casas += [(s, c) for s in iso[:2]]
+        casas += [(s, c) for s in list(iso) + [x for x in dob if x not in iso]]
+        vermelhas += [_tinta(s, _L(c)) for s in fracas[:5]]
         if itens: frases.append(T("fc.deb_lado", l=_cap(_lado(c)), i=_junta(itens)))
-    return _foco("debilidades", 30 + 9 * abs(peso[True] - peso[False]) + 4 * max(peso.values()), frases, casas)
+    return _foco("debilidades", 30 + 9 * abs(peso[True] - peso[False]) + 4 * max(peso.values()), frases, casas, extra=vermelhas)
 
 
 def _foco_rei_final(b):
@@ -263,7 +299,8 @@ def _foco_rei_final(b):
         perto = [s for s in b.pieces(chess.PAWN, c) | b.pieces(chess.PAWN, not c) if chess.square_distance(k, s) <= 2]
         frases.append(T("fc.reif_lado", l=_cap(_lado(c)), k=mc(chess.square_name(k), [chess.square_name(k)], _L(c)), m=mov, c=P(mov, "pos.casa"), n=len(perto)))
     if abs(d[True] - d[False]) >= 1: frases.append(T("fc.reif_ativo", l=_lado(d[True] < d[False])))
-    return _foco("rei_final", 66 + 8 * abs(d[True] - d[False]), frases, [(b.king(c), c) for c in (True, False)])
+    livres = [_tinta(x, _L(c)) for c in (True, False) for x in _fuga(b, b.king(c), c)]
+    return _foco("rei_final", 66 + 8 * abs(d[True] - d[False]), frases, [(b.king(c), c) for c in (True, False)], extra=livres)
 
 
 def _foco_peoes(b):
@@ -280,7 +317,12 @@ def _foco_peoes(b):
     for chave, colunas in (("fc.ala_dama", range(0, 4)), ("fc.ala_rei", range(4, 8))):
         w, p = (sum(1 for s in b.pieces(chess.PAWN, c) if chess.square_file(s) in colunas) for c in (True, False))
         if w != p: frases.append(T("fc.maioria", l=_lado(w > p), a=T(chave), x=max(w, p), y=min(w, p))); nota += 4
-    return _foco("peoes", nota, frases, casas)
+    setas = []
+    for c in (True, False):             # o caminho dos peões passados até a promoção
+        for sq in peoes_passados(b, c):
+            setas.append(_seta(sq, chess.square(chess.square_file(sq), 7 if c else 0), COR[c]))
+        casas += [(s, c) for s in peoes_isolados(b, c)]
+    return _foco("peoes", nota, frases, casas, setas)
 
 
 def _material_lado(b, c):
@@ -300,7 +342,8 @@ def _foco_material(b):
     bw, bp = b.pieces(chess.BISHOP, True), b.pieces(chess.BISHOP, False)
     if len(bw) == 1 and len(bp) == 1 and sum(divmod(list(bw)[0], 8)) % 2 != sum(divmod(list(bp)[0], 8)) % 2:
         frases.append(T("fc.bispos_opostos")); nota += 22
-    return _foco("material", nota, frases)
+    casas = [(s, c) for c in (True, False) for t in (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT) for s in b.pieces(t, c)]
+    return _foco("material", nota, frases, casas)
 
 
 def focos(rows, fens, fase, a, b, maximo=3):

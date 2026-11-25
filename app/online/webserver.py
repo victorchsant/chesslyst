@@ -13,7 +13,7 @@ import chess, chess.pgn
 import js
 from pyodide.http import pyfetch
 
-from indice import pipeline, relogio
+from indice import inicial, pipeline, relogio
 from indice.aberturas import nomes as nomes_abertura
 from indice.core import analyse, win_pct
 from indice.explica import explicar_subida, texto_repeticao
@@ -278,6 +278,8 @@ async def handle(metodo, caminho, query_json, corpo_json, lang):
         if caminho == "/api/baixaveis": return _ok([])
         if caminho == "/api/baixar/estado": return _ok({})
         if caminho == "/api/engines/testar": return _ok({"erro": "indisponível na versão online"}, 400)
+        if caminho == "/api/inicial":
+            return _ok(await inicial.escolhe(http_get))
         if caminho == "/api/exemplo":
             try: pgn = await http_get(js.SITE_BASE + "teste.pgn")
             except Exception: pgn = ""

@@ -16,6 +16,7 @@ from indice.aberturas import nomes as nomes_abertura
 from indice.explica import explicar_subida, texto_repeticao
 from indice.posicional import destaques as destaques_posicao
 from indice.core import analyse
+from indice import inicial
 
 from indice.caminhos import RECURSOS, DADOS
 ROOT = RECURSOS                      # interface, exemplos e calibrações (somente leitura)
@@ -259,6 +260,19 @@ EXEMPLO = {"pgn": None, "titulo": ""}
 EXEMPLO_OK = threading.Event()
 
 
+INICIAL = {"quando": 0.0, "dados": {}}
+
+
+def partida_inicial():
+    """A partida ao vivo (ou a mais recente) dos torneios mais importantes; guardada por 60 s."""
+    if time.time() - INICIAL["quando"] < 60 and INICIAL["dados"]: return INICIAL["dados"]
+    import asyncio
+
+    async def get(url): return http_get(url)
+    INICIAL.update(quando=time.time(), dados=asyncio.run(inicial.escolhe(get)))
+    return INICIAL["dados"]
+
+
 def acha_exemplo():
     """Procura, no Lichess, uma partida recente e terminada de uma transmissão (roda em segundo plano ao iniciar)."""
     try:
@@ -340,6 +354,8 @@ class H(BaseHTTPRequestHandler):
                     return self.json({"fens": fens, "ucis": ucis})
                 except Exception as e:
                     return self.json({"erro": str(e)}, 400)
+            if u.path == "/api/inicial":
+                return self.json(partida_inicial())
             if u.path == "/api/exemplo":
                 EXEMPLO_OK.wait(10)
                 if EXEMPLO["pgn"]: return self.json(EXEMPLO)

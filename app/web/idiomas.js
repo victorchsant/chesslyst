@@ -142,6 +142,7 @@ window.EN_DICT = {
   'Final estimado pela engine (tablebase indisponível).': 'Endgame estimated by the engine (tablebase unavailable).',
   'Último lance': 'Last move',
   'Avaliação': 'Evaluation',
+  'Procurando a partida ao vivo ou mais recente…': 'Looking for the live or most recent game…',
   "Vitória das brancas": "White wins",
   "Vitória das pretas": "Black wins",
   "Empate": "Draw",

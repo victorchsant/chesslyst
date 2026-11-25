@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Chesslyst — chance de acerto no xadrez</title>
 <style>
+[hidden]{display:none!important}   /* regras com display:flex/grid anulavam o atributo hidden (ex.: o resultado da partida anterior ficava na tela) */
 :root{--bar-bd:#5d6e8c;--bg:#0b0f17;--card:#131a26;--card2:#1a2333;--bd:#26324a;--tx:#e6edf7;--mut:#8fa0bd;--ac:#35e0c2;--sq:64px;--clara:#f0d9b5;--escura:#b58863;
   --bg2:#0e1420;--pri-tx:#04251f;--aviso-bg:#2a2410;--trilho-suave:#202a3d;--c-eng:#f2f2f2;--c-pos:#2ecc71;--c-mat:#b388ff;--c-ace:#35e0c2;--c-jog:#f1c40f;--cb-pos:#f2f2f2;--cb-neg:#7a86a0;color-scheme:dark}
 html[data-tema="claro"]{--bar-bd:#8b98b0;--bg:#f2f4f8;--card:#ffffff;--card2:#edf0f5;--bd:#d3d9e5;--tx:#1a2232;--mut:#5a6a84;--ac:#0b8f7a;--bg2:#ffffff;--pri-tx:#ffffff;--aviso-bg:#fff6d1;
@@ -344,7 +345,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.1.0</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.1.1</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -472,8 +473,8 @@ function iniciaCfg(){
   $('#c-cav').value=cfg.cav;$('#c-cav').onchange=e=>{cfg.cav=e.target.value;aplica()};
   $('#c-varsep').onchange=e=>{cfg.varSep=e.target.checked;save()};
   $('#c-neutros').onchange=e=>{cfg.neutros=e.target.checked;aplica()};
-  $('#c-som').onchange=e=>{cfg.som=e.target.checked;$('#seguir-som').checked=cfg.som;save();if(cfg.som)bip()};
-  $('#seguir-som').onchange=e=>{cfg.som=e.target.checked;$('#c-som').checked=cfg.som;save();if(cfg.som)bip()};
+  $('#c-som').onchange=e=>{cfg.som=e.target.checked;$('#seguir-som').checked=cfg.som;save();if(cfg.som)somPeca()};
+  $('#seguir-som').onchange=e=>{cfg.som=e.target.checked;$('#c-som').checked=cfg.som;save();if(cfg.som)somPeca()};
   $('#c-notif').onchange=async e=>{cfg.notif=e.target.checked;if(cfg.notif&&'Notification' in window&&Notification.permission!=='granted'){const p=await Notification.requestPermission();if(p!=='granted'){cfg.notif=false;e.target.checked=false}}save()};
   $('#c-coord').onchange=e=>{cfg.coord=e.target.checked;aplica()};
   $('#c-flip').onchange=e=>{cfg.flip=e.target.checked;aplica()};
@@ -567,7 +568,7 @@ function pintaTab(tab,fen,ult,sg,dest,svgId,cav){
 function mostraResultado(){   // resultado da partida em números grandes, perto do tabuleiro (só quando a partida terminou)
   const el=$('#resultado');if(!el)return;const r=(S.info&&S.info.Result)||'';
   const m={'1-0':['1 – 0',t('Vitória das brancas')],'0-1':['0 – 1',t('Vitória das pretas')],'1/2-1/2':['½ – ½',t('Empate')]}[r];
-  el.hidden=!m;if(m)el.innerHTML=`<b>${m[0]}</b><span>${m[1]}<br>${t('Resultado da partida')}</span>`;
+  el.hidden=!m;el.innerHTML=m?`<b>${m[0]}</b><span>${m[1]}<br>${t('Resultado da partida')}</span>`:'';
 }
 function mostraAbertura(){mostraResultado();   // nome completo da abertura (lista do Lichess; em português quando o idioma é pt) da posição em que a partida está
   const el=$('#abertura');if(!el)return;const A=(S.pre&&S.pre.aberturas)||[];const x=A.length?A[Math.min(S.cur,A.length-1)]:null;
@@ -884,8 +885,11 @@ function aplicaFonteBar(){
   const rodando=!!S.job&&['analisando','ao vivo','esperando'].includes(S.estado);
   $('#b-analisar').hidden=!S.fonte||rodando;$('#b-parar').hidden=!rodando;
 }
-const FONTE_PADRAO={tipo:'rodada',round:'xLgOJ6cb',jogo:0,ao_vivo:true};   // Mundial FIDE 2026, partida 1 (transmissão do Lichess)
-async function carregaInicial(){if(!(await carrega(FONTE_PADRAO)))await carregaExemplo()}
+async function carregaInicial(){   // abre a partida ao vivo (ou a mais recente) dos torneios mais importantes das transmissões do Lichess
+  status(t('Procurando a partida ao vivo ou mais recente…'));
+  let d=null;try{d=await api('/api/inicial')}catch(e){}
+  if(S.fonte)return;   // você já abriu outra partida enquanto isso
+  if(!(d&&d.fonte&&await carrega(d.fonte)))await carregaExemplo()}
 async function carregaExemplo(){
   status(t('Carregando a partida exemplo recente…'));
   let d=null;try{d=await api('/api/exemplo')}catch(e){}
@@ -907,28 +911,47 @@ async function poll(){
   const chave=[d.versao,d.estado,(d.lances||[]).length,d.esperado,d.atual,S.cur,V?1:0].join('|');
   if(chave!==S.chave){S.chave=chave;desenha()}else desenhaProg();   // só redesenha se algo mudou: a rolagem fica livre
   if(S.live&&S.estadoAnt==='ao vivo'&&S.rows.length>antes)avisaLance();
-  if(S.live&&d.estado==='fim'&&S.estadoAnt==='ao vivo')avisa(t('Partida encerrada'),t('Resultado: {r}',{r:(S.info&&S.info.Result)||'?'}));
+  if(S.live&&d.estado==='fim'&&S.estadoAnt==='ao vivo'){const res=(S.info&&S.info.Result)||'?';avisa(t('Partida encerrada'),t('Resultado: {r}',{r:res}),false,res==='1/2-1/2'?'½':'',String((S.lances||[]).slice(-1)[0]||'').includes('#'))}
   S.estadoAnt=d.estado;
   if(['fim','erro','parado'].includes(d.estado))clearInterval(S.timer);
 }
 /* ---------- aviso de lance ao vivo ---------- */
-let ac=null;
-function bip(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;g.gain.value=.08;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.18)}catch(e){}}
+/* som de peça pousando no tabuleiro ("feltro suave"), gerado por código: sem arquivos de áudio. Captura = dois toques; xeque, mate e empate têm um alerta próprio. */
+let ac=null,ruidoSom=null;
+function toquePeca(q,forca=1){
+  const volume=(g,pico,ataque,dur)=>{g.gain.setValueAtTime(.0001,q);g.gain.exponentialRampToValueAtTime(pico,q+ataque);g.gain.exponentialRampToValueAtTime(.0001,q+ataque+dur)};
+  const r=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();r.buffer=ruidoSom;f.type='lowpass';f.frequency.value=750;f.Q.value=.7;     // o atrito do feltro
+  volume(g,.5*forca,.004,.06);r.connect(f).connect(g).connect(ac.destination);r.start(q);r.stop(q+.12);
+  const o=ac.createOscillator(),h=ac.createGain();o.frequency.setValueAtTime(170,q);o.frequency.exponentialRampToValueAtTime(105,q+.09);   // o corpo da peça
+  volume(h,.4*forca,.002,.09);o.connect(h).connect(ac.destination);o.start(q);o.stop(q+.15)}
+function sino(q,freq,pico,dur){   // nota de sino: a fundamental e um harmônico que some mais depressa
+  for(const [f,v,d] of [[freq,pico,dur],[freq*2.76,pico*.22,dur*.45]]){const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;
+    g.gain.setValueAtTime(.0001,q);g.gain.exponentialRampToValueAtTime(v,q+.004);g.gain.exponentialRampToValueAtTime(.0001,q+.004+d);o.connect(g).connect(ac.destination);o.start(q);o.stop(q+d+.1)}}
+function somPeca(san=''){try{   // o lance em notação decide o som: x = captura, + = xeque (campainha curta), # = xeque-mate (duas notas de sino)
+  if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();ruidoSom=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);
+    const d=ruidoSom.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+  if(ac.state==='suspended')ac.resume();
+  const q=ac.currentTime+.03;
+  if(san==='½'){toquePeca(q);toquePeca(q+.2);sino(q+.42,523,.19,.9);return}   // empate: “aperto de mãos”, dois toques e um sino calmo
+  const mate=san.includes('#'),xeque=san.includes('+'),captura=san.includes('x');
+  toquePeca(q,mate?1.2:1);if(captura)toquePeca(q+.085,mate?1.2:1);
+  const depois=q+(captura?.085:0);
+  if(mate){sino(depois+.12,784,.18,.35);sino(depois+.4,523,.2,.8)}else if(xeque)sino(depois+.1,880,.16,.3)}catch(e){}}
 const tituloOriginal=document.title;
 addEventListener('focus',()=>{document.title=tituloOriginal});
-function avisa(titulo,corpo,verBotao){
+function avisa(titulo,corpo,verBotao,san='',semSom=false){
   const to=$('#toast');to.hidden=false;to.innerHTML=`<b>${titulo}</b><br>${corpo}<br>${verBotao?`<button class="pri" id="t-ver">${t('Ver agora')}</button>`:''}<button id="t-ok">${t('Fechar')}</button>`;
   $('#t-ok').onclick=()=>to.hidden=true;if(verBotao)$('#t-ver').onclick=()=>{to.hidden=true;V=null;$('#seguir').checked=true;S.cur=S.rows.length-1;desenha()};
   clearTimeout(avisa.t);avisa.t=setTimeout(()=>to.hidden=true,15000);
   if(document.hidden)document.title='● '+titulo+' — Chesslyst';
-  if(cfg.som)bip();
+  if(cfg.som&&!semSom)somPeca(san);
   if(cfg.notif&&'Notification' in window&&Notification.permission==='granted'&&document.hidden)new Notification(titulo,{body:corpo.replace(/<[^>]+>/g,'')});
 }
 function avisaLance(){
   const r=S.rows[S.rows.length-2];if(!r||!r.move)return;
   const nn=parseFen(r.fen).mv,quem=t(r.side==='B'?'brancas':'pretas'),prox=t(r.side==='B'?'pretas':'brancas');
   const ult=S.rows[S.rows.length-1];const nota=r.jogada_classe?` · ${r.jogada_classe} (${Math.round(r.jogada_indice)})`:'';
-  avisa(t('Novo lance ao vivo'),`${nn}${r.side==='B'?'.':'…'} <b>${r.move}</b> (${quem})${nota}<br>${t('Agora jogam as {l} · chance de acerto {p}%',{l:prox,p:Math.round(ult.indice)})}`,S.cur!==S.rows.length-1||V);
+  avisa(t('Novo lance ao vivo'),`${nn}${r.side==='B'?'.':'…'} <b>${r.move}</b> (${quem})${nota}<br>${t('Agora jogam as {l} · chance de acerto {p}%',{l:prox,p:Math.round(ult.indice)})}`,S.cur!==S.rows.length-1||V,r.move);
 }
 
 /* ---------- fontes ---------- */

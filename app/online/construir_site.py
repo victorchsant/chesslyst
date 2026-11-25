@@ -37,6 +37,8 @@ assert "<head>" in html
 html = html.replace("<head>", '<head>\n<script src="shim.js"></script>', 1)
 (SITE / "index.html").write_text(html, encoding="utf-8")
 shutil.copy(APP / "web" / "idiomas.js", SITE / "idiomas.js")
+shutil.copy(APP / "web" / "relatorio.js", SITE / "relatorio.js")
+shutil.copy(APP / "web" / "pecas.js", SITE / "pecas.js")
 shutil.copy(AQUI / "shim.js", SITE / "shim.js")
 shutil.copy(APP / "exemplos" / "teste.pgn", SITE / "teste.pgn")
 shutil.copy(RAIZ / "LICENSE", SITE / "LICENSE")

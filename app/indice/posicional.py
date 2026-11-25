@@ -14,12 +14,12 @@ from .i18n import T, num, P, lang
 
 VAL = {chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330, chess.ROOK: 500, chess.QUEEN: 900}
 
-ITENS = ["material", "peoes_dobrados", "peoes_isolados", "peoes_passados", "mobilidade", "desenvolvimento", "torres", "centro",
+ITENS = ["material", "peoes_dobrados", "peoes_isolados", "peoes_passados", "ilhas_peoes", "mobilidade", "mobilidade_cavalos", "bispos_maus", "desenvolvimento", "torres", "centro",
          "espaco", "par_de_bispos", "seguranca_rei", "rei_zona", "rei_raiox", "rei_fuga", "rei_final", "pecas_em_risco", "casas_fracas", "postos_avancados"]
 GRUPOS = [   # (id, componentes)
     ("material", ["material"]),
-    ("estrutura", ["peoes_dobrados", "peoes_isolados", "peoes_passados"]),
-    ("atividade", ["mobilidade", "desenvolvimento", "torres", "centro", "espaco", "par_de_bispos"]),
+    ("estrutura", ["peoes_isolados", "peoes_passados", "peoes_dobrados", "ilhas_peoes"]),
+    ("atividade", ["mobilidade", "mobilidade_cavalos", "bispos_maus", "desenvolvimento", "torres", "centro", "espaco", "par_de_bispos"]),
     ("rei", ["seguranca_rei", "rei_zona", "rei_raiox", "rei_fuga", "rei_final"]),
     ("debilidades", ["pecas_em_risco", "casas_fracas"]),
     ("postos", ["postos_avancados"]),
@@ -32,7 +32,8 @@ def desc_item(k): return T(f"it.{k}.d")
 
 PESOS0 = {"material": 1.0, "mobilidade": 4.0, "par_de_bispos": 30.0, "peoes_dobrados": -15.0, "peoes_isolados": -12.0,
           "peoes_passados": 12.0, "seguranca_rei": 10.0, "rei_zona": -6.0, "rei_raiox": -15.0, "rei_fuga": 8.0, "rei_final": 8.0, "centro": 8.0, "torres": 15.0,
-          "desenvolvimento": -12.0, "espaco": 3.0, "pecas_em_risco": -40.0, "casas_fracas": -6.0, "postos_avancados": 25.0}
+          "desenvolvimento": -12.0, "espaco": 3.0, "pecas_em_risco": -40.0, "casas_fracas": -6.0, "postos_avancados": 25.0,
+          "ilhas_peoes": -8.0, "mobilidade_cavalos": 10.0, "bispos_maus": -25.0}
 _f = Path(__file__).resolve().parent.parent / "calibracao" / "posicional.json"
 _dados = json.loads(_f.read_text(encoding="utf-8")) if _f.exists() else {}
 PESOS = {**PESOS0, **_dados.get("pesos", {})}
@@ -44,12 +45,14 @@ _NOME_PT = {chess.PAWN: ("peão", "m"), chess.KNIGHT: ("cavalo", "m"), chess.BIS
 _NOME_EN = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop", chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
 
 
-def mc(txt, casas=None, lado=None, item=None):
+def mc(txt, casas=None, lado=None, item=None, seta=None, tipo=None):
     """Trecho em negrito da interpretação. Ao passar o mouse, a tela marca no tabuleiro as `casas` (ou o item de posição `item`)."""
     at = ' class="mc"'
     if casas: at += ' data-c="' + ",".join(casas) + '"'
     if lado: at += f' data-l="{lado}"'
     if item: at += f' data-i="{item}"'
+    if seta: at += f' data-s="{seta}"'          # lance: a tela desenha a seta
+    if tipo: at += f' data-t="{tipo}"'
     return f"<b{at}>{txt}</b>"
 
 
@@ -83,6 +86,68 @@ def _fase(b):
     return min(1.0, n / 24)
 
 
+def _a_frente(a, sq, c):
+    """A casa `a` está em fileira à frente de `sq`, do ponto de vista de `c`."""
+    return chess.square_rank(a) > chess.square_rank(sq) if c else chess.square_rank(a) < chess.square_rank(sq)
+
+
+def peoes_isolados(b, c):
+    colunas = {chess.square_file(s) for s in b.pieces(chess.PAWN, c)}
+    return [s for s in b.pieces(chess.PAWN, c) if not {chess.square_file(s) - 1, chess.square_file(s) + 1} & colunas]
+
+
+def peoes_passados(b, c):
+    inim = b.pieces(chess.PAWN, not c)
+    return [s for s in b.pieces(chess.PAWN, c)
+            if not any(abs(chess.square_file(a) - chess.square_file(s)) <= 1 and _a_frente(a, s, c) for a in inim)]
+
+
+def peoes_dobrados(b, c):
+    colunas = [chess.square_file(s) for s in b.pieces(chess.PAWN, c)]
+    return [s for s in b.pieces(chess.PAWN, c) if colunas.count(chess.square_file(s)) > 1]
+
+
+def ilhas(b, c):
+    """Grupos de peões em colunas vizinhas, da coluna a para a h. -> [[casas de cada ilha]]"""
+    out, ant = [], None
+    for s in sorted(b.pieces(chess.PAWN, c), key=lambda s: (chess.square_file(s), chess.square_rank(s))):
+        if ant is None or chess.square_file(s) - ant > 1: out.append([])
+        out[-1].append(s); ant = chess.square_file(s)
+    return out
+
+
+def casas_do_cavalo(b, sq, c):
+    """Casas úteis do cavalo em `sq`: sem peça própria e sem ataque de peão adversário."""
+    return [a for a in b.attacks(sq) if b.color_at(a) != c
+            and not any(b.piece_type_at(x) == chess.PAWN for x in b.attackers(not c, a))]
+
+
+def cavalos(b, c):
+    """-> [(casa, casas úteis)] dos cavalos fora da casa de origem (quem não saiu já conta em Desenvolvimento)."""
+    origem = (chess.B1, chess.G1) if c else (chess.B8, chess.G8)
+    return [(s, casas_do_cavalo(b, s, c)) for s in b.pieces(chess.KNIGHT, c) if s not in origem]
+
+
+def cavalo_mal(sq, casas):
+    """Cavalo na borda (colunas a/h ou fileiras 1/8) com até 3 casas úteis, ou em qualquer lugar com até 2."""
+    borda = chess.square_file(sq) in (0, 7) or chess.square_rank(sq) in (0, 7)
+    return len(casas) <= (3 if borda else 2)
+
+
+def bispos_maus(b, c):
+    """Bispo preso pelos próprios peões: dois ou mais peões centrais (colunas c-f) na cor das suas casas, ao menos um travado
+    por um peão à frente, o bispo atrás dessa cadeia e com no máximo 3 casas. -> [(casa do bispo, [peões que o atrapalham])]"""
+    cor_casa = lambda s: (chess.square_file(s) + chess.square_rank(s)) % 2
+    rel = lambda s: chess.square_rank(s) if c else 7 - chess.square_rank(s)
+    out = []
+    for sq in b.pieces(chess.BISHOP, c):
+        meus = [p for p in b.pieces(chess.PAWN, c) if 2 <= chess.square_file(p) <= 5 and cor_casa(p) == cor_casa(sq)]
+        travados = [p for p in meus if 0 <= p + (8 if c else -8) < 64 and b.piece_type_at(p + (8 if c else -8)) == chess.PAWN]
+        if len(meus) >= 2 and travados and rel(sq) <= max(map(rel, meus)) and chess.popcount(b.attacks_mask(sq) & ~b.occupied_co[c]) <= 3:
+            out.append((sq, meus))
+    return out
+
+
 def _lado(b, c, fase):
     own, opp = b.occupied_co[c], not c
     r = lambda sq: chess.square_rank(sq) if c else 7 - chess.square_rank(sq)  # fileira relativa 0..7
@@ -94,14 +159,14 @@ def _lado(b, c, fase):
     peoes, inim = b.pieces(chess.PAWN, c), b.pieces(chess.PAWN, opp)
     cols = [0] * 8
     for sq in peoes: cols[chess.square_file(sq)] += 1
+    f["peoes_isolados"] = float(len(peoes_isolados(b, c)))
+    for sq in peoes_passados(b, c): f["peoes_passados"] += (r(sq) / 6) ** 2 * (1 + (1 - fase))
     for sq in peoes:
-        fl = chess.square_file(sq)
-        if not (cols[max(0, fl - 1)] * (fl > 0) + cols[min(7, fl + 1)] * (fl < 7)): f["peoes_isolados"] += 1
-        frente = [s for s in inim if abs(chess.square_file(s) - fl) <= 1 and
-                  (chess.square_rank(s) > chess.square_rank(sq) if c else chess.square_rank(s) < chess.square_rank(sq))]
-        if not frente: f["peoes_passados"] += (r(sq) / 6) ** 2 * (1 + (1 - fase))
         if r(sq) >= 3: f["espaco"] += r(sq) - 2
     f["peoes_dobrados"] = float(sum(max(0, n - 1) for n in cols))
+    f["ilhas_peoes"] = float(len(ilhas(b, c)))
+    f["mobilidade_cavalos"] = sum(len(casas) - 4 for _, casas in cavalos(b, c)) / 4   # 4 casas = neutro; na borda e no canto fica negativo
+    f["bispos_maus"] = float(len(bispos_maus(b, c)))
     k = b.king(c)
     if k is not None:
         kf, kr = chess.square_file(k), r(k)
@@ -216,12 +281,39 @@ def casas_desprotegidas(b, c):
 
 def _item_info(b, chave):
     d = dict(chave=chave, nome=nome_item(chave), desc=desc_item(chave), cp=0, lado="", regra=False, info=True)
+    d.update(_listas(b, chave))
+    return d
+
+
+COM_LISTA = ("peoes_isolados", "peoes_passados", "peoes_dobrados", "ilhas_peoes", "mobilidade_cavalos", "bispos_maus",
+             "pecas_desprotegidas", "casas_desprotegidas")
+
+
+def _listas(b, chave):
+    """O que o item encontrou de cada lado: {"B": [[casas "a1,b2", rótulo], ...], "P": [...], "mostra": vale exibir mesmo empatado}."""
+    nm = chess.square_name
+    peca = lambda sq: f"{_NOME_EN[b.piece_type_at(sq)] if lang() == 'en' else _NOME_PT[b.piece_type_at(sq)][0]} {nm(sq)}"
+    d, mostra = {}, False
     for c, lado in ((chess.WHITE, "B"), (chess.BLACK, "P")):
-        if chave == "pecas_desprotegidas":
-            d[lado] = [[chess.square_name(sq), f"{_NOME_EN[b.piece_type_at(sq)] if lang() == 'en' else _NOME_PT[b.piece_type_at(sq)][0]} {chess.square_name(sq)}"]
-                       for sq in pecas_desprotegidas(b, c)]
+        if chave == "pecas_desprotegidas": l = [[nm(s), peca(s)] for s in pecas_desprotegidas(b, c)]
+        elif chave == "casas_desprotegidas": l = [[nm(s), nm(s)] for s in casas_desprotegidas(b, c)]
+        elif chave in ("peoes_isolados", "peoes_passados", "peoes_dobrados"):
+            funcao = {"peoes_isolados": peoes_isolados, "peoes_passados": peoes_passados, "peoes_dobrados": peoes_dobrados}[chave]
+            l = [[nm(s), nm(s)] for s in funcao(b, c)]; mostra = mostra or bool(l)
+        elif chave == "ilhas_peoes":
+            grupos = ilhas(b, c)
+            l = [[",".join(map(nm, g)), " ".join(map(nm, g))] for g in grupos]; mostra = mostra or len(grupos) >= 3
+        elif chave == "mobilidade_cavalos":
+            l = []
+            for s, uteis in cavalos(b, c):
+                mal = cavalo_mal(s, uteis); mostra = mostra or mal
+                l.append([nm(s), f"{peca(s)}: {len(uteis)} {P(len(uteis), 'pos.casa')}" + (T("pos.mal") if mal else "")])
+        elif chave == "bispos_maus":
+            l = [[",".join([nm(s)] + [nm(a) for a in meus]), peca(s)] for s, meus in bispos_maus(b, c)]; mostra = mostra or bool(l)
         else:
-            d[lado] = [[chess.square_name(sq), chess.square_name(sq)] for sq in casas_desprotegidas(b, c)]
+            return {}
+        d[lado] = l
+    d["mostra"] = mostra
     return d
 
 
@@ -232,7 +324,7 @@ def analise(b: chess.Board, engine_cp=None):
     grupos = []
     for gid, chaves in GRUPOS:
         itens = [dict(chave=k, nome=nome_item(k), desc=desc_item(k), cp=round(contrib[k]), lado=_lado_txt(contrib[k]),
-                      regra=k in REGRA) for k in chaves]
+                      regra=k in REGRA, **(_listas(b, k) if k in COM_LISTA else {})) for k in chaves]
         soma = sum(contrib[k] for k in chaves)
         itens += [_item_info(b, k) for k in ITENS_INFO.get(gid, [])]
         grupos.append(dict(id=gid, nome=T("g." + gid), cp=round(soma), lado=_lado_txt(soma), itens=itens))
@@ -268,7 +360,7 @@ def indice_posicao(b: chess.Board, engine_cp=None):
         for k, v in maiores:
             if abs(v) >= 8: fav[v > 0].append(mc(T("pf." + k), None, None, item=k))
         for lado, itens in ((lado_b, fav[lado_b]), (not lado_b, fav[not lado_b])):
-            if itens: txt += " " + T("p.favor", l=T("w.brancas") if lado else T("w.pretas"), i=T("db.e").join(itens))
+            if itens: txt += " " + T("p.favor", l=T("w.brancas") if lado else T("w.pretas"), i=itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + T("db.e") + itens[-1])
         if engine_cp is not None and abs(engine_cp) < 40 and din >= 100: txt += " " + T("p.motor_eq")
     return idx, txt, contrib
 
@@ -321,14 +413,19 @@ def destaques(b: chess.Board, chaves):
                 for sq in peoes:
                     if cols[chess.square_file(sq)] > 1: casa(sq, c)
             elif chave == "peoes_isolados":
-                for sq in peoes:
-                    fl = chess.square_file(sq)
-                    if not (cols[max(0, fl - 1)] * (fl > 0) + cols[min(7, fl + 1)] * (fl < 7)): casa(sq, c)
+                for sq in peoes_isolados(b, c): casa(sq, c)
             elif chave == "peoes_passados":
-                for sq in peoes:
-                    fl = chess.square_file(sq)
-                    if not [s for s in inim if abs(chess.square_file(s) - fl) <= 1 and
-                            (chess.square_rank(s) > chess.square_rank(sq) if c else chess.square_rank(s) < chess.square_rank(sq))]: casa(sq, c)
+                for sq in peoes_passados(b, c): casa(sq, c)
+            elif chave == "ilhas_peoes":
+                for sq in peoes: casa(sq, c)
+            elif chave == "mobilidade_cavalos":     # os cavalos e as casas úteis de cada um
+                for sq, uteis in cavalos(b, c):
+                    casa(sq, c)
+                    for a in uteis: casa(a, c, "tinta")
+            elif chave == "bispos_maus":            # o bispo e os peões que o atrapalham
+                for sq, meus in bispos_maus(b, c):
+                    casa(sq, c)
+                    for a in meus: casa(a, c, "tinta")
             elif chave == "mobilidade":
                 for t in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
                     for sq in b.pieces(t, c):
@@ -462,6 +559,20 @@ def texto_postos(b: chess.Board) -> str:
     if not itens: return ""
     itens = itens[:3]
     return T("po.um" if len(itens) == 1 else "po.varios", l=T("db.e").join(itens) if len(itens) <= 2 else ", ".join(itens[:-1]) + T("db.e") + itens[-1])
+
+
+def texto_pecas(b: chess.Board) -> str:
+    """Cavalos mal colocados, bispos ruins e peões passados avançados, em frases curtas (peças e casas em negrito, marcadas no tabuleiro)."""
+    frases = []
+    junta = lambda itens: itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + T("db.e") + itens[-1]
+    maus = [pc(b, s, extra=uteis) for c in (True, False) for s, uteis in cavalos(b, c) if cavalo_mal(s, uteis)][:2]
+    if maus: frases.append(T("po.cavalo" if len(maus) == 1 else "po.cavalos", l=junta(maus)))
+    ruins = [pc(b, s, extra=meus) for c in (True, False) for s, meus in bispos_maus(b, c)][:2]
+    if ruins: frases.append(T("po.bispo" if len(ruins) == 1 else "po.bispos", l=junta(ruins)))
+    passados = [s for c in (True, False) for s in peoes_passados(b, c) if (chess.square_rank(s) if c else 7 - chess.square_rank(s)) >= 4]
+    passados = [pc(b, s) for s in passados][:3]
+    if passados: frases.append(T("po.passado" if len(passados) == 1 else "po.passados", l=junta(passados)))
+    return " ".join(frases)
 
 
 def texto_rei(b: chess.Board) -> str:

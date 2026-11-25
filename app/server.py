@@ -16,7 +16,7 @@ from indice.aberturas import nomes as nomes_abertura
 from indice.explica import explicar_subida, texto_repeticao
 from indice.posicional import destaques as destaques_posicao
 from indice.core import analyse
-from indice import inicial
+from indice import inicial, relatorio, precisao
 
 from indice.caminhos import RECURSOS, DADOS
 ROOT = RECURSOS                      # interface, exemplos e calibrações (somente leitura)
@@ -205,8 +205,8 @@ def rodar_job(job):
 def _ant(r, extra=""):
     """Resumo do lance jogado em uma linha (mostrado na linha seguinte como 'último lance'); `extra` = a avaliação sobe depois dele."""
     if r is None or r["jogada_indice"] is None: return None
-    return dict(lance=r["move"], indice=r["jogada_indice"], classe=r["jogada_classe"], classe_id=r["jogada_classe_id"],
-                texto=(r["jogada_texto"] or "") + ((" " + extra) if extra else ""), tempo=r.get("tempo_texto", ""))
+    return dict(lance=r["move"], uci=r.get("uci"), lado=r.get("side"), indice=r["jogada_indice"], classe=r["jogada_classe"], classe_id=r["jogada_classe_id"],
+                texto=(r["jogada_texto"] or "") + ((" " + extra) if extra else ""), tempo=r.get("tempo_texto", ""), critico=r.get("critico"))
 
 
 def _subida(job, i):
@@ -390,6 +390,7 @@ class H(BaseHTTPRequestHandler):
                 mudadas = [r for r in job["rows"][:desde] if r.get("_v", 0) > v] if v >= 0 else []   # linhas já enviadas que mudaram (ex.: lance ao vivo que acabou de ser analisado)
                 return self.json(dict(estado=job["estado"], aviso=job["aviso"], info=job["info"], engines=job["engines"], total=len(job["rows"]),
                                       versao=job["versao"], desde=desde, rows=job["rows"][desde:], mudadas=mudadas, lances=job["lances"], esperado=job["esperado"], fens=job["fens"], ucis=job["ucis"], aberturas=job.get("aberturas") or [], salva=job.get("salva", ""),
+                                      numeros=precisao.numeros(job["rows"], job.get("raws"), len(job["lances"])),
                                       atual=job["atual"], decorrido=(None if job["atual"] is None else round(time.time() - job["atual_ini"], 1))))
             # estáticos
             p = "index.html" if u.path in ("/", "") else u.path.lstrip("/")
@@ -412,6 +413,15 @@ class H(BaseHTTPRequestHandler):
                 j["parar"] = True
             job = novo_job(body["fonte"], int(body.get("depth", 14)), body.get("lang", "pt"))
             return self.json({"id": job["id"]})
+        if u.path == "/api/relatorio":       # slides e PDF: montados com a análise já feita (sem usar a engine)
+            job = JOBS.get(body.get("id"))
+            if not job: return self.json({"erro": T("rel.sem")})
+            try:
+                with job["lk"]:
+                    set_lang(job["lang"])
+                    return self.json(relatorio.montar(job, body.get("modo", "principais")))
+            except Exception as e:
+                return self.json({"erro": repr(e)}, 500)
         if u.path == "/api/partida":
             try: return self.json(partida(body["fonte"]))
             except Exception as e: return self.json({"erro": str(e)})

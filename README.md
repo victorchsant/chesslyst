@@ -37,7 +37,23 @@ Em **🖥 Engines**, baixe o Stockfish (e, se quiser o modelo de jogadores, o Lc
 ### Fontes de partidas
 PGN colado ou arquivo · partida do Lichess (por ID, inclusive ao vivo) · transmissões de torneios do Lichess.
 
+### Relatório da partida
+Depois de analisar, **📑 Relatório** monta, a partir da análise já feita:
+- **Slides** com diagramas marcados, variantes clicáveis e **áudio com a voz do navegador**;
+- **PDF** no estilo de livro (tabuleiro à esquerda, explicação à direita), com as páginas preenchidas por miniaturas dos lances, salvo pela janela de impressão (*Salvar como PDF*);
+- **Livro interativo**: um único arquivo `.html`, que abre em qualquer navegador, com um passador em cada tabuleiro;
+- **focos por fase**, escolhidos pelo programa: abertura (desenvolvimento, centro, mobilidade, peças protegidas), meio-jogo (táticas, rei, debilidades, peças soltas, mobilidade) e final (táticas, atividade do rei, estrutura de peões, material). Nem toda partida chega ao final;
+- **tabela final** com os números da partida.
+
+### Momento Crítico e precisão
+- **Momento Crítico:** só um lance resolve a posição e ele não é óbvio, ou o lance jogado muda o rumo da partida.
+- **Precisão** de cada jogador (0 a 100), pelo método usado pelo Lichess: nota de cada lance pelos pontos de chance de vitória perdidos, combinando a média ponderada pela oscilação da avaliação com a média harmônica. Como a engine e a profundidade podem ser outras, o número pode diferir do Lichess.
+
+As ideias, as fases e os focos são identificados por regras sobre a análise da engine: descrevem ações concretas, mas não reconhecem planos estratégicos longos.
+
 ### Recursos
+- Lances e casas citados nas explicações aparecem em negrito e são marcados no tabuleiro.
+- Posição em detalhes, com bispos ruins, mobilidade dos cavalos, ilhas, peões isolados e passados e peças desprotegidas.
 - Navegação pelos lances sem depender da análise; linhas de cálculo clicáveis (a variante aparece no tabuleiro).
 - Várias engines ao mesmo tempo, com aviso quando divergem.
 - Tempo de relógio (`[%clk]`) considerado na chance de acerto, quando o PGN traz.
@@ -72,6 +88,8 @@ Chesslyst é software livre sob a **GNU GPL-3.0** (veja [LICENSE](LICENSE)).
 
 Desenvolvido por **Víctor Chaves Santos** com o **Claude** (Anthropic, modelo Claude Sonnet 5.5), em novembro de 2026.
 
+O desenho das peças (`app/web/pecas.js`) é o conjunto de **Colin M.L. Burnett** (GFDL, BSD e GPL), gerado a partir do python-chess.
+
 Componentes de terceiros (não redistribuídos aqui; cada um segue sua licença):
 - [python-chess](https://github.com/niklasf/python-chess), GPL-3.0, instalado via `pip`
 - [Stockfish](https://github.com/official-stockfish/Stockfish), GPL-3.0, baixado pelo usuário
@@ -84,6 +102,8 @@ Componentes de terceiros (não redistribuídos aqui; cada um segue sua licença)
 ## English
 
 Chesslyst analyses chess games and shows four indices per position, each with a plain-language reading (Portuguese and English): the original **engine** evaluation, the **chance of finding the move** for a player of the given rating, a static **position** score, and the quality of the **last move** with an explanation of what it did. The UI is an HTML page served by a small local Python server; engines run natively.
+
+After the analysis, **Report** builds narrated slides (browser voice), a book-style PDF and a standalone interactive HTML book with a step-through control on each board, with phase-based focuses, critical moments, player accuracy (Lichess method) and a final table of game numbers.
 
 **Run:** On Windows, download `Chesslyst.exe` from Releases (no Python needed) or, with Python 3.10+, open `Chesslyst.pyw` with Python (double-click if `.pyw` files are associated with it, otherwise right-click → *Open with* → Python), or run `python Chesslyst.pyw` (Linux/macOS). On first run it creates a `.venv` and installs `python-chess`. Then, in the **Engines** window, download Stockfish (and optionally Lc0 with the Maia networks) or register any UCI engine.
 

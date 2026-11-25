@@ -4,13 +4,14 @@ Simula a variante que a engine espera (depois do lance jogado e depois do melhor
 material perdido ou ganho, xeque-mate permitido ou perdido, xeque, roque... Sem números sem significado.
 """
 from __future__ import annotations
+import re
 from collections import Counter
 import chess
 from .i18n import T, lang
 from .posicional import desc_material, material as _material, analise as _analise_pos, _fase, avalia as _avalia_pos, pc, mc
 from .core import win_pct as _wp
 from .aberturas import nome_da_posicao
-from .i18n import num as _num, P
+from .i18n import num as _num, P, pontos
 
 VAL = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
 # (artigo+singular, plural, feminino?)
@@ -62,6 +63,121 @@ def _seq(board, ucis, limite=8):
 
 def _cap(s):
     return s[:1].upper() + s[1:]
+
+
+def _mlance(board, move, san=None):
+    """Um lance da notação em negrito: ao passar o mouse, a tela desenha a seta e marca a casa de chegada."""
+    return mc(san or board.san(move), [chess.square_name(move.to_square)], "B" if board.turn else "P", seta=move.uci()[:4])
+
+
+# partes já marcadas ficam como estão; no resto, procura lances (SAN) e casas
+_MARCADO = re.compile(r"(<b\b[^>]*>.*?</b>|<[^>]+>)", re.S)
+_SAN = re.compile(r"(?<![\w-])(O-O-O|O-O|[KQRBN][a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?|[a-h]x[a-h][1-8](?:=[QRBN])?|[a-h][1-8](?:=[QRBN])?)([+#]?)(?![\w-])")
+
+
+def marca_notacao(texto, board, variantes=()):
+    """Põe em negrito todo lance ou casa escrito em notação e liga ao tabuleiro. Os lances são os da posição `board`
+    e, depois deles, os das `variantes` (listas de lances UCI); o que não for lance é tratado como casa."""
+    if not texto: return texto
+    mapa = {}
+
+    def guarda(b, m):
+        s = b.san(m).rstrip("+#")
+        mapa.setdefault(s, (m, b.turn))
+    try:
+        for m in board.legal_moves: guarda(board, m)
+        for pv in variantes:
+            b = board.copy()
+            for u in pv or []:
+                m = chess.Move.from_uci(u)
+                if m not in b.legal_moves: break
+                guarda(b, m); b.push(m)
+    except Exception:
+        pass
+
+    def troca(x):
+        base, tudo = x.group(1), x.group(0)
+        if base in mapa:
+            m, cor = mapa[base]
+            return mc(tudo, [chess.square_name(m.to_square)], "B" if cor else "P", seta=m.uci()[:4])
+        if re.fullmatch(r"[a-h][1-8]", base): return mc(tudo, [base], "B" if board.turn else "P")
+        return tudo
+    partes = _MARCADO.split(texto)
+    return "".join(p if i % 2 else _SAN.sub(troca, p) for i, p in enumerate(partes))
+
+
+def _notacao(board, ucis, limite=4):
+    """'8…O-O 9.Re1 d6': a continuação que a engine espera, cada lance em negrito e ligado ao tabuleiro."""
+    b, out = board.copy(), []
+    for k, u in enumerate((ucis or [])[:limite]):
+        m = chess.Move.from_uci(u)
+        if m not in b.legal_moves: break
+        num = f"{b.fullmove_number}." if b.turn else (f"{b.fullmove_number}…" if k == 0 else "")
+        out.append(num + _mlance(b, m)); b.push(m)
+    return " ".join(out)
+
+
+def _consequencia(board, pv_uci):
+    """O que mais melhora para quem joga entre a posição atual e o fim da variante da engine (itens do Índice de Posição),
+    quando o primeiro lance sozinho não mostra a ideia. -> frase ou None."""
+    try:
+        b, feitos = board.copy(), 0
+        for u in (pv_uci or [])[:8]:
+            m = chess.Move.from_uci(u)
+            if m not in b.legal_moves: break
+            b.push(m); feitos += 1
+        if feitos % 2: b.pop(); feitos -= 1          # compara com a mesma vez de jogar
+        while feitos >= 2 and b.move_stack and b.is_check():
+            b.pop(); b.pop(); feitos -= 2
+        if feitos < 2: return None
+        _, c0 = _avalia_pos(board); _, c1 = _avalia_pos(b)
+        sg = 1 if board.turn else -1
+        d = {k: (c1[k] - c0[k]) * sg for k in c0 if k in _PZ and k != "pecas_em_risco" and _PZ[k][0]}
+        if not d: return None
+        k, v = max(d.items(), key=lambda kv: kv[1])
+        return T(_PZ[k][0]) if v >= 12 else None
+    except Exception:
+        return None
+
+
+def _minusc(frase):
+    frase = frase.rstrip(".")
+    return frase if frase.startswith("<") else frase[:1].lower() + frase[1:]
+
+
+def _justifica(board, linha):
+    """Por que a engine gosta deste lance: o que ele faz (ou o que a variante dela consegue). -> frase ou None."""
+    mv = chess.Move.from_uci(linha["uci"]); pv = linha.get("pv_uci") or [linha["uci"]]
+    seq = _seq(board, pv)
+    if linha.get("mate") is not None and (linha["mate"] > 0) == bool(board.turn): return None   # a avaliação ao lado já diz "mate em N"
+    if seq["liquido"] >= 1.5 and seq["ganhou"]: return T("pq.j_ganha", p=_lista(seq["ganhou"]))
+    if board.is_castling(mv): return T("pq.j_roque")
+    if board.is_capture(mv):
+        recaptura = seq["liquido"] <= 0 and len(seq["passos"]) > 1 and seq["passos"][1]["cap"]
+        p = _n_peca(chess.PAWN if board.is_en_passant(mv) else board.piece_type_at(mv.to_square), 1)
+        return T("pq.j_troca" if recaptura else "pq.j_captura", p=p)
+    y = _ideias(board, mv)
+    if y: return _minusc(y[0][1])
+    if board.gives_check(mv): return _minusc(T("x.xeque"))
+    ef = _efeito(board, mv)
+    if ef and ef[2]: return _minusc(ef[1])
+    pz = _motivo_posicional(board, mv)
+    if pz and pz[2]: return _minusc(pz[1])
+    fim = _consequencia(board, pv)
+    return T("pq.j_fim", i=_minusc(fim)) if fim else None
+
+
+def _linha_engine(board, linha):
+    """'Nf3 (+0,3): desenvolve o cavalo. Continuação da engine: 8…O-O 9.Re1.'"""
+    mv = chess.Move.from_uci(linha["uci"])
+    txt = f"{_mlance(board, mv, linha['san'])} ({_fmt_av(linha['cp'], linha['mate'])})"
+    just = _justifica(board, linha)
+    if just: txt += ": " + just
+    resto = (linha.get("pv_uci") or [])[1:5]
+    if resto:
+        b = board.copy(); b.push(mv)
+        txt += ". " + T("pq.cont", l=_notacao(b, resto))
+    return txt + ("" if txt.endswith(".") else ".")
 
 
 def _ideia(board, melhor, seq_b, mate_b, net_j, eval_antes, permitiu_mate=False):
@@ -201,15 +317,16 @@ def _ideias(board, move):
                     if s != de and s not in f1 and board.piece_type_at(s) != chess.PAWN:
                         add("protege", p=pc(b2, s)); break
         # 4) torres
+        coluna = mc(col, [col + str(n) for n in range(1, 9)], "B" if cor else "P", tipo="tinta")
         if pt == chess.ROOK and chess.square_file(de) != fl and not captura:
             outras = [s for s in b2.pieces(chess.ROOK, cor) if s != to and chess.square_file(s) == fl
                       and not any(b2.piece_at(chess.square(fl, r)) for r in range(min(chess.square_rank(s), chess.square_rank(to)) + 1, max(chess.square_rank(s), chess.square_rank(to))))]
-            if outras: add("dobra", c=col)
+            if outras: add("dobra", c=coluna)
             else:
                 meus = [s for s in b2.pieces(chess.PAWN, cor) if chess.square_file(s) == fl]
                 deles = [s for s in b2.pieces(chess.PAWN, not cor) if chess.square_file(s) == fl]
-                if not meus and not deles: add("aberta", c=col)
-                elif not meus: add("semi", c=col)
+                if not meus and not deles: add("aberta", c=coluna)
+                elif not meus: add("semi", c=coluna)
         if pt == chess.ROOK and rel(to) == 6 and rel(de) != 6 and not captura:
             inim7 = [s for s in b2.pieces(chess.PAWN, not cor) if rel(s) == 6]
             rei = b2.king(not cor)
@@ -249,6 +366,8 @@ _PZ = {   # item da análise de posição -> (frase se melhora, frase se piora)
     "peoes_dobrados": ("pz.dob_mais", "pz.dob_menos"), "peoes_isolados": ("pz.iso_mais", "pz.iso_menos"),
     "peoes_passados": ("pz.pas_mais", "pz.pas_menos"), "pecas_em_risco": ("pz.risco_mais", "pz.risco_menos"),
     "casas_fracas": ("pz.fracas_mais", "pz.fracas_menos"), "postos_avancados": ("pz.posto_mais", "pz.posto_menos"),
+    "ilhas_peoes": ("pz.ilhas_mais", "pz.ilhas_menos"), "mobilidade_cavalos": ("pz.cav_mais", "pz.cav_menos"),
+    "bispos_maus": ("pz.bmau_mais", "pz.bmau_menos"),
 }
 
 
@@ -289,13 +408,14 @@ def explicar_subida(prev, raw):
         b_txt = _fmt_av(-d_cp if d_cp is not None else 0, -d_m if d_m is not None else None)
         ln = raw["linhas"][0]; pv = ln.get("pv") or []; pvu = ln.get("pv_uci") or []
         if len(pv) >= 2:
-            ideia = ""
+            ideia, lance = "", pv[1]
             try:
                 b = chess.Board(raw["fen"]); b.push(chess.Move.from_uci(pvu[0]))
+                lance = _mlance(b, chess.Move.from_uci(pvu[1]), pv[1])
                 y = _ideias(b, chess.Move.from_uci(pvu[1]))
                 if y: ideia = ", " + y[0][2]
             except Exception: pass
-            return T("x.sobe_i", a=a_txt, b=b_txt, m=pv[1], i=ideia)
+            return T("x.sobe_i", a=a_txt, b=b_txt, m=lance, i=ideia)
         return T("x.sobe", a=a_txt, b=b_txt)
     except Exception:
         return None
@@ -315,24 +435,37 @@ def explicar_porque(raw, pos, ap=None):
             top = [(s, n) for s, n in sorted((raw.get("book_moves") or {}).items(), key=lambda kv: -kv[1])[:3] if n / bg >= 0.08]
             if top: txt += " " + T("pq.teoria_m", l=", ".join(f"{s} ({round(100 * n / bg)}%)" for s, n in top))
             out.append(txt)
-        # 2) natureza do melhor lance (a explicação do porquê de ser difícil ou fácil de achar)
-        mate = raw["cands"][0][2]
-        if not (mate is not None and mate > 0):
-            mv = chess.Move.from_uci(ln["uci"]); seq = _seq(board, ln.get("pv_uci"))
-            primeiro = next((k for k, p in enumerate(seq["passos"]) if p["meu"] and p["cap"]), None)
-            if seq["liquido"] >= 1.5 and seq["ganhou"] and primeiro is not None:
-                out.append(T("pq.ganha", m=san, p=_lista(seq["ganhou"]), n=primeiro // 2 + 1))
-            elif board.gives_check(mv): out.append(T("pq.xeque", m=san))
-            elif board.is_capture(mv): out.append(T("pq.captura", m=san))
-            else:
-                y = _ideias(board, mv); ef = _efeito(board, mv); pz = _motivo_posicional(board, mv)
-                frase = y[0][1] if y else (ef[1] if ef and ef[2] else (pz[1] if pz and pz[2] else None))
-                if frase: out.append(T("pq.ideia", m=san, i=frase[:1].lower() + frase[1:].rstrip(".")))
-        # 3) quantos lances são bons
+        # 2) o que a engine mostra: se há vários lances equivalentes, justifica cada um; senão, justifica o melhor
+        L = raw["linhas"]
+        bons, resto = [], []
         if pos is not None:
             bw = _wp(pos.candidates[0].cp, pos.candidates[0].mate)
-            bons = [c.san for c in pos.candidates if bw - _wp(c.cp, c.mate) <= 3]
-            if len(bons) >= 3: out.append(T("pq.varios", l=", ".join(bons[:3])))
+            perda = {c.san: bw - _wp(c.cp, c.mate) for c in pos.candidates}
+            bons = [l for l in L if perda.get(l["san"], 99) <= 3]
+            resto = [l for l in L if perda.get(l["san"], 99) > 3]
+        em_teoria = bool(bg and bg >= 20)
+        if len(bons) >= 3:
+            mostra = bons[:3]
+            dif = max(perda[l["san"]] for l in mostra)
+            txt = T("pq.varios", n=len(bons), d=_num(max(dif, 0.0)), u=pontos(max(dif, 0.0))) + "".join("<br>• " + _linha_engine(board, l) for l in mostra)
+            if resto:
+                r0 = resto[0]
+                txt += "<br>" + T("pq.fora", m=_mlance(board, chess.Move.from_uci(r0["uci"]), r0["san"]), a=_fmt_av(r0["cp"], r0["mate"]), d=_num(perda[r0["san"]], 0))
+            out.append(txt)
+        else:
+            mate = raw["cands"][0][2]
+            mv = chess.Move.from_uci(ln["uci"]); seq = _seq(board, ln.get("pv_uci"))
+            primeiro = next((k for k, p in enumerate(seq["passos"]) if p["meu"] and p["cap"]), None)
+            if not (mate is not None and mate > 0) and seq["liquido"] >= 1.5 and seq["ganhou"] and primeiro is not None:
+                out.append(T("pq.ganha", m=san, p=_lista(seq["ganhou"]), n=primeiro // 2 + 1, l=_notacao(board, ln.get("pv_uci"), primeiro + 2)))
+            elif not em_teoria or _justifica(board, ln):
+                out.append(T("pq.ideia", i=_linha_engine(board, ln)))
+            if resto and len(bons) == 1 and perda[resto[0]["san"]] >= 5:        # o preço de não achar o lance
+                r0 = resto[0]
+                b2 = board.copy(); b2.push(chess.Move.from_uci(r0["uci"]))
+                resposta = (r0.get("pv_uci") or [])[1:4]
+                out.append(T("pq.segundo", m=_mlance(board, chess.Move.from_uci(r0["uci"]), r0["san"]), a=_fmt_av(r0["cp"], r0["mate"]),
+                             d=_num(perda[r0["san"]], 0)) + (" " + T("pq.resposta", l=_notacao(b2, resposta, 3)) if resposta else ""))
         # 4) peças em risco na posição: tática
         if ap:
             risco = next((i for g in ap["grupos"] for i in g["itens"] if i["chave"] == "pecas_em_risco"), None)

@@ -9,9 +9,10 @@ from pathlib import Path
 import chess, chess.engine, chess.pgn
 from . import fontes
 from .core import Candidate, Position, analyse, win_pct, indice_jogada, nome_classe
-from .explica import explicar_lance, explicar_avaliacao, explicar_porque
+from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao
+from .critico import momento_critico
 from .i18n import T
-from .posicional import indice_posicao, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei
+from .posicional import indice_posicao, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei, texto_pecas
 
 from .caminhos import DADOS as ROOT       # engines baixadas ficam na pasta de dados do usuário
 def _acha(nome):
@@ -238,6 +239,7 @@ def linha(raw, pos, r):
     ip, tp, contrib = indice_posicao(chess.Board(raw["fen"]), (_l0["cp"] if _l0 and _l0.get("mate") is None else None))
     postos = texto_postos(chess.Board(raw["fen"]))   # postos avançados, em uma frase curta
     rei_txt = texto_rei(chess.Board(raw["fen"]))     # rei sob pressão (xeque, casas de fuga, raio-x)
+    pecas_txt = texto_pecas(chess.Board(raw["fen"]))   # cavalos mal colocados, bispos ruins, peões passados avançados
     deb = texto_debilidades(chess.Board(raw["fen"]))   # quem tem mais debilidades e se estão sendo aproveitadas
     ecp = raw["linhas"][0]["cp"] if raw["linhas"] else None   # avaliação ORIGINAL da engine (brancas), só para o resíduo
     ap = analise_posicao(chess.Board(raw["fen"]), ecp)
@@ -247,7 +249,7 @@ def linha(raw, pos, r):
              engine_cp=raw["linhas"][0]["cp"] if raw["linhas"] else None,
              engine_mate=raw["linhas"][0]["mate"] if raw["linhas"] else None,
              indice=round(r.index, 1), indice_bruto=round(r.index_bruto, 1), faixa=r.band,
-             posicao_brancas=round(ip, 1), posicao_texto=(tp + (" " + deb if deb else "") + (" " + postos if postos else "") + (" " + rei_txt if rei_txt else "")),
+             posicao_brancas=round(ip, 1), posicao_texto=(tp + (" " + deb if deb else "") + (" " + postos if postos else "") + (" " + pecas_txt if pecas_txt else "") + (" " + rei_txt if rei_txt else "")),
              material_brancas=round(ap["material_idx"], 1), estrutura_brancas=round(ap["estrutura_idx"], 1),
              posicao_cp=ap["cp"], material_cp=ap["material_cp"], posicao_grupos=ap["grupos"], posicao_residuo=ap["residuo"],
              posicao_componentes={k: round(v) for k, v in contrib.items() if abs(v) >= 3},
@@ -258,14 +260,19 @@ def linha(raw, pos, r):
              indice_tempo=(None if r.index_tempo is None else round(r.index_tempo, 1)), tempo_texto=r.tempo_texto,
              tempo_gasto=(raw.get("tempo") or {}).get("gasto"), tempo_restante=(raw.get("tempo") or {}).get("restante"),
              jogada_indice=None, jogada_classe=None, jogada_classe_id=None, jogada_texto=None, jogado_perda=None)
-    d["avaliacao_texto"] = explicar_avaliacao(raw) or ""   # por que a engine avalia assim (não altera o valor dela)
+    tab = chess.Board(raw["fen"])
+    variantes = [l.get("pv_uci") for l in raw.get("linhas") or []]
+    d["motivos"] = marca_notacao(d["motivos"], tab, variantes)          # lances e casas citados: negrito, marcados no tabuleiro
+    d["avaliacao_texto"] = marca_notacao(explicar_avaliacao(raw) or "", tab, variantes)   # por que a engine avalia assim (não altera o valor dela)
     if raw["jogado"] is not None:
         cp, mate = raw["jogado"]
         depois = win_pct(cp, mate)  # de quem jogou, depois do lance
         perda = round(r.eval_pct - depois, 1)
         nota, cid, txt = indice_jogada(perda, r.index, r.eval_pct, depois)
         txt = explicar_lance(raw, cid, r.index, r.eval_pct, depois) or txt   # explicação concreta (material, mate, xeque...)
+        txt = marca_notacao(txt, tab, variantes + [raw.get("pv_jogado")])
         d.update(jogada_indice=round(nota, 1), jogada_classe=nome_classe(cid), jogada_classe_id=cid, jogada_texto=txt, jogado_perda=perda)
+    d["critico"] = momento_critico(raw, r.index)      # posição em que a partida se decide (ou None)
     return d
 
 
@@ -286,7 +293,7 @@ def linha_final(board, rating=None, tempo=None):
                 posicao_grupos=ap["grupos"], posicao_residuo=None, aval_pct=eng, melhor=None, melhor_uci=None, linhas=[], outras=[],
                 flags=["fim"], fonte_final="", teoria_partidas=None, resumo=resumo, motivos="", indice_tempo=None, tempo_texto="",
                 tempo_gasto=None, tempo_restante=(tempo or {}).get("restante"), jogada_indice=None, jogada_classe=None, jogada_classe_id=None,
-                jogada_texto=None, jogado_perda=None)
+                jogada_texto=None, jogado_perda=None, critico=None)
 
 
 def paineis(rows):

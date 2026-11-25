@@ -13,7 +13,7 @@ import chess, chess.pgn
 import js
 from pyodide.http import pyfetch
 
-from indice import inicial, pipeline, relogio
+from indice import inicial, pipeline, relogio, relatorio, precisao
 from indice.aberturas import nomes as nomes_abertura
 from indice.core import analyse, win_pct
 from indice.explica import explicar_subida, texto_repeticao
@@ -152,8 +152,8 @@ async def partida(fonte):
 # ----------------------------------------------------------------- linhas e jobs (porte de server.py)
 def _ant(r, extra=""):
     if r is None or r["jogada_indice"] is None: return None
-    return dict(lance=r["move"], indice=r["jogada_indice"], classe=r["jogada_classe"], classe_id=r["jogada_classe_id"],
-                texto=(r["jogada_texto"] or "") + ((" " + extra) if extra else ""), tempo=r.get("tempo_texto", ""))
+    return dict(lance=r["move"], uci=r.get("uci"), lado=r.get("side"), indice=r["jogada_indice"], classe=r["jogada_classe"], classe_id=r["jogada_classe_id"],
+                texto=(r["jogada_texto"] or "") + ((" " + extra) if extra else ""), tempo=r.get("tempo_texto", ""), critico=r.get("critico"))
 
 
 def _subida(job, i):
@@ -284,6 +284,11 @@ async def handle(metodo, caminho, query_json, corpo_json, lang):
             try: pgn = await http_get(js.SITE_BASE + "teste.pgn")
             except Exception: pgn = ""
             return _ok({"pgn": pgn, "titulo": "demonstração"})
+        if caminho == "/api/relatorio":
+            job = JOBS.get(body.get("id"))
+            if not job: return _ok({"erro": T("rel.sem")})
+            set_lang(job["lang"])
+            return _ok(relatorio.montar(job, body.get("modo", "principais")))
         if caminho == "/api/partida":
             try: return _ok(await partida(body["fonte"]))
             except Exception as e: return _ok({"erro": str(e)})
@@ -300,6 +305,7 @@ async def handle(metodo, caminho, query_json, corpo_json, lang):
             return _ok(dict(estado=job["estado"], aviso=job["aviso"], info=job["info"], engines=job["engines"], total=len(job["rows"]),
                             versao=job["versao"], desde=desde, rows=job["rows"][desde:], mudadas=mudadas, lances=job["lances"],
                             esperado=job["esperado"], fens=job["fens"], ucis=job["ucis"], aberturas=job.get("aberturas") or [],
+                            numeros=precisao.numeros(job["rows"], job.get("raws"), len(job["lances"])),
                             atual=job["atual"], decorrido=(None if job["atual"] is None else round(time.time() - job["atual_ini"], 1))))
         if caminho == "/api/parar":
             job = JOBS.get(body.get("id"))

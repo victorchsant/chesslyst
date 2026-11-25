@@ -1,26 +1,31 @@
 {
  "pesos": {
-  "material": 1.1745714185741245,
-  "mobilidade": 44.94045861900447,
-  "par_de_bispos": 46.929670525344605,
-  "peoes_dobrados": -28.034503619808127,
+  "material": 1.1790223348977522,
+  "mobilidade": 43.87604470950789,
+  "par_de_bispos": 47.97240869532785,
+  "peoes_dobrados": -26.402298659192937,
   "peoes_isolados": -6.0,
-  "peoes_passados": 35.82398462864179,
-  "seguranca_rei": 48.27968812206491,
-  "rei_zona": -11.51451106892893,
-  "rei_raiox": -1.2064329283775157,
-  "rei_fuga": 9.82187966580002,
+  "peoes_passados": 37.846789237814505,
+  "seguranca_rei": 48.38112717523771,
+  "rei_zona": -11.548312585312395,
+  "rei_raiox": -1.7744815200351638,
+  "rei_fuga": 9.518439968582802,
   "rei_final": 4.0,
-  "centro": 6.640268807361074,
-  "torres": 13.091822464545704,
+  "centro": 6.496847290141023,
+  "torres": 13.501716933878212,
   "desenvolvimento": -6.0,
-  "espaco": 27.794599430256408,
-  "pecas_em_risco": -18.160246530094433,
-  "casas_fracas": -9.933405715538939,
-  "postos_avancados": 25.0
+  "espaco": 28.045407746270207,
+  "pecas_em_risco": -18.300830546208825,
+  "casas_fracas": -9.737791007309834,
+  "postos_avancados": 25.0,
+  "ilhas_peoes": -3.656932158143938,
+  "mobilidade_cavalos": 5.0,
+  "bispos_maus": -12.5
  },
  "regra": [
+  "bispos_maus",
   "desenvolvimento",
+  "mobilidade_cavalos",
   "peoes_isolados",
   "postos_avancados",
   "rei_final"
@@ -44,6 +49,9 @@
   "espaco": 0.7682119205298014,
   "pecas_em_risco": 0.2222222222222222,
   "casas_fracas": 0.8384841795437822,
-  "postos_avancados": 0.07689477557027226
+  "postos_avancados": 0.07689477557027226,
+  "ilhas_peoes": 0.44665194996320823,
+  "mobilidade_cavalos": 0.6074319352465047,
+  "bispos_maus": 0.10338484179543782
  }
 }

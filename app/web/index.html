@@ -72,6 +72,7 @@ main.quebrado #col-lances{position:static;max-height:none}main.quebrado #col-lan
 .c.l i{color:var(--escura)}.c.d i{color:var(--clara)}
 .p{position:relative;z-index:2;font-family:"Segoe UI Symbol","DejaVu Sans",sans-serif}
 /* estilos de peças */
+.est-vetor .p{width:96%;height:96%;display:block;line-height:0}.est-vetor .p svg{width:100%;height:100%;display:block;overflow:visible}
 .est-classico .p.w{color:#fff;text-shadow:0 0 1px #000,0 0 1px #000,0 0 2px #000,1px 1px 1px #0008}
 .est-classico .p.b{color:#1b1b1b;text-shadow:0 0 1px #fff7}
 .est-contorno .p.w,.est-contorno .p.b{color:#000;text-shadow:none}
@@ -258,6 +259,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     <div id="fonte-tit" style="flex:1;min-width:220px"><span class="mut">Nenhuma partida carregada</span></div>
     <button class="pri" id="b-analisar" hidden>▶ Analisar</button>
     <button id="b-parar" hidden>■ Parar</button>
+    <button id="b-relatorio" hidden title="Apresentação em slides, com voz, e PDF da análise">📑 Relatório</button>
     <button id="b-trocar">Trocar partida ▾</button>
   </div>
   <div id="fonte-det" hidden>
@@ -304,7 +306,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     <label>Tema da interface
       <select id="c-tui"><option value="escuro">Escuro</option><option value="claro">Claro</option><option value="auto">Automático (segue o sistema)</option></select></label>
     <label>Estilo das peças
-      <select id="c-peca"><option value="classico">Clássico (cheias)</option><option value="contorno">Contorno</option><option value="neon">Neon</option><option value="letras">Letras em discos</option></select></label>
+      <select id="c-peca"><option value="vetor">Clássico (desenho nítido)</option><option value="classico">Clássico (fonte do sistema)</option><option value="contorno">Contorno</option><option value="neon">Neon</option><option value="letras">Letras em discos</option></select></label>
     <label>Cavalos
       <select id="c-cav"><option value="todos">Todos olhando para dentro (b1 e b8)</option><option value="pretos">Só os pretos olhando para dentro</option><option value="off">Como no desenho original</option></select></label>
     <label>Cores do tabuleiro
@@ -346,11 +348,12 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.1.3</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.2.0</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
   <div class="kv"><span class="k">Data</span><div class="v">Novembro de 2026</div></div>
+  <div class="kv"><span class="k">Peças</span><div class="v">Desenho de Colin M.L. Burnett (GFDL, BSD e GPL), distribuído no python-chess</div></div>
   <div class="kv"><span class="k">Agradecimentos</span><div class="v">A Rafael Queiroz, pelas ideias</div></div>
   <div class="kv"><span class="k">Licença</span><div class="v">GNU GPL-3.0</div></div>
   <div class="kv" id="sobre-link" hidden><span class="k">Código-fonte</span><div class="v"><a id="sobre-url" target="_blank" rel="noopener noreferrer"></a></div></div>
@@ -403,9 +406,9 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     <div class="card bloco" data-b="interp"><div class="bh"><span>Interpretação do lance</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc" id="interp"><div class="mut">Escolha um jogo acima.</div></div></div>
     <div class="card bloco" data-b="pos"><div class="bh"><span>Posição em detalhes</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc" id="pos-det"><div class="mut">—</div></div></div>
     <div class="card bloco" data-b="lances"><div class="bh"><span>Lances</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc"><div class="lances" id="lances"></div>
-      <div class="leg2">!! brilhante · ★ melhor lance · ! excelente · ?! imprecisão · ? erro · ?? erro grave · <b class="xeq">+</b> xeque · <b class="mate">#</b> xeque-mate · cinza = ainda em análise</div></div></div>
+      <div class="leg2">!! brilhante · ★ melhor lance · ! excelente · ?! imprecisão · ? erro · ?? erro grave · <b class="xeq">+</b> xeque · <b class="mate">#</b> xeque-mate · <b style="color:#e0383e">◆</b> momento crítico · cinza = ainda em análise</div></div></div>
     <div class="card bloco" data-b="graf"><div class="bh"><span>Os índices ao longo da partida</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc"><canvas id="graf"></canvas>
-      <div class="leg"><span><i style="background:var(--c-eng)"></i>Engine</span><span><i style="background:var(--c-pos)"></i>Posição</span><span><i style="background:var(--c-mat)"></i>Material</span><span><i style="background:var(--c-ace)"></i>Acerto</span><span><i style="background:var(--c-jog)"></i>Jogada</span></div></div></div>
+      <div class="leg"><span><i style="background:var(--c-eng)"></i>Engine</span><span><i style="background:var(--c-pos)"></i>Posição</span><span><i style="background:var(--c-mat)"></i>Material</span><span><i style="background:var(--c-ace)"></i>Acerto</span><span><i style="background:var(--c-jog)"></i>Jogada</span></div><div id="numeros-bloco" hidden><div class="sub" id="numeros-tit"></div><div id="numeros"></div></div></div></div>
     <div class="card bloco" data-b="linhas" id="lin-lat-card"><div class="bh"><span>Linhas de cálculo</span><button class="bt" title="recolher/expandir">▾</button></div><div class="bc" id="lin-lat"></div></div>
   </div>
 </main>
@@ -413,6 +416,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div id="toast" hidden></div>
 
 <script src="idiomas.js"></script>
+<script src="pecas.js"></script>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let LANG=localStorage.getItem('indiceLang')||((navigator.language||'pt').toLowerCase().startsWith('pt')?'pt':'en');
@@ -428,7 +432,7 @@ const BARRAS=['engine','posicao','material','acerto','jogada'];
 const BARRAS4=['engine','posicao','acerto','jogada'];
 const CLS_COR={brilhante:'#1abc9c',melhor:'#27ae60',excelente:'#2ecc71',bom:'#8bc34a',imprecisao:'#f1c40f',erro:'#e67e22',grave:'#e74c3c'};
 const BANDA_COR=v=>`hsl(${Math.round(v*1.2)},70%,48%)`;
-const DEF={peca:'classico',tema:'madeira',clara:'#f0d9b5',escura:'#b58863',layout:'dois',slots:{engine:'esq',posicao:'esq',material:'off',acerto:'dir',jogada:'dir'},varSep:false,ver:6,fixo:true,fixaLinhas:false,completa:false,cProp:50,lProp:50,temaUi:'escuro',cav:'todos',sqAuto:true,wLances:220,wBlocos:0,blocos:{},colapsados:{},neutros:false,local:{interp:'lat',pos:'lat',lances:'col',graf:'lat',linhas:'lat'},fixo:false,gAberto:{},linhas:'lateral',flip:false,
+const DEF={peca:'vetor',tema:'madeira',clara:'#f0d9b5',escura:'#b58863',layout:'dois',slots:{engine:'esq',posicao:'esq',material:'off',acerto:'dir',jogada:'dir'},varSep:false,ver:7,fixo:true,fixaLinhas:false,completa:false,cProp:50,lProp:50,temaUi:'escuro',cav:'todos',sqAuto:true,wLances:220,wBlocos:0,blocos:{},colapsados:{},neutros:false,local:{interp:'lat',pos:'lat',lances:'col',graf:'lat',linhas:'lat'},fixo:false,gAberto:{},linhas:'lateral',flip:false,
   sq:Math.max(40,Math.min(76,Math.floor((innerHeight-250)/8))),seta:true,coord:true,depth:14,som:true,notif:false};
 const SALVO=JSON.parse(localStorage.getItem('indiceCfg')||'{}');
 let cfg=Object.assign({},DEF,SALVO);
@@ -440,6 +444,7 @@ if((SALVO.ver||0)<4){   // novo padrão (madeira, 2 barras de cada lado, lances 
   localStorage.setItem('indiceCfg',JSON.stringify(cfg))}
 cfg.fixo=true;   // tabuleiro fixo é o comportamento padrão e não é mais uma escolha
 if((SALVO.ver||0)<5){cfg.cav='todos';cfg.ver=5;localStorage.setItem('indiceCfg',JSON.stringify(cfg))}   // o cavalo de b1 (brancas) também olha para dentro
+if((SALVO.ver||0)<7){if(cfg.peca==='classico')cfg.peca='vetor';cfg.ver=7;localStorage.setItem('indiceCfg',JSON.stringify(cfg))}   // quem usava o padrão antigo passa ao desenho vetorial (as outras escolhas ficam)
 cfg.blocos=cfg.blocos||{};cfg.colapsados=cfg.colapsados||{};cfg.local=Object.assign({},DEF.local,cfg.local||{});cfg.gAberto=cfg.gAberto||{};
 const S={rows:[],cur:0,job:null,estado:'',info:{},timer:null,lances:[],esperado:0,atual:null,decorrido:null,pedido:null,pre:null,fonte:null};
 const save=()=>localStorage.setItem('indiceCfg',JSON.stringify(cfg));
@@ -550,8 +555,10 @@ function cavDe(varianteAtual){const P=S.pre;if(!P||!P.fens||!P.fens.length||!P.u
 function peca(ch,col,cavInv){
   const w=ch===ch.toUpperCase(),t=ch.toUpperCase();let g;
   const inv=t==='N'&&cfg.peca!=='letras'&&cavPolitica(w)&&(cavInv!==undefined?(cavInv!==!!cfg.flip):(col!=null&&col<4));   // o desenho do cavalo olha para a esquerda: espelha os da metade esquerda
-  if(cfg.peca==='letras')g=t;else if(cfg.peca==='contorno')g=(w?H:G)[t];else g=G[t];
-  return `<span class="p ${w?'w':'b'}${inv?' inv':''}">${g}${cfg.peca==='letras'?'':'︎'}</span>`;
+  const vetor=cfg.peca==='vetor'&&window.PECAS_SVG;
+  if(vetor)g=`<svg viewBox="0 0 45 45">${window.PECAS_SVG[w?t:t.toLowerCase()]}</svg>`;
+  else if(cfg.peca==='letras')g=t;else if(cfg.peca==='contorno')g=(w?H:G)[t];else g=G[t];
+  return `<span class="p ${w?'w':'b'}${inv?' inv':''}">${g}${cfg.peca==='letras'||vetor?'':'︎'}</span>`;
 }
 let V=null,V2=null,foco2=false;   // V: variante no tabuleiro principal; V2: no tabuleiro separado
 const SINAL={brilhante:['!!','#1abc9c'],melhor:['★','#27ae60'],excelente:['!','#2ecc71'],imprecisao:['?!','#d4ac0d'],erro:['?','#e67e22'],grave:['??','#e74c3c']};
@@ -653,20 +660,22 @@ function linhasHtml(row){
     if(o.erro)h+=`<span class="er">${t('indisponível: {e}',{e:o.erro})}</span>`;
     else{h+='<table class="lin">';o.linhas.forEach((l,i)=>h+=`<tr data-uci="${l.uci}" data-pv="${esc(l.pv.join(','))}" data-eng="${esc(o.nome)}" title="${dica}"><td>${i+1}</td><td><b>${l.san}</b></td><td>${ev(l.cp,l.mate)}</td><td class="pv">${pvClic(row.fen,l.pv)}</td></tr>`);h+='</table>'}
     h+='</div>'});
-  if(row.move&&!L.some(l=>l.san===row.move))h+=`<div class="mut" style="margin-top:6px">${t('Lance jogado: {m} (fora das {n} melhores linhas)',{m:'<b>'+row.move+'</b>',n:L.length})}</div>`;
+  if(row.move&&!L.some(l=>l.san===row.move))h+=`<div class="mut" style="margin-top:6px">${t('Lance jogado: {m} (fora das {n} melhores linhas)',{m:lanceMc(row.move,row.uci,row.side),n:L.length})}</div>`;
   return h;
 }
+const lanceMc=(san,uci,lado)=>uci?`<b class="mc" data-c="${uci.slice(2,4)}" data-s="${uci.slice(0,4)}" data-l="${lado||'B'}">${san}</b>`:`<b>${san}</b>`;   // lance citado: seta e casa no tabuleiro
 function interpHtml(row){
   const ant=row.ant,lado=row.side==='B'?t('brancas'):t('pretas');
   const mot=row.motivos?row.motivos.split(' | '):[];
   let h=`<div class="ih"><span class="badge" style="background:${BANDA_COR(row.indice)}">${row.faixa} · ${Math.round(row.indice)}%</span>${ajuda('Chance de Acerto: probabilidade de o jogador, com o seu nível de rating, escolher um lance adequado nesta posição.\n• Base: a engine identifica os lances adequados (os que quase não pioram a posição) e o modelo Maia, no nível do jogador, estima a probabilidade de ele escolher cada um deles.\n• Ajustes: teoria de abertura e mate curto elevam o valor; cálculo muito profundo o reduz; finais técnicos impõem um limite.\n• Calibração com partidas reais, que também considera o rating.\n• A divergência entre engines só reduz o valor se estiver ativada. O tempo de relógio é uma leitura à parte e não altera este valor.')}
     <span class="mut">${t('Vez das {lado}',{lado})}${row.rating?' · '+t('rating {r}',{r:row.rating}):''}${row.tempo_restante!=null?' · ⏱ '+fmtT(row.tempo_restante):''}</span></div>
     <p class="ires">${row.resumo}</p>`;
+  if(row.critico)h+=`<div class="critico"><b>⚠ ${row.critico.titulo}</b>${ajuda('Momento crítico: só um lance resolve a posição e ele não é óbvio, ou o lance jogado muda o rumo da partida. Teoria de abertura, lance forçado e posição já decidida ficam de fora.')}<div>${row.critico.texto}</div></div>`;
   if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}${ajuda('Os fatores que mais pesaram na chance de acerto desta posição.')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
   if(row.repeticao_texto)h+=`<div class="kv"><span class="k">${t('Repetição')}</span><div class="v">${row.repeticao_texto}</div></div>`;
   if(row.avaliacao_texto)h+=`<div class="kv"><span class="k">${t('Avaliação')}${ajuda('Explica a pontuação da engine lendo a linha principal dela (material, mate, vantagem). Não altera o valor original da engine.')}</span><div class="v">${row.avaliacao_texto}</div></div>`;
   h+=`<div class="kv"><span class="k">${t('Posição')}${ajuda('Índice de Posição: avaliação estática (material, estrutura de peões, atividade das peças, rei), calculada pelo programa sem usar a engine.')}</span><div class="v">${row.posicao_texto}</div></div>`;
-  if(ant)h+=`<div class="kv"><span class="k">${t('Último lance')}${ajuda('Índice de Jogada: qualidade do lance que acabou de ser jogado, comparada ao melhor lance da engine.')}</span><div class="v"><b>${ant.lance}</b> <span class="badge" style="background:${CLS_COR[ant.classe_id]||'#999'}">${ant.classe} · ${Math.round(ant.indice)}</span><div>${ant.texto}</div>${ant.tempo?`<div class="mut">⏱ ${ant.tempo}</div>`:''}</div></div>`;
+  if(ant)h+=`<div class="kv"><span class="k">${t('Último lance')}${ajuda('Índice de Jogada: qualidade do lance que acabou de ser jogado, comparada ao melhor lance da engine.')}</span><div class="v">${lanceMc(ant.lance,ant.uci,ant.lado)} <span class="badge" style="background:${CLS_COR[ant.classe_id]||'#999'}">${ant.classe} · ${Math.round(ant.indice)}</span><div>${ant.texto}</div>${ant.critico?`<div class="critico mini">⚠ ${ant.critico.titulo}</div>`:''}${ant.tempo?`<div class="mut">⏱ ${ant.tempo}</div>`:''}</div></div>`;
   return h;
 }
 const ajuda=txt=>`<span class="dica" tabindex="0" role="button" aria-label="${esc(t('Informação'))}"><svg class="ic" viewBox="0 0 16 16" width="100%" height="100%" aria-hidden="true"><circle cx="8" cy="8" r="6.9" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="4.9" r="1.05" fill="currentColor"/><rect x="7.15" y="7" width="1.7" height="5.2" rx=".85" fill="currentColor"/></svg><span class="tip">${esc(t(txt)).replace(/\n/g,'<br>')}</span></span>`;   // ⓘ: passe o mouse (ou foque) para ler a explicação
@@ -715,7 +724,7 @@ function marcaFixo(){$$('.rw[data-d]').forEach(e=>e.classList.toggle('fixo',chav
 document.addEventListener('mouseover',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r)mostraDest(r.dataset.d);
   const m=e.target.closest&&e.target.closest('.mc');if(!m)return;   // negrito da interpretação: marca no tabuleiro a(s) casa(s) ou o item citado
   if(m.dataset.i){mostraDest(m.dataset.i);return}
-  const c=(m.dataset.c||'').split(',').filter(Boolean);if(c.length){destAtual=null;repinta({casas:c.map(q=>[q,m.dataset.l||'B',m.dataset.t||'anel']),setas:[],forca:true})}});
+  const c=(m.dataset.c||'').split(',').filter(Boolean),s=m.dataset.s;if(c.length){destAtual=null;repinta({casas:c.map(q=>[q,m.dataset.l||'B',m.dataset.t||'anel']),setas:s?[[s.slice(0,2),s.slice(2,4),m.dataset.l||'B']]:[],forca:true})}});
 document.addEventListener('mouseout',e=>{const m=e.target.closest&&e.target.closest('.mc');if(m&&!(e.relatedTarget&&m.contains(e.relatedTarget)))limpaDest()});
 document.addEventListener('mouseout',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r&&!(e.relatedTarget&&r.contains(e.relatedTarget)))limpaDest()});
 document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.solta-fixos')){destFixos=[];destAtual=null;marcaFixo();repinta();return}
@@ -734,15 +743,16 @@ function posHtml(row){
   const linha=(nome,cp,cls,extra,dd)=>`<div class="rw ${cls}"${dd?` data-d="${dd}"${cls==='g'?` title="${esc(t('Passe o mouse para ver no tabuleiro; clique para fixar (pode fixar vários)'))}"`:''}`:''}><span class="rn">${nome}${extra||''}</span>${cbar(cp,cls==='i')}<span class="rv">${Math.abs(cp)<5?'—':fcp(cp)}</span></div>`;
   // itens informativos (peças e casas desprotegidas): lista por lado, com cada casa em negrito marcando o tabuleiro
   const doGrupo=g=>(g.id==='estrutura'?'peoes,':'')+g.itens.map(i=>i.chave).join(',');
-  const porLado=(nome,lista,tipo)=>`<div><span class="mut">${nome} (${lista.length}):</span> ${lista.length?lista.map(([c,r])=>`<b class="mc" data-c="${c}" data-l="D" data-t="${tipo}">${r}</b>`).join(', '):t('nenhuma')}</div>`;
+  const porLado=(nome,lista,tipo,cor,sep)=>`<div><span class="mut">${nome} (${lista.length}):</span> ${lista.length?lista.map(([c,r])=>`<b class="mc" data-c="${c}" data-l="${cor}" data-t="${tipo}">${r}</b>`).join(sep||', '):'—'}</div>`;
+  const listas=i=>i.B||i.P?`<div class="infl">${porLado(t('Brancas'),i.B||[],tipoMarca(i),i.info?'D':'B',i.chave==='ilhas_peoes'?' · ':'')}${porLado(t('Pretas'),i.P||[],tipoMarca(i),i.info?'D':'P',i.chave==='ilhas_peoes'?' · ':'')}</div>`:'';
   const tipoMarca=i=>i.chave==='casas_desprotegidas'?'tinta':'anel';
-  const info=i=>`<div title="${esc(i.desc)}"><div class="rw i inf" data-d="${i.chave}"><span class="rn">${i.nome}</span></div></div><div class="infl">${porLado(t('Brancas'),i.B||[],tipoMarca(i))}${porLado(t('Pretas'),i.P||[],tipoMarca(i))}</div>`;
+  const info=i=>`<div title="${esc(i.desc)}"><div class="rw i inf" data-d="${i.chave}"><span class="rn">${i.nome}</span></div></div>${listas(i)}`;
   G.forEach(g=>{
-    const itens=g.itens.filter(i=>i.info||cfg.neutros||Math.abs(i.cp)>=3);
+    const itens=g.itens.filter(i=>i.info||i.mostra||cfg.neutros||Math.abs(i.cp)>=3);
     if(!itens.length){h+=`<div class="gd vazio">${linha(g.nome,g.cp,'g','',doGrupo(g))}</div>`;return}
     const aberto=cfg.gAberto[g.nome]!==false;
     h+=`<details class="gd" data-g="${esc(g.nome)}" ${aberto?'open':''}><summary>${linha(g.nome,g.cp,'g','',doGrupo(g))}</summary>`
-      +itens.map(i=>i.info?info(i):`<div title="${esc(i.desc)}">${linha(i.nome,i.cp,'i',i.regra?` <sup title="${esc(t('peso definido por regra, ainda não validado pelos dados'))}">†</sup>`:'',i.chave)}</div>`).join('')+'</details>'});
+      +itens.map(i=>i.info?info(i):`<div title="${esc(i.desc)}">${linha(i.nome,i.cp,'i',i.regra?` <sup title="${esc(t('peso definido por regra, ainda não validado pelos dados'))}">†</sup>`:'',i.chave)}</div>${listas(i)}`).join('')+'</details>'});
   if(row.posicao_residuo!=null)h+=`<div class="gd res" title="${esc(t('ameaças, táticas, iniciativa e tudo que o cálculo da engine enxerga além da avaliação estática'))}">${linha(t('Dinâmica / tática'),row.posicao_residuo,'g')}</div>`;
   h+=`<div class="nota"><button class="solta-fixos" style="float:right" hidden></button>${t('Como ler esta tabela')}${ajuda('Valores em peões (1,00 = um peão). Positivo favorece as brancas. † peso definido por regra: os dados não confirmaram esse item.')}</div>`;
   return h;
@@ -751,7 +761,7 @@ function listaLances(){
   const L=S.lances&&S.lances.length?S.lances:S.rows.filter(r=>r.move).map(r=>r.move);
   const r0=S.rows[0];const base=r0?parseFen(r0.fen).mv:1,primeiraBrancas=!r0||r0.side==='B';
   const cel=k=>{const san=L[k],r=S.rows[k],pronto=!S.job||!!S.rows[k+1],rodando=!!S.job&&!S.rows[k+1]&&S.atual===k+1;
-    return `<span data-i="${k+1}" class="m ${k+1===S.cur?'on':''} ${pronto?'':'pend'} ${rodando?'run':''}" title="${pronto?'':t('ainda em análise (você já pode abrir este lance)')}"><i class="pt" style="background:${r&&r.jogada_classe_id?CLS_COR[r.jogada_classe_id]:'#555'}"></i>${sanHtml(san)}${sinalLance(r)}</span>`};
+    return `<span data-i="${k+1}" class="m ${k+1===S.cur?'on':''} ${pronto?'':'pend'} ${rodando?'run':''}" title="${pronto?'':t('ainda em análise (você já pode abrir este lance)')}"><i class="pt" style="background:${r&&r.jogada_classe_id?CLS_COR[r.jogada_classe_id]:'#555'}"></i>${sanHtml(san)}${sinalLance(r)}${r&&r.critico?`<b class="cri" title="${esc(r.critico.titulo)}">◆</b>`:''}</span>`};
   let h='<div class="par-l">',k=0,n=base;
   if(!primeiraBrancas&&L.length){h+=`<div class="pl-n">${n}.</div><span class="m vazio">…</span>${cel(0)}`;k=1;n++}
   for(;k<L.length;k+=2,n++)h+=`<div class="pl-n">${n}.</div>${cel(k)}${k+1<L.length?cel(k+1):'<span></span>'}`;
@@ -765,9 +775,9 @@ function listaLances(){
 }
 function desenhaPlayers(row){
   const i=S.info||{};if(!i.White){$('#pl-topo').innerHTML=$('#pl-base').innerHTML='';return}
-  const mk=lado=>{const nome=lado==='B'?i.White:i.Black,elo=lado==='B'?i.WhiteElo:i.BlackElo;let rel=null;
+  const mk=lado=>{const nome=lado==='B'?i.White:i.Black,elo=lado==='B'?i.WhiteElo:i.BlackElo;let rel=null;const nx=S.numeros&&S.numeros[lado];
     for(let k=S.cur;k>=0;k--){const r=S.rows[k];if(r&&r.side===lado&&r.tempo_restante!=null){rel=r.tempo_restante;break}}
-    return `<span class="pd ${lado==='B'?'bl':'pr'}"></span><b>${nome||cap(t(lado==='B'?'brancas':'pretas'))}</b> <span class="mut">${elo||''}</span>${row&&row.side===lado?` <span class="vez">${t('● vez').replace('●','<i></i>')}</span>`:''}${rel!=null?`<span class="clk" title="${t('tempo no relógio antes do último lance dessa cor')}">⏱ ${fmtT(rel)}</span>`:''}`};
+    return `<span class="pd ${lado==='B'?'bl':'pr'}"></span><b>${nome||cap(t(lado==='B'?'brancas':'pretas'))}</b> <span class="mut">${elo||''}</span>${nx&&nx.precisao!=null?`<span class="prec" title="${esc(t(window.DICA_PRECISAO||''))}">${t('precisão')} <b>${num(nx.precisao,1)}%</b></span>`:''}${row&&row.side===lado?` <span class="vez">${t('● vez').replace('●','<i></i>')}</span>`:''}${rel!=null?`<span class="clk" title="${t('tempo no relógio antes do último lance dessa cor')}">⏱ ${fmtT(rel)}</span>`:''}`};
   $('#pl-topo').innerHTML=mk(cfg.flip?'B':'P');$('#pl-base').innerHTML=mk(cfg.flip?'P':'B');
 }
 function desenhaProg(){
@@ -803,7 +813,12 @@ function aplicaBlocos(){
 $$('.bloco .bt').forEach(b=>b.onclick=()=>{const k=b.closest('.bloco').dataset.b;cfg.colapsados[k]=!cfg.colapsados[k];save();aplicaBlocos()});
 
 /* ---------- gráfico ---------- */
-function grafico(){
+function desenhaNumeros(){   // precisão e números da partida (da análise feita até agora)
+  const box=$('#numeros-bloco');if(!box||!window.tabelaNumeros)return;const N=S.numeros,i=S.info||{};box.hidden=!N;if(!N)return;
+  const parcial=N.partida.analisados<N.partida.total?' · '+t('até aqui'):'';
+  $('#numeros-tit').innerHTML=t('Precisão e números da partida')+parcial+ajuda(window.DICA_PRECISAO);
+  $('#numeros').innerHTML=window.tabelaNumeros(N,i.White||cap(t('brancas')),i.Black||cap(t('pretas')),{completa:false})}
+function grafico(){desenhaNumeros();
   const cv=$('#graf'),dpr=devicePixelRatio||1,W=cv.clientWidth,Hh=cv.clientHeight;cv.width=W*dpr;cv.height=Hh*dpr;
   const g=cv.getContext('2d');g.scale(dpr,dpr);g.clearRect(0,0,W,Hh);
   const n=S.rows.length;if(n<2)return;const X=i=>8+(W-16)*i/(n-1),Y=v=>Hh-6-(Hh-12)*v/100;
@@ -874,7 +889,7 @@ function vai(i){V=null;foco2=false;const n=totalPos();if(!n)return;
 async function api(u,corpo){const r=await fetch(u,corpo?{method:'POST',headers:{'Content-Type':'application/json','X-Lang':LANG},body:JSON.stringify(corpo)}:{headers:{'X-Lang':LANG}});return r.json()}
 function status(x){$('#status').innerHTML=x}
 async function inicia(fonte){   // começa a analisar a partida já carregada (mantém o tabuleiro e a posição atual)
-  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.rows=[];S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;
+  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.rows=[];S.numeros=null;S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;
   S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';$('#seguir').checked=S.live;desenha();
   status(t('Iniciando análise… (a primeira posição leva alguns segundos)'));
   const r=await api('/api/job',{fonte,depth:cfg.depth,lang:LANG});S.job=r.id;poll();S.timer=setInterval(poll,800);
@@ -886,7 +901,7 @@ function textoSalvas(d){   // o que já está salvo desta partida (a análise sa
 }
 async function carrega(fonte){   // abre a partida SEM analisar: dá para navegar pelos lances na hora
   if(S.job){try{await api('/api/parar',{id:S.job})}catch(e){}}
-  if(S.timer)clearInterval(S.timer);S.job=null;S.rows=[];S.estado='';V=null;V2=null;S.fonte=fonte;S.chave='';S._ult=null;S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';
+  if(S.timer)clearInterval(S.timer);S.job=null;S.rows=[];S.numeros=null;S.estado='';V=null;V2=null;S.fonte=fonte;S.chave='';S._ult=null;S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';
   status(t('Carregando partida…'));
   clearInterval(S.liveTimer);
   let d;try{d=await api('/api/partida',{fonte})}catch(e){status(t('Erro: {e}',{e:String(e)}));return false}
@@ -918,7 +933,7 @@ function descPartida(i){   // qual é a partida: torneio · nome da rodada (ou p
   const d=/^(\d{4})\.(\d\d)\.(\d\d)$/.exec(i.Date||'');
   return [val(i.BroadcastName)||val(i.Event),rodada,+mesa>1?`${t('Mesa')} ${+mesa}`:'',d?(LANG==='pt'?`${d[3]}/${d[2]}/${d[1]}`:`${d[1]}-${d[2]}-${d[3]}`):'',i.Result==='*'?t('em andamento'):(i.Result||'')].filter(Boolean).map(esc).join(' · ');
 }
-function aplicaFonteBar(){
+function aplicaFonteBar(){const br=$('#b-relatorio');if(br)br.hidden=!(S.job&&S.rows.length);
   const i=S.info||{};
   $('#fonte-tit').innerHTML=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} <span class="mut">· ${descPartida(i)}</span>`:`<span class="mut">${t('Nenhuma partida carregada')}</span>`;
   const aoVivo=!!S.live&&(i.Result||'*')==='*';   // partida em andamento (resultado ainda '*')
@@ -943,7 +958,7 @@ async function poll(){
   if(d.erro){status(t('Erro: {e}',{e:d.erro}));clearInterval(S.timer);return}
   const seguindo=S.cur===S.rows.length-1||S.rows.length===0;const antes=S.rows.length;
   (d.mudadas||[]).forEach(r=>{S.rows[r.idx]=r});d.rows.forEach((r,k)=>S.rows[d.desde+k]=r);S.versao=d.versao;S.estado=d.estado;S.info=d.info||{};S.engines=d.engines;
-  S.lances=d.lances||S.lances;S.esperado=d.esperado||S.esperado;S.atual=d.atual;S.decorrido=d.decorrido;
+  S.lances=d.lances||S.lances;S.numeros=d.numeros||null;S.esperado=d.esperado||S.esperado;S.atual=d.atual;S.decorrido=d.decorrido;
   if(d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
   if(S.rows.length&&$('#seguir').checked&&!V)S.cur=S.rows.length-1;   // marcado: mantém no lance mais recente e atualiza
   const i=S.info;const jog=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} · ${descPartida(i)}`:'';
@@ -1166,5 +1181,6 @@ arrasta('#div-bl',x=>{cfg.wLances=Math.max(150,Math.min(420,Math.round(x-$('#col
 let rz=null;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(cfg.sqAuto||efetivaCompleta())aplica();else quebra()},150)});   // tabuleiro acompanha o tamanho da janela
 carregaInicial();
 </script>
+<script src="relatorio.js"></script>
 </body>
 </html>

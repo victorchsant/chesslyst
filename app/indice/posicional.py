@@ -189,6 +189,43 @@ def _lado_txt(v):
     return T("w.equilibrio") if abs(v) < 5 else (T("w.brancas") if v > 0 else T("w.pretas"))
 
 
+# itens informativos (contagem e casas): aparecem na tabela e no tabuleiro, mas NÃO entram no valor do índice
+ITENS_INFO = {"debilidades": ["pecas_desprotegidas", "casas_desprotegidas"]}
+
+
+def pecas_desprotegidas(b, c):
+    """Peças de `c` sem nenhuma proteção, ou com mais atacantes do que defensores. Peões só entram no segundo caso
+    (peão sem defesa e sem ataque é comum demais para dizer algo). O rei não entra."""
+    out = []
+    for sq, p in sorted(b.piece_map().items()):
+        if p.color != c or p.piece_type == chess.KING: continue
+        atacantes, defensores = len(b.attackers(not c, sq)), len(b.attackers(c, sq))
+        if atacantes > defensores or (defensores == 0 and p.piece_type != chess.PAWN): out.append(sq)
+    return out
+
+
+def casas_desprotegidas(b, c):
+    """Casas do campo de `c` (suas três primeiras fileiras), sem peça sua, que nenhuma peça ou peão seu defende."""
+    fileiras = (0, 1, 2) if c == chess.WHITE else (7, 6, 5)
+    out = []
+    for fileira in fileiras:
+        for coluna in range(8):
+            sq = chess.square(coluna, fileira)
+            if b.color_at(sq) != c and not b.is_attacked_by(c, sq): out.append(sq)
+    return sorted(out)
+
+
+def _item_info(b, chave):
+    d = dict(chave=chave, nome=nome_item(chave), desc=desc_item(chave), cp=0, lado="", regra=False, info=True)
+    for c, lado in ((chess.WHITE, "B"), (chess.BLACK, "P")):
+        if chave == "pecas_desprotegidas":
+            d[lado] = [[chess.square_name(sq), f"{_NOME_EN[b.piece_type_at(sq)] if lang() == 'en' else _NOME_PT[b.piece_type_at(sq)][0]} {chess.square_name(sq)}"]
+                       for sq in pecas_desprotegidas(b, c)]
+        else:
+            d[lado] = [[chess.square_name(sq), chess.square_name(sq)] for sq in casas_desprotegidas(b, c)]
+    return d
+
+
 def analise(b: chess.Board, engine_cp=None):
     """Interpretação geral item a item. engine_cp = avaliação da engine (brancas), só para mostrar o resíduo."""
     cp, contrib = avalia(b)
@@ -198,6 +235,7 @@ def analise(b: chess.Board, engine_cp=None):
         itens = [dict(chave=k, nome=nome_item(k), desc=desc_item(k), cp=round(contrib[k]), lado=_lado_txt(contrib[k]),
                       regra=k in REGRA) for k in chaves]
         soma = sum(contrib[k] for k in chaves)
+        itens += [_item_info(b, k) for k in ITENS_INFO.get(gid, [])]
         grupos.append(dict(id=gid, nome=T("g." + gid), cp=round(soma), lado=_lado_txt(soma), itens=itens))
     residuo = None if engine_cp is None else round(engine_cp - cp)
     return dict(cp=round(cp), idx=win_pct(cp), material_cp=round(mat), material_idx=win_pct(mat),
@@ -269,7 +307,16 @@ def destaques(b: chess.Board, chaves):
             peoes, inim = b.pieces(chess.PAWN, c), b.pieces(chess.PAWN, opp)
             cols = [0] * 8
             for sq in peoes: cols[chess.square_file(sq)] += 1
-            if chave == "peoes":                       # grupo Estrutura de peões: todos os peões
+            if chave == "pecas_desprotegidas":
+                for sq in pecas_desprotegidas(b, c):
+                    casas.append([nm(sq), "D", "anel"])           # "D" = vermelho (desprotegido)
+                    ats = list(b.attackers(opp, sq))
+                    if len(ats) > len(b.attackers(c, sq)):       # mais atacantes que defensores: mostra um atacante
+                        a = min(ats, key=lambda a: VAL.get(b.piece_type_at(a), 10_000))
+                        if len(setas) < 14: setas.append([nm(a), nm(sq), "D"])
+            elif chave == "casas_desprotegidas":
+                for sq in casas_desprotegidas(b, c): casas.append([nm(sq), "D", "tinta"])   # só a casa pintada, sem borda
+            elif chave == "peoes":                       # grupo Estrutura de peões: todos os peões
                 for sq in peoes: casa(sq, c)
             elif chave == "peoes_dobrados":
                 for sq in peoes:

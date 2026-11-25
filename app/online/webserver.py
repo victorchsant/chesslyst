@@ -145,7 +145,7 @@ async def partida(fonte):
     h = game.headers; b = game.board(); fens, lances, ucis = [b.fen()], [], []
     for m in game.mainline_moves():
         lances.append(b.san(m)); ucis.append(m.uci()); b.push(m); fens.append(b.fen())
-    info = {k: h.get(k, "") for k in ("White", "Black", "WhiteElo", "BlackElo", "Event", "Result", "Date")}
+    info = {k: h.get(k, "") for k in ("White", "Black", "WhiteElo", "BlackElo", "Event", "Result", "Date", "Round", "BroadcastName", "BroadcastURL")}
     return dict(info=info, lances=lances, fens=fens, ucis=ucis, aberturas=nomes_abertura(fens))
 
 
@@ -200,7 +200,7 @@ async def rodar_job(job):
                 await asyncio.sleep(5); continue
             if game is None: raise ValueError(T("s.jogo"))
             h = game.headers
-            job["info"] = {k: h.get(k, "") for k in ("White", "Black", "WhiteElo", "BlackElo", "Event", "Result", "Date")}
+            job["info"] = {k: h.get(k, "") for k in ("White", "Black", "WhiteElo", "BlackElo", "Event", "Result", "Date", "Round", "BroadcastName", "BroadcastURL")}
             rt = pipeline.ratings(game)
             moves = list(game.mainline_moves()); tempos = relogio.tempos_do_jogo(game)
             board = game.board(); boards = []

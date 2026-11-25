@@ -138,7 +138,7 @@ table.lin tr[data-pv]{cursor:pointer}
 #area-tab>.strip,#area-tab>.resultado,#area-tab>.abertura{box-sizing:border-box;width:calc(var(--sq)*8 + 4px);max-width:100%}
 #area-tab>.abertura{text-align:center}
 .pd{display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid #888}.pd.bl{background:#f2f2f2}.pd.pr{background:#222}
-.vez{color:var(--ac);font-size:12px;font-weight:700}.clk{margin-left:auto;font-family:Consolas,monospace;background:var(--bg2);border:1px solid var(--bd);border-radius:5px;padding:1px 8px}
+.vez{color:var(--ac);font-size:12px;font-weight:700}.vez i{display:inline-block;width:12px;height:12px;border-radius:50%;background:currentColor;margin-right:4px;vertical-align:-1px}.clk{margin-left:auto;font-family:Consolas,monospace;background:var(--bg2);border:1px solid var(--bd);border-radius:5px;padding:1px 8px}
 .sinal{position:absolute;right:2px;top:2px;z-index:4;min-width:calc(var(--sq)*.3);height:calc(var(--sq)*.3);border-radius:50%;color:#fff;font:700 calc(var(--sq)*.17)/1 "Segoe UI";display:flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;box-shadow:0 0 0 1px #0008;padding:0}
 .sinal svg{display:block;width:62%;height:62%}   /* o "+" do xeque é desenhado: a fonte o deixava fora do centro do círculo */
 .lances .m{display:inline-flex;align-items:center;gap:1px}
@@ -223,6 +223,7 @@ body.completa #lateral .bloco.recolhido{align-self:start}
 .resultado span{color:var(--mut);font-size:13px;line-height:1.3}
 .abertura{margin:6px 2px 0;font-size:13px;color:var(--mut)}.abertura b{color:var(--tx)}.abertura .eco{display:inline-block;background:var(--card2);border:1px solid var(--bd);border-radius:5px;padding:0 6px;margin-right:6px;font-size:12px;color:var(--ac)}
 .mc{font-weight:700;border-bottom:1px dotted currentColor;cursor:help;border-radius:3px;padding:0 1px;transition:background .12s}.mc:hover{background:color-mix(in srgb,var(--ac) 24%,transparent)}
+.infl{font-size:12.5px;line-height:1.7;padding:0 4px 6px 18px}.infl .mc{font-weight:600}
 .rw[data-d]{cursor:pointer}.rw[data-d]:hover,.rw[data-d].fixo{background:var(--card2);border-radius:5px}.rw.fixo .rn::after{content:' 📌';font-size:10px}
 .dica,.info{display:inline-flex;align-items:center;justify-content:center;width:1.12em;height:1.12em;margin-left:.45em;color:var(--ac);cursor:help;vertical-align:-.22em;outline:none;position:relative;text-transform:none;letter-spacing:0;line-height:0;border-radius:50%;transition:background .15s}   /* o tamanho e o alinhamento acompanham a fonte da linha em que o ícone está */
 .dica .ic,.info .ic{display:block;flex:none}
@@ -261,11 +262,11 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
   </div>
   <div id="fonte-det" hidden>
     <div class="abas" style="margin-top:10px">
-      <button data-aba="pgn" class="on">PGN (jogo aberto)</button>
+      <button data-aba="trans" class="on">Transmissão (torneios)</button>
       <button data-aba="lichess">Partida do Lichess</button>
-      <button data-aba="trans">Transmissão (torneios)</button>
+      <button data-aba="pgn">PGN (jogo aberto)</button>
     </div>
-    <div id="a-pgn">
+    <div id="a-pgn" hidden>
       <textarea id="pgn" rows="1" placeholder="Cole aqui o PGN da partida…"></textarea>
       <div class="linha">
         <input type="file" id="arq" accept=".pgn,.txt">
@@ -282,7 +283,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
       </div>
       <div class="mut">Partidas em andamento: marque “ao vivo” e a análise acompanha cada lance novo.</div>
     </div>
-    <div id="a-trans" hidden>
+    <div id="a-trans">
       <div class="linha">
         <input id="busca" placeholder="Buscar torneio (opcional)…">
         <button id="b-busca">Listar</button>
@@ -574,7 +575,7 @@ function mostraAbertura(){mostraResultado();   // nome completo da abertura (lis
   const el=$('#abertura');if(!el)return;const A=(S.pre&&S.pre.aberturas)||[];const x=A.length?A[Math.min(S.cur,A.length-1)]:null;
   el.hidden=!x;if(x)el.innerHTML=`<span class="eco">${esc(x[0])}</span><b>${esc(LANG==='pt'?x[2]:x[1])}</b>`;
 }
-function desenhaTab(row){mostraAbertura();setTimeout(()=>{marcaFixo();const it=destAtual||destFixo;if(it)mostraDest(it)},0);
+function desenhaTab(row){mostraAbertura();setTimeout(()=>{marcaFixo();if(destAtual||destFixos.length)repinta()},0);
   const fen=V?V.fens[V.k]:row.fen;const ant=S.rows[S.cur-1];
   const uv=V&&V.k>0?V.ucis[V.k-1]:null;
   const ult=V?(uv?[uv.slice(0,2),uv.slice(2,4)]:[]):(ant&&ant.uci?[ant.uci.slice(0,2),ant.uci.slice(2,4)]:[]);
@@ -674,13 +675,13 @@ function posDica(el){const tip=el.querySelector('.tip');if(!tip)return;const r=e
 document.addEventListener('mouseover',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
 document.addEventListener('focusin',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
 /* ---------- destaques no tabuleiro (itens do Índice de Posição) ---------- */
-const DEST_COR={B:'#35e0c2',P:'#b388ff'};   // cor de quem tem a característica: brancas / pretas
-const destCache={};let destFixo=null,destAtual=null,ULT=[];   // ULT: casas do último lance (amarelas): as marcações de posição não pintam por cima delas
+const DEST_COR={B:'#35e0c2',P:'#b388ff',D:'#ff2d2d'};   // cor de quem tem a característica: brancas / pretas; D (vermelho) = desprotegido
+const destCache={};let destFixos=[],destAtual=null,ULT=[];   // ULT: casas do último lance (amarelas): as marcações de posição não pintam por cima delas
 function fenAtual(){const row=S.rows[S.cur];return V?V.fens[V.k]:(row?row.fen:null)}
 function pintaDest(d){
   const s=$('#seta-d');if(!s)return;let h='';
   if(d)for(const [sq,lado,tipo] of d.casas||[]){if(ULT.includes(sq)&&!d.forca)continue;const [x,y]=sqXY(sq),c=DEST_COR[lado];
-    h+=tipo==='tinta'?`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}" opacity=".30"/>`
+    h+=tipo==='tinta'?`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}" opacity="${lado==='D'?.45:.30}"/>`
       :`<rect x="${x+.04}" y="${y+.04}" width=".92" height=".92" rx=".1" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width=".09"/>`}
   if(d)for(const [a,z,lado] of d.setas||[]){const c=DEST_COR[lado],[x1,y1]=sqXY(a),[x2,y2]=sqXY(z);
     const A=[x1+.5,y1+.5],Z=[x2+.5,y2+.5],L=Math.hypot(Z[0]-A[0],Z[1]-A[1])||1,ux=(Z[0]-A[0])/L,uy=(Z[1]-A[1])/L,E=[Z[0]-ux*.3,Z[1]-uy*.3];
@@ -689,20 +690,35 @@ function pintaDest(d){
     <line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="${c}" stroke-width=".1" stroke-linecap="round" opacity=".85"/><polygon points="${pts}" fill="${c}" opacity=".9"/>`}
   s.innerHTML=h;
 }
-async function mostraDest(item){
-  const fen=fenAtual();if(!fen||!item)return;destAtual=item;const k=fen+'|'+item;
-  if(!destCache[k]){try{destCache[k]=await api('/api/destaque?fen='+encodeURIComponent(fen)+'&item='+encodeURIComponent(item))}catch(e){return}}
-  if(destAtual===item&&fenAtual()===fen)pintaDest(destCache[k]);
+let destSeq=0;
+async function buscaDest(fen,item){const k=fen+'|'+item;
+  if(!destCache[k]){try{destCache[k]=await api('/api/destaque?fen='+encodeURIComponent(fen)+'&item='+encodeURIComponent(item))}catch(e){return null}}
+  return destCache[k];
 }
-function limpaDest(){destAtual=null;if(destFixo)mostraDest(destFixo);else pintaDest(null)}
-function marcaFixo(){$$('.rw[data-d]').forEach(e=>e.classList.toggle('fixo',e.dataset.d===destFixo))}
+async function repinta(extra){   // desenha juntos todos os itens fixados e, por cima, o que está sob o mouse (item ou casas soltas)
+  const n=++destSeq,fen=fenAtual();if(!fen){pintaDest(null);return}
+  const itens=[...new Set(destFixos.concat(destAtual?[destAtual]:[]))];
+  const L=await Promise.all(itens.map(i=>buscaDest(fen,i)));
+  if(n!==destSeq||fenAtual()!==fen)return;   // chegou outra marcação (ou mudou a posição) enquanto isso
+  const casas=new Map(),setas=new Map();
+  for(const d of L.concat(extra?[extra]:[])){if(!d)continue;
+    for(const c of d.casas||[])if(d.forca||!ULT.includes(c[0]))casas.set(c.join(),c);
+    for(const a of d.setas||[])setas.set(a.join(),a)}
+  pintaDest({casas:[...casas.values()].sort((a,b)=>(b[2]==='tinta')-(a[2]==='tinta')),setas:[...setas.values()],forca:true});   // os anéis ficam por cima das casas pintadas
+}
+function mostraDest(item){if(!item)return;destAtual=item;return repinta()}
+function limpaDest(){destAtual=null;repinta()}
+function marcaFixo(){$$('.rw[data-d]').forEach(e=>e.classList.toggle('fixo',destFixos.includes(e.dataset.d)));
+  $$('.solta-fixos').forEach(b=>{b.hidden=!destFixos.length;b.textContent=t('✕ Desafixar tudo ({n})',{n:destFixos.length})})}
 document.addEventListener('mouseover',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r)mostraDest(r.dataset.d);
   const m=e.target.closest&&e.target.closest('.mc');if(!m)return;   // negrito da interpretação: marca no tabuleiro a(s) casa(s) ou o item citado
   if(m.dataset.i){mostraDest(m.dataset.i);return}
-  const c=(m.dataset.c||'').split(',').filter(Boolean);if(c.length){destAtual=null;pintaDest({casas:c.map(q=>[q,m.dataset.l||'B','anel']),setas:[],forca:true})}});
+  const c=(m.dataset.c||'').split(',').filter(Boolean);if(c.length){destAtual=null;repinta({casas:c.map(q=>[q,m.dataset.l||'B',m.dataset.t||'anel']),setas:[],forca:true})}});
 document.addEventListener('mouseout',e=>{const m=e.target.closest&&e.target.closest('.mc');if(m&&!(e.relatedTarget&&m.contains(e.relatedTarget)))limpaDest()});
 document.addEventListener('mouseout',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r&&!(e.relatedTarget&&r.contains(e.relatedTarget)))limpaDest()});
-document.addEventListener('click',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(!r)return;destFixo=destFixo===r.dataset.d?null:r.dataset.d;marcaFixo();destAtual=null;destFixo?mostraDest(destFixo):pintaDest(null)});
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.solta-fixos')){destFixos=[];destAtual=null;marcaFixo();repinta();return}
+  const r=e.target.closest&&e.target.closest('.rw[data-d]');if(!r)return;const k=r.dataset.d;   // cada clique fixa ou solta um item; dá para fixar vários
+  destFixos=destFixos.includes(k)?destFixos.filter(x=>x!==k):destFixos.concat(k);destAtual=null;marcaFixo();repinta()});
 const fcp=c=>(c>=0?'+':'−')+num(Math.abs(c)/100);
 function cbar(cp,fino){const w=Math.min(50,Math.abs(cp)/6);return `<span class="cbar${fino?' fino':''}"><i class="${cp>=0?'p':'n'}" style="${cp>=0?'left':'right'}:50%;width:${w}%"></i></span>`}
 function posHtml(row){
@@ -710,15 +726,20 @@ function posHtml(row){
   const eng=row.engine_cp!=null?fcp(row.engine_cp):(row.engine_mate!=null?t('mate'):'—');
   const st=(l,v,dica)=>`<div class="st" title="${esc(dica)}"><span>${l}</span><b>${v}</b></div>`;
   let h=`<div class="stats">${st(t('Estático'),fcp(row.posicao_cp),t('material + estrutura, calculado pelo programa sem usar a engine'))}${st(t('Engine'),eng,t('valor original da engine'))}${st(t('Dinâmica/tática'),row.posicao_residuo!=null?fcp(row.posicao_residuo):'—',t('o que a engine enxerga além do estático: tática, iniciativa, ameaças'))}</div>`;
-  const linha=(nome,cp,cls,extra,dd)=>`<div class="rw ${cls}"${dd?` data-d="${dd}"${cls==='g'?` title="${esc(t('Passe o mouse para ver no tabuleiro; clique para fixar'))}"`:''}`:''}><span class="rn">${nome}${extra||''}</span>${cbar(cp,cls==='i')}<span class="rv">${Math.abs(cp)<5?'—':fcp(cp)}</span></div>`;
+  const linha=(nome,cp,cls,extra,dd)=>`<div class="rw ${cls}"${dd?` data-d="${dd}"${cls==='g'?` title="${esc(t('Passe o mouse para ver no tabuleiro; clique para fixar (pode fixar vários)'))}"`:''}`:''}><span class="rn">${nome}${extra||''}</span>${cbar(cp,cls==='i')}<span class="rv">${Math.abs(cp)<5?'—':fcp(cp)}</span></div>`;
+  // itens informativos (peças e casas desprotegidas): lista por lado, com cada casa em negrito marcando o tabuleiro
+  const doGrupo=g=>(g.id==='estrutura'?'peoes,':'')+g.itens.filter(i=>!i.info).map(i=>i.chave).join(',');
+  const porLado=(nome,lista,tipo)=>`<div><span class="mut">${nome} (${lista.length}):</span> ${lista.length?lista.map(([c,r])=>`<b class="mc" data-c="${c}" data-l="D" data-t="${tipo}">${r}</b>`).join(', '):t('nenhuma')}</div>`;
+  const tipoMarca=i=>i.chave==='casas_desprotegidas'?'tinta':'anel';
+  const info=i=>`<div title="${esc(i.desc)}"><div class="rw i inf" data-d="${i.chave}"><span class="rn">${i.nome}</span></div></div><div class="infl">${porLado(t('Brancas'),i.B||[],tipoMarca(i))}${porLado(t('Pretas'),i.P||[],tipoMarca(i))}</div>`;
   G.forEach(g=>{
-    const itens=g.itens.filter(i=>cfg.neutros||Math.abs(i.cp)>=3);
-    if(!itens.length){h+=`<div class="gd vazio">${linha(g.nome,g.cp,'g','',(g.id==='estrutura'?'peoes,':'')+g.itens.map(i=>i.chave).join(','))}</div>`;return}
+    const itens=g.itens.filter(i=>i.info||cfg.neutros||Math.abs(i.cp)>=3);
+    if(!itens.length){h+=`<div class="gd vazio">${linha(g.nome,g.cp,'g','',doGrupo(g))}</div>`;return}
     const aberto=cfg.gAberto[g.nome]!==false;
-    h+=`<details class="gd" data-g="${esc(g.nome)}" ${aberto?'open':''}><summary>${linha(g.nome,g.cp,'g','',(g.id==='estrutura'?'peoes,':'')+g.itens.map(i=>i.chave).join(','))}</summary>`
-      +itens.map(i=>`<div title="${esc(i.desc)}">${linha(i.nome,i.cp,'i',i.regra?` <sup title="${esc(t('peso definido por regra, ainda não validado pelos dados'))}">†</sup>`:'',i.chave)}</div>`).join('')+'</details>'});
+    h+=`<details class="gd" data-g="${esc(g.nome)}" ${aberto?'open':''}><summary>${linha(g.nome,g.cp,'g','',doGrupo(g))}</summary>`
+      +itens.map(i=>i.info?info(i):`<div title="${esc(i.desc)}">${linha(i.nome,i.cp,'i',i.regra?` <sup title="${esc(t('peso definido por regra, ainda não validado pelos dados'))}">†</sup>`:'',i.chave)}</div>`).join('')+'</details>'});
   if(row.posicao_residuo!=null)h+=`<div class="gd res" title="${esc(t('ameaças, táticas, iniciativa e tudo que o cálculo da engine enxerga além da avaliação estática'))}">${linha(t('Dinâmica / tática'),row.posicao_residuo,'g')}</div>`;
-  h+=`<div class="nota">${t('Como ler esta tabela')}${ajuda('Valores em peões (1,00 = um peão). Positivo favorece as brancas. † peso definido por regra: os dados não confirmaram esse item.')}</div>`;
+  h+=`<div class="nota"><button class="solta-fixos" style="float:right" hidden></button>${t('Como ler esta tabela')}${ajuda('Valores em peões (1,00 = um peão). Positivo favorece as brancas. † peso definido por regra: os dados não confirmaram esse item.')}</div>`;
   return h;
 }
 function listaLances(){
@@ -741,7 +762,7 @@ function desenhaPlayers(row){
   const i=S.info||{};if(!i.White){$('#pl-topo').innerHTML=$('#pl-base').innerHTML='';return}
   const mk=lado=>{const nome=lado==='B'?i.White:i.Black,elo=lado==='B'?i.WhiteElo:i.BlackElo;let rel=null;
     for(let k=S.cur;k>=0;k--){const r=S.rows[k];if(r&&r.side===lado&&r.tempo_restante!=null){rel=r.tempo_restante;break}}
-    return `<span class="pd ${lado==='B'?'bl':'pr'}"></span><b>${nome||cap(t(lado==='B'?'brancas':'pretas'))}</b> <span class="mut">${elo||''}</span>${row&&row.side===lado?` <span class="vez">${t('● vez')}</span>`:''}${rel!=null?`<span class="clk" title="${t('tempo no relógio antes do último lance dessa cor')}">⏱ ${fmtT(rel)}</span>`:''}`};
+    return `<span class="pd ${lado==='B'?'bl':'pr'}"></span><b>${nome||cap(t(lado==='B'?'brancas':'pretas'))}</b> <span class="mut">${elo||''}</span>${row&&row.side===lado?` <span class="vez">${t('● vez').replace('●','<i></i>')}</span>`:''}${rel!=null?`<span class="clk" title="${t('tempo no relógio antes do último lance dessa cor')}">⏱ ${fmtT(rel)}</span>`:''}`};
   $('#pl-topo').innerHTML=mk(cfg.flip?'B':'P');$('#pl-base').innerHTML=mk(cfg.flip?'P':'B');
 }
 function desenhaProg(){
@@ -877,9 +898,18 @@ async function acompanhaAoVivo(fonte){   // partida ao vivo ainda não analisada
 }
 function analisar(){if(S.fonte)inicia(S.fonte)}
 async function parar(){if(S.job){try{await api('/api/parar',{id:S.job})}catch(e){}}}
+const NOMES_RODADA={game:'Partida',round:'Rodada',final:'Final',finals:'Final',semifinal:'Semifinal',semifinals:'Semifinal',quarterfinals:'Quartas de final',tiebreak:'Desempate',tiebreaks:'Desempate'};
+function descPartida(i){   // qual é a partida: torneio · nome da rodada (ou partida do match) · mesa · data · resultado
+  const val=x=>x&&!/^[?.\-*]+$/.test(x)?x:'';
+  const url=/\/broadcast\/[^/]+\/([^/]+)\/[^/]+/.exec(i.BroadcastURL||'');   // transmissões: o endereço traz o nome da rodada (game-2, round-9…)
+  const [rd,mesa]=String(i.Round||'').split('.');
+  const rodada=url?url[1].split('-').filter(Boolean).map(p=>(LANG==='pt'&&NOMES_RODADA[p])||p[0].toUpperCase()+p.slice(1)).join(' '):(/^\d+$/.test(rd)?`${t('Rodada')} ${rd}`:'');
+  const d=/^(\d{4})\.(\d\d)\.(\d\d)$/.exec(i.Date||'');
+  return [val(i.BroadcastName)||val(i.Event),rodada,+mesa>1?`${t('Mesa')} ${+mesa}`:'',d?(LANG==='pt'?`${d[3]}/${d[2]}/${d[1]}`:`${d[1]}-${d[2]}-${d[3]}`):'',i.Result==='*'?t('em andamento'):(i.Result||'')].filter(Boolean).map(esc).join(' · ');
+}
 function aplicaFonteBar(){
   const i=S.info||{};
-  $('#fonte-tit').innerHTML=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} <span class="mut">· ${esc(i.Event||'')} · ${esc(i.Result||'')}</span>`:`<span class="mut">${t('Nenhuma partida carregada')}</span>`;
+  $('#fonte-tit').innerHTML=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} <span class="mut">· ${descPartida(i)}</span>`:`<span class="mut">${t('Nenhuma partida carregada')}</span>`;
   const aoVivo=!!S.live&&(i.Result||'*')==='*';   // partida em andamento (resultado ainda '*')
   $('#live').innerHTML=aoVivo?`<span class="vivo" title="${esc(t('Partida em andamento'))}">● ${t('AO VIVO')}</span>`:(S.live&&i.Result?`<span class="mut">${t('Partida encerrada')} · ${esc(i.Result)}</span>`:'');
   const rodando=!!S.job&&['analisando','ao vivo','esperando'].includes(S.estado);
@@ -905,7 +935,7 @@ async function poll(){
   S.lances=d.lances||S.lances;S.esperado=d.esperado||S.esperado;S.atual=d.atual;S.decorrido=d.decorrido;
   if(d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
   if(S.rows.length&&$('#seguir').checked&&!V)S.cur=S.rows.length-1;   // marcado: mantém no lance mais recente e atualiza
-  const i=S.info;const jog=i.White?`<b>${i.White}</b> ${i.WhiteElo||''} — <b>${i.Black}</b> ${i.BlackElo||''} · ${i.Event||''} · ${i.Result||''}`:'';
+  const i=S.info;const jog=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} · ${descPartida(i)}`:'';
   const vivo='';const np=S.rows.length;
   status(`${vivo}${jog} · ${np===1?t('1 posição analisada'):t('{n} posições analisadas',{n:np})} · ${t(d.estado)}${d.aviso?' · '+d.aviso:''}`);
   const chave=[d.versao,d.estado,(d.lances||[]).length,d.esperado,d.atual,S.cur,V?1:0].join('|');
@@ -956,7 +986,8 @@ function avisaLance(){
 
 /* ---------- fontes ---------- */
 $$('.abas button').forEach(b=>b.onclick=()=>{$$('.abas button').forEach(x=>x.classList.toggle('on',x===b));['pgn','lichess','trans'].forEach(a=>$('#a-'+a).hidden=a!==b.dataset.aba);if(b.dataset.aba==='trans'&&!$('#sel-tour').options.length)listaTour()});
-$('#b-trocar').onclick=()=>{$('#fonte-det').hidden=!$('#fonte-det').hidden};
+$('#b-trocar').onclick=()=>{$('#fonte-det').hidden=!$('#fonte-det').hidden;
+  if(!$('#fonte-det').hidden&&!$('#a-trans').hidden&&!$('#sel-tour').options.length)listaTour()};   // a aba que abre é a de transmissões: já lista os torneios
 $('#b-analisar').onclick=analisar;$('#b-parar').onclick=parar;
 $('#b-pgn').onclick=()=>{const tx=$('#pgn').value.trim();if(!tx)return status(t('Cole um PGN primeiro.'));carrega({tipo:'pgn',pgn:tx,jogo:(+$('#njogo').value||1)-1})};
 $('#arq').onchange=async e=>{const f=e.target.files[0];if(f)$('#pgn').value=await f.text()};

@@ -44,6 +44,7 @@ Depois de analisar, **📑 Relatório** monta, a partir da análise já feita:
 - variantes recuadas, como itens do momento a que pertencem;
 - **PDF** no estilo de livro (tabuleiro à esquerda, explicação à direita), com as páginas preenchidas por miniaturas dos lances, salvo pela janela de impressão (*Salvar como PDF*);
 - **Livro interativo**: um único arquivo `.html`, que abre em qualquer navegador, com um passador em cada tabuleiro;
+- o relatório segue a *Aparência* escolhida (estilo das peças e cores do tabuleiro);
 - **focos por fase**, escolhidos pelo programa: abertura (desenvolvimento, centro, mobilidade, peças protegidas), meio-jogo (táticas, rei, debilidades, peças soltas, mobilidade) e final (táticas, atividade do rei, estrutura de peões, material). Nem toda partida chega ao final;
 - **tabela final** com os números da partida.
 
@@ -55,6 +56,7 @@ As ideias, as fases e os focos são identificados por regras sobre a análise da
 
 ### Recursos
 - Lances e casas citados nas explicações aparecem em negrito e são marcados no tabuleiro.
+- Nos **lances de variantes** da interpretação, passar o mouse abre uma **janela pequena com a posição**; clicar a fixa, e o ✕, um clique fora ou Esc a fecham.
 - Posição em detalhes, com bispos ruins, mobilidade dos cavalos, ilhas, peões isolados e passados e peças desprotegidas.
 - Navegação pelos lances sem depender da análise; linhas de cálculo clicáveis (a variante aparece no tabuleiro).
 - Várias engines ao mesmo tempo, com aviso quando divergem.
@@ -90,7 +92,7 @@ Chesslyst é software livre sob a **GNU GPL-3.0** (veja [LICENSE](LICENSE)).
 
 Desenvolvido por **Víctor Chaves Santos** com o **Claude** (Anthropic, modelo Claude Sonnet 5.5), em novembro de 2026.
 
-O desenho das peças (`app/web/pecas.js`) é o conjunto de **Colin M.L. Burnett** (GFDL, BSD e GPL), gerado a partir do python-chess.
+O desenho vetorial das peças, opcional em *Aparência* (`app/web/pecas.js`), é o conjunto de **Colin M.L. Burnett** (GFDL, BSD e GPL), gerado a partir do python-chess.
 
 Componentes de terceiros (não redistribuídos aqui; cada um segue sua licença):
 - [python-chess](https://github.com/niklasf/python-chess), GPL-3.0, instalado via `pip`

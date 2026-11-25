@@ -95,6 +95,7 @@ function tamanho() {
 }
 function mostra(i) {
   atual = Math.max(0, Math.min(slides.length - 1, i));
+  fechaJanela();
   const sl = slides[atual], palco = q('#rel .rel-palco');
   const html = sl.tipo === 'bloco' ? pecas.linhas[sl.n] : sl.tipo === 'topo' ? pecas.topo : sl.tipo === 'lances' ? pecas.lances : pecas.final;
   palco.innerHTML = `<div id="rel-sdoc" class="interativo"><div class="folha">${html}</div></div><div class="rel-fala" id="rel-fala" hidden></div>`;
@@ -161,7 +162,7 @@ function ativaPassadores(raiz, D) {
     return tipo === 'tinta' ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}" opacity=".35"/>`
       : `<rect x="${x + .04}" y="${y + .04}" width=".92" height=".92" rx=".1" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width=".09"/>`;
   }).join('');
-  const setas = (lista, ocupadas) => (lista || []).map(([a, b, cor, ordem]) => {
+  const setas = (lista, ocupadas, grande) => (lista || []).map(([a, b, cor, ordem]) => {
     const [x1, y1] = xy(a), [x2, y2] = xy(b), A = [x1 + .5, y1 + .5], Z = [x2 + .5, y2 + .5];
     const L = Math.hypot(Z[0] - A[0], Z[1] - A[1]) || 1, ux = (Z[0] - A[0]) / L, uy = (Z[1] - A[1]) / L;
     /* a seta fica abaixo das peças: se a casa de chegada está ocupada, a ponta para na borda da peça; entre casas
@@ -171,7 +172,7 @@ function ativaPassadores(raiz, D) {
     const P = [Z[0] - ux * recuo, Z[1] - uy * recuo], E = [P[0] - ux * h, P[1] - uy * h];
     /* o número fica no trecho livre; numa seta curta ele sai para o lado, para não sumir debaixo das peças */
     const curta = L < 1.6, meio = curta ? [(A[0] + Z[0]) / 2 - uy * .36, (A[1] + Z[1]) / 2 + ux * .36] : [(A[0] + E[0]) / 2, (A[1] + E[1]) / 2];
-    const num = ordem ? `<circle cx="${meio[0]}" cy="${meio[1]}" r=".19" fill="#fff" stroke="${cor}" stroke-width=".05"/><text x="${meio[0]}" y="${meio[1] + .095}" text-anchor="middle" font-size=".27" font-weight="700" font-family="Segoe UI,sans-serif" fill="#111">${ordem}</text>` : '';
+    const num = ordem ? `<circle cx="${meio[0]}" cy="${meio[1]}" r="${grande ? .26 : .19}" fill="#fff" stroke="${cor}" stroke-width=".05"/><text x="${meio[0]}" y="${meio[1] + (grande ? .13 : .095)}" text-anchor="middle" font-size="${grande ? .38 : .27}" font-weight="700" font-family="Segoe UI,sans-serif" fill="#111">${ordem}</text>` : '';
     return `<line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="${cor}" stroke-width=".13" stroke-linecap="round" opacity=".95"/><polygon points="${P[0]},${P[1]} ${E[0] - uy * larg},${E[1] + ux * larg} ${E[0] + uy * larg},${E[1] - ux * larg}" fill="${cor}"/>${num}`;
   }).join('');
   const CHEIAS = {K: '\u265A', Q: '\u265B', R: '\u265C', B: '\u265D', N: '\u265E', P: '\u265F'};
@@ -204,12 +205,12 @@ function ativaPassadores(raiz, D) {
       h += `<div class="c ${(r + c) % 2 ? 'd' : 'l'}${ult.includes(nome) ? ' ult' : ''}">${D.coord && c === 0 ? `<i class="r">${8 - fr}</i>` : ''}${D.coord && r === 7 ? `<i class="f">${'abcdefgh'[fc]}</i>` : ''}${p ? peca(p, c, mini) : ''}</div>`;
     }
     const cores = D.cores ? ` style="--clara:${D.cores[0]};--escura:${D.cores[1]}"` : '';
-    el.innerHTML = `<div class="rl-tab"${cores}>${h}<svg class="seta" viewBox="0 0 8 8">${rects(op.casas)}${setas(op.setas, el.ocupadas)}</svg><svg class="seta rl-camada" viewBox="0 0 8 8"></svg></div>`;
+    el.innerHTML = `<div class="rl-tab"${cores}>${h}<svg class="seta" viewBox="0 0 8 8">${rects(op.casas)}${setas(op.setas, el.ocupadas, op.grande)}</svg><svg class="seta rl-camada" viewBox="0 0 8 8"></svg></div>`;
   }
   raiz.querySelectorAll('.rtab[data-q]').forEach(el => {
     const q = D.quadros[+el.dataset.q];
     desenha(el, q.fen, q);
-    if (!el.parentElement.classList.contains('fig')) return;     // miniaturas: só o desenho
+    if (D.parado || !el.parentElement.classList.contains('fig')) return;     // miniaturas e PDF: só o desenho
     const linha = el.closest('.linha-doc');
     if (!linha) return;
     const ctl = linha.querySelector('.passador'), onde = linha.querySelector('.onde');
@@ -254,7 +255,7 @@ function ativaPassadores(raiz, D) {
       if (par) fixar(+par.dataset.p);
     });
     linha.addEventListener('mouseover', e => {        // passar o mouse num lance ou casa em negrito marca este tabuleiro
-      const m = e.target.closest('.mc'), sobre = el.querySelector('svg.rl-camada'); if (!m || !sobre || !m.dataset.c) return;
+      const m = e.target.closest('.mc'), sobre = el.querySelector('svg.rl-camada'); if (!m || !sobre || !m.dataset.c || m.dataset.f) return;
       const lado = m.dataset.l || 'B', u = m.dataset.s;
       sobre.innerHTML = rects(m.dataset.c.split(',').map(c => [c, lado, m.dataset.t || 'anel'])) + (u ? setas([[u.slice(0, 2), u.slice(2, 4), CORES[lado] || CORES.B]], el.ocupadas) : '');
     });
@@ -271,6 +272,50 @@ function ativaPassadores(raiz, D) {
     });
     escreve(D.txt.diagrama);
   });
+  if (!D.parado) janelaDeLances();
+
+  /* slides e livro interativo: passar o mouse num lance abre um tabuleiro pequeno com a posição; clicar o fixa;
+     o ✕, um clique fora ou Esc fecham. Os ouvintes são do documento e são postos uma única vez. */
+  function janelaDeLances() {
+    raiz.querySelectorAll('.mc[data-f]').forEach(m => { m.title = ''; });    // sem a dica do comentário por cima da janela
+    let J = document.rlJanela;
+    if (J) { J.D = D; J.desenha = desenha; return; }
+    J = document.rlJanela = {D, desenha, alvo: null, fixa: false};
+    const caixa = () => document.getElementById('rl-pop');
+    const lance = e => { const m = e.target && e.target.closest ? e.target.closest('.mc[data-f]') : null; return m && m.closest('#rel-sdoc, #rel-doc.interativo') ? m : null; };
+    J.fecha = () => { const p = caixa(); if (p) p.remove(); J.alvo = null; J.fixa = false; };
+    J.abre = (alvo, fixa) => {
+      J.fecha(); J.alvo = alvo; J.fixa = fixa;
+      const fen = alvo.dataset.f, u = alvo.dataset.s || '', campos = fen.split(' '), n = +campos[5] || 1;
+      const rotulo = (campos[1] === 'b' ? n + '.' : (n - 1) + '\u2026') + alvo.textContent.replace(/[!?]+$/, '');
+      const p = document.createElement('div'); p.id = 'rl-pop'; if (fixa) p.className = 'fixa';
+      p.innerHTML = '<div class="rl-pop-tit"><b></b><button type="button">✕</button></div><div class="fig"><div class="rtab"></div></div>' + (fixa ? '' : '<div class="rl-pop-dica"></div>');
+      p.querySelector('b').textContent = J.D.txt.apos.replace('{x}', rotulo);
+      p.querySelector('button').title = J.D.txt.fechar; p.querySelector('button').onclick = J.fecha;
+      if (!fixa) p.querySelector('.rl-pop-dica').textContent = J.D.txt.fixar;
+      document.body.appendChild(p);
+      const casa = [u.slice(0, 2), u.slice(2, 4)];
+      J.desenha(p.querySelector('.rtab'), fen, u ? {ult: casa, setas: [[casa[0], casa[1], CORES[campos[1] === 'b' ? 'B' : 'P']]]} : {});
+      const r = alvo.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight, f = 8;
+      let x = r.right + 14, y = Math.min(Math.max(f, r.top + r.height / 2 - h / 2), innerHeight - h - f);
+      if (x + w > innerWidth - f) x = r.left - w - 14;
+      if (x < f) { x = Math.max(f, Math.min(r.left, innerWidth - w - f)); y = r.bottom + 10 + h < innerHeight ? r.bottom + 10 : Math.max(f, r.top - h - 10); }
+      p.style.left = x + 'px'; p.style.top = Math.max(f, y) + 'px';
+    };
+    document.addEventListener('mouseover', e => { const m = lance(e); if (m && !J.fixa && J.alvo !== m) J.abre(m, false); }, true);
+    document.addEventListener('mouseout', e => { const m = lance(e); if (m && !J.fixa && !(e.relatedTarget && m.contains(e.relatedTarget))) J.fecha(); }, true);
+    document.addEventListener('click', e => {
+      const m = lance(e);
+      if (m) {                                       // fixa a janela, sem acionar o comentário em volta
+        e.stopPropagation(); e.preventDefault(); J.abre(m, true);
+        document.dispatchEvent(new CustomEvent('rl-fixou'));
+        return;
+      }
+      if (caixa() && !(e.target.closest && e.target.closest('#rl-pop'))) J.fecha();
+    }, true);
+    document.addEventListener('scroll', () => { if (!J.fixa) J.fecha(); }, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') J.fecha(); });
+  }
 }
 
 const CSS_DOC = `
@@ -278,14 +323,26 @@ const CSS_DOC = `
 #rel-doc{position:fixed;inset:0;z-index:600;overflow:auto;background:#6b7280}
 #rel-doc .barra-doc{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 14px;background:var(--bg2,#0e1420);color:var(--tx,#e6edf7);border-bottom:1px solid var(--bd,#26324a);font:13px "Segoe UI",system-ui,sans-serif}
 :is(#rel-doc,#rel-sdoc) .folha{--clara:#f0d9b5;--escura:#b58863;color:#111;font:11.3px/1.4 Georgia,"Times New Roman",serif}
-:is(#rel-doc,#rel-sdoc) .c{position:relative;display:flex;align-items:center;justify-content:center;font-size:calc(var(--sq)*.8);line-height:1}
-:is(#rel-doc,#rel-sdoc) .c.l{background:var(--clara)}:is(#rel-doc,#rel-sdoc) .c.d{background:var(--escura)}
-:is(#rel-doc,#rel-sdoc) .c.ult::after{content:"";position:absolute;inset:0;background:rgba(255,213,0,.38)}
-:is(#rel-doc,#rel-sdoc) .c i{position:absolute;z-index:3;font:600 calc(var(--sq)*.2)/1 "Segoe UI",sans-serif;opacity:.85}:is(#rel-doc,#rel-sdoc) .c i.r{left:1px;top:1px}:is(#rel-doc,#rel-sdoc) .c i.f{right:1px;bottom:0}
-:is(#rel-doc,#rel-sdoc) .c.l i{color:var(--escura)}:is(#rel-doc,#rel-sdoc) .c.d i{color:var(--clara)}
-:is(#rel-doc,#rel-sdoc) .p{position:relative;z-index:2;display:block;width:96%;height:96%;line-height:0}
-:is(#rel-doc,#rel-sdoc) .p svg{display:block;width:100%;height:100%;overflow:visible}
-:is(#rel-doc,#rel-sdoc) svg.seta{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}:is(#rel-doc,#rel-sdoc) svg.rl-camada{z-index:3;opacity:.9}
+:is(#rel-doc,#rel-sdoc,#rl-pop) .c{position:relative;display:flex;align-items:center;justify-content:center;font-size:calc(var(--sq)*.8);line-height:1}
+:is(#rel-doc,#rel-sdoc,#rl-pop) .c.l{background:var(--clara)}:is(#rel-doc,#rel-sdoc,#rl-pop) .c.d{background:var(--escura)}
+:is(#rel-doc,#rel-sdoc,#rl-pop) .c.ult::after{content:"";position:absolute;inset:0;background:rgba(255,213,0,.38)}
+:is(#rel-doc,#rel-sdoc,#rl-pop) .c i{position:absolute;z-index:3;font:600 calc(var(--sq)*.2)/1 "Segoe UI",sans-serif;opacity:.85}:is(#rel-doc,#rel-sdoc,#rl-pop) .c i.r{left:1px;top:1px}:is(#rel-doc,#rel-sdoc,#rl-pop) .c i.f{right:1px;bottom:0}
+:is(#rel-doc,#rel-sdoc,#rl-pop) .c.l i{color:var(--escura)}:is(#rel-doc,#rel-sdoc,#rl-pop) .c.d i{color:var(--clara)}
+:is(#rel-doc,#rel-sdoc,#rl-pop) .p{position:relative;z-index:2;display:block;width:96%;height:96%;line-height:0}
+:is(#rel-doc,#rel-sdoc,#rl-pop) .p svg{display:block;width:100%;height:100%;overflow:visible}
+:is(#rel-doc,#rel-sdoc,#rl-pop) svg.seta{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}:is(#rel-doc,#rel-sdoc,#rl-pop) svg.rl-camada{z-index:3;opacity:.9}
+#rl-pop{position:fixed;z-index:900;background:#fff;color:#111;border:1px solid #6b7280;border-radius:8px;box-shadow:0 8px 30px #0008;padding:7px 8px;font:12px "Segoe UI",system-ui,sans-serif;text-align:left}
+#rl-pop.fixa{border:2px solid #0f9d84}
+#rl-pop .rl-pop-tit{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:5px}
+#rl-pop .rl-pop-tit button{border:0;background:none;color:#444;font-size:13px;cursor:pointer;padding:0 2px}
+#rl-pop .fig{margin:0;padding:1px}#rl-pop .rtab{--sq:30px;--clara:#f0d9b5;--escura:#b58863}#rl-pop .rtab>div{outline:1px solid #000}
+#rl-pop .rl-pop-dica{font-size:10.5px;color:#555;margin-top:5px;max-width:240px}
+:is(#rel-doc.interativo,#rel-sdoc) .mc[data-f]{cursor:pointer;border-radius:3px}:is(#rel-doc.interativo,#rel-sdoc) .mc[data-f]:hover{background:#cdeee6}
+:is(#rel-doc,#rel-sdoc) .rl-ref{display:inline-block;min-width:13px;height:13px;border-radius:7px;background:#1f2937;color:#fff;font:700 9px/13px "Segoe UI",sans-serif;text-align:center;font-style:normal;margin-right:4px;vertical-align:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+:is(#rel-doc,#rel-sdoc) .marcas-pdf{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:flex-start;padding:4px 0 6px}
+:is(#rel-doc,#rel-sdoc) .marcas-pdf figure{margin:0;--sq:14px;width:calc(var(--sq)*8 + 2px);padding:1px}
+:is(#rel-doc,#rel-sdoc) .marcas-pdf .c i{display:none}
+:is(#rel-doc,#rel-sdoc) .marcas-pdf figcaption{font-size:9px;line-height:1.2;margin-top:2px}
 :is(#rel-doc,#rel-sdoc) h1{font-size:21px;margin:0}:is(#rel-doc,#rel-sdoc) .sub{font-size:11.5px;color:#333}
 :is(#rel-doc,#rel-sdoc) h2{font-size:15px;border-bottom:2px solid #111;padding-bottom:2px;margin:10px 0 8px}
 :is(#rel-doc,#rel-sdoc) h3{font-size:13px;margin:0}:is(#rel-doc,#rel-sdoc) h4{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#555;margin:0 0 2px}
@@ -310,6 +367,8 @@ const CSS_DOC = `
 :is(#rel-doc,#rel-sdoc) .tira{display:flex;gap:6px;justify-content:space-between;padding:2px 2px 6px}
 :is(#rel-doc,#rel-sdoc) .tira figure{margin:0;--sq:15.6px;text-align:center}:is(#rel-doc,#rel-sdoc) .tira .c i{display:none}
 :is(#rel-doc,#rel-sdoc) .tira figcaption{font-size:9px;margin-top:2px}
+:is(#rel-doc,#rel-sdoc) .tira:not(:has(figure:nth-child(4))){justify-content:flex-start;gap:14px}
+:is(#rel-doc,#rel-sdoc) .linha-doc.lv-variante~div .tira figure{--sq:15px}  /* no bloco recuado cabem 5 sem cortar */
 :is(#rel-doc,#rel-sdoc) .tira.coluna{justify-content:flex-start;gap:8px;padding-bottom:0}
 :is(#rel-doc,#rel-sdoc) .tira-tit{font-size:9.5px;color:#555;text-transform:uppercase;letter-spacing:.5px;margin:0 0 2px;border-top:1px dotted #bbb;padding-top:3px}
 :is(#rel-doc,#rel-sdoc) .colunas{column-count:4;column-gap:16px;column-rule:1px solid #ccc;font-size:9.8px}
@@ -375,7 +434,7 @@ const CSS_DOC = `
 function listaCompacta(tabela) {                      // todos os lances em colunas, um número por linha
   const nums = new Map();
   tabela.forEach(l => { if (!nums.has(l.n)) nums.set(l.n, {}); nums.get(l.n)[l.brancas ? 'b' : 'p'] = l; });
-  const meio = l => l ? `<span><b>${l.critico ? '◆' : ''}${esc(l.san)}</b> <small>${esc(l.aval)}</small></span>` : '<span>…</span>';
+  const meio = l => l ? `<span><b>${l.critico ? '◆' : ''}<span${l.fen ? ` class="mc" data-f="${esc(l.fen)}" data-s="${esc(l.uci)}"` : ''}>${esc(l.san)}</span></b> <small>${esc(l.aval)}</small></span>` : '<span>…</span>';
   return `<div class="colunas">${[...nums].map(([n, x]) => `<div class="par"><i>${n}.</i>${meio(x.b)}${x.p ? meio(x.p) : '<span></span>'}</div>`).join('')}</div>`;
 }
 const legendaCores = L => L.map(([cor, x]) => `<span style="white-space:nowrap"><span style="display:inline-block;width:14px;height:4px;background:${cor};vertical-align:middle"></span> ${esc(x)}</span>`).join(' · ');
@@ -390,22 +449,52 @@ function pecasDoLivro(interativo, clicavel) {
     <div class="topo"><div class="precisoes"><div>${t('Precisão')}</div><p><span>${esc(c.brancas)}</span><b>${prec('B')}</b></p><p><span>${esc(c.pretas)}</span><b>${prec('P')}</b></p></div>
       <div class="graf">${graficoSvg(!!clicavel, 150)}<div class="leg-graf">${t('Avaliação da engine ao longo da partida (acima do meio: brancas)')}</div></div></div>
     <div class="fio"><h4>${t('O fio da partida')}</h4><p>${esc(R.fases)} <b>${esc(R.desfecho)}</b></p><ul>${R.fio.map(x => `<li>${x}</li>`).join('')}</ul></div>
-    <div class="chaves">${t('Marcações no tabuleiro:')}<i style="background:#35e0c2"></i>${t('brancas')}<i style="background:#b388ff"></i>${t('pretas')}<i style="background:#ff2d2d"></i>${t('ataque ou peça mal defendida')}<i style="background:#1e9e5a"></i>${t('melhor lance')}${interativo ? ' · ' + t('Clique num comentário para ver as marcações dele.') : ''}</div>`;
+    <div class="chaves">${interativo ? '' : `<span class="rl-ref">a</span> ${t('liga o comentário ao tabuleiro pequeno com as marcações dele')} · `}${t('Marcações no tabuleiro:')}<i style="background:#35e0c2"></i>${t('brancas')}<i style="background:#b388ff"></i>${t('pretas')}<i style="background:#ff2d2d"></i>${t('ataque ou peça mal defendida')}<i style="background:#1e9e5a"></i>${t('melhor lance')}${interativo ? ' · ' + t('Clique num comentário para ver as marcações dele.') : ''}</div>`;
+  const minis = [];
   const linhas = R.livro.map((l, n) => {
     const marcas = l.paragrafos.map(p => p.cab ? null : (p.marca || p.seq != null ? {...(p.marca || {}), seq: p.seq} : null));
+    const impressas = interativo ? {letra: {}, figuras: []} : marcasImpressas(l, marcas, quadro);
+    minis.push(impressas.figuras);
     const id = quadro({fen: l.fen, setas: l.setas, casas: l.casas, ult: l.ult, seqs: interativo ? l.seqs : null, inicial: l.inicial, marcas});
     const ctl = interativo && l.seqs.length ? `<div class="passador"><div class="botoes"><button data-a="ini" title="${esc(t('Começo'))}">⏮</button><button data-a="ant" title="${esc(t('Lance anterior'))}">◀</button><button data-a="diag" title="${esc(t('Voltar ao diagrama'))}">◉</button><button data-a="prox" title="${esc(t('Próximo lance'))}">▶</button><button data-a="fim" title="${esc(t('Fim'))}">⏭</button></div>
       <div class="onde"></div><div class="linhas">${l.seqs.map((s, k) => `<button data-seq="${k}" style="border-left:4px solid ${s.cor}">${esc(s.rotulo)}</button>`).join('')}</div></div>` : '';
     return `<section class="linha-doc lv-${l.tipo}"><div class="fig" style="flex:0 0 calc(var(--sq)*8 + 4px)"><div class="rtab" data-q="${id}"></div><figcaption><b>${t('Diagrama {n}', {n: n + 1})}</b> — ${esc(l.figura)}${l.legenda.length ? '<br>' + legendaCores(l.legenda) : ''}</figcaption>${ctl}</div>
       <div><div class="selo">${esc(l.selo)}</div><h3>${esc(l.titulo)}</h3>${l.meta ? `<div class="meta">${esc(l.meta)}</div>` : ''}
-      ${l.paragrafos.map((p, k) => `<p class="${p.foco ? 'foco ' : ''}${p.item ? 'item ' : ''}${p.cab ? 'cab' : ''}"${marcas[k] ? ` data-p="${k}" title="${esc(t('Clique para ver no tabuleiro'))}"` : ''}${p.item && p.cor ? ` style="border-left-color:${p.cor}"` : ''}>${p.rotulo ? `<span class="rot"${p.cor ? ` style="color:${p.cor}"` : ''}>${esc(p.rotulo)}.</span> ` : ''}${p.html}</p>`).join('')}</div></section>`;
+      ${l.paragrafos.map((p, k) => `<p class="${p.foco ? 'foco ' : ''}${p.item ? 'item ' : ''}${p.cab ? 'cab' : ''}"${interativo && marcas[k] ? ` data-p="${k}" title="${esc(t('Clique para ver no tabuleiro'))}"` : ''}${p.item && p.cor ? ` style="border-left-color:${p.cor}"` : ''}>${impressas.letra[k] ? `<span class="rl-ref">${impressas.letra[k]}</span>` : ''}${p.rotulo ? `<span class="rot"${p.cor ? ` style="color:${p.cor}"` : ''}>${esc(p.rotulo)}.</span> ` : ''}${p.html}</p>`).join('')}</div></section>`;
   });
   const lances = `<h2>${t('Todos os lances')}</h2>${listaCompacta(R.tabela)}<div class="nota-lances">◆ ${t('momento crítico')} · ${t('o número é a avaliação antes do lance (positivo: brancas)')}</div>`;
   const final = `<div class="final"><h2>${t('Tabela final: os números da partida')}</h2><p>${esc(R.conclusao.texto)}</p><div class="duas">${tabelaNumeros(N, c.brancas, c.pretas)}${dadosPartida(N)}</div>
     <div class="rodape">${t(DICA_PRECISAO)} ${t('Relatório gerado pelo Chesslyst.')}</div></div>`;
-  return {topo, linhas, lances, final, quadros, quadro};
+  return {topo, linhas, minis, lances, final, quadros, quadro};
 }
-function dadosTabuleiros(quadros) { return {estilo: cfg.peca, cav: cfg.cav, cores: [cfg.clara, cfg.escura], pecas: cfg.peca === 'vetor' ? window.PECAS_SVG : null, flip: !!cfg.flip, coord: !!cfg.coord, quadros, txt: {diagrama: t('Posição do diagrama'), inicio: t('Começo da linha'), marcado: t('Marcações do comentário')}}; }
+/* o que um comentário marca e o diagrama principal não mostra: no papel não há clique nem mouse, então cada marcação
+   vira um tabuleiro pequeno, ligado ao comentário por uma letra. Marcações iguais dividem o mesmo tabuleiro. */
+function marcasImpressas(l, marcas, quadro) {
+  const letra = {}, feitas = new Map(), figuras = [], maiuscula = x => x.charAt(0).toUpperCase() + x.slice(1), lugar = fen => fen.split(' ')[0];
+  const casaNoDiagrama = c => (l.casas || []).some(x => x[0] === c[0] && x[1] === c[1]);
+  const setaNoDiagrama = s => !s[3] && (l.setas || []).some(x => x[0] === s[0] && x[1] === s[1]);
+  let grupo = '';
+  l.paragrafos.forEach((p, k) => {
+    if (p.cab) { grupo = p.rotulo; return; }
+    if (!p.item) grupo = '';
+    const m = marcas[k]; if (!m) return;
+    const casas = m.casas || [], setas = m.setas || [], fen = m.fen || l.fen, mesma = lugar(fen) === lugar(l.fen);
+    if (!casas.length && !setas.length && mesma) return;
+    if (mesma && casas.every(casaNoDiagrama) && setas.every(setaNoDiagrama)) return;      // já está no diagrama
+    const chave = JSON.stringify([lugar(fen), casas.map(String).sort(), setas.map(String).sort()]);
+    let f = feitas.get(chave);
+    if (!f) {
+      const nome = String.fromCharCode(97 + figuras.length % 26);
+      f = {nome, quadro: quadro({fen, casas, setas, ult: mesma ? l.ult : [], grande: true}), titulos: [], nota: m.nota || ''};
+      feitas.set(chave, f); figuras.push(f);
+    }
+    const titulo = p.rotulo || grupo;
+    if (titulo && !f.titulos.includes(titulo)) f.titulos.push(titulo);
+    letra[k] = f.nome;
+  });
+  return {letra, figuras: figuras.map(f => `<figure><div class="rtab" data-q="${f.quadro}"></div><figcaption><span class="rl-ref">${f.nome}</span>${esc(maiuscula([f.titulos.join(' / '), f.nota].filter(Boolean).join(' · ') || t('Marcações do comentário')))}</figcaption></figure>`)};
+}
+function dadosTabuleiros(quadros) { return {estilo: cfg.peca, cav: cfg.cav, cores: [cfg.clara, cfg.escura], pecas: cfg.peca === 'vetor' ? window.PECAS_SVG : null, flip: !!cfg.flip, coord: !!cfg.coord, quadros, txt: {diagrama: t('Posição do diagrama'), inicio: t('Começo da linha'), marcado: t('Marcações do comentário'), apos: t('Posição após {x}', {x: '{x}'}), fixar: t('Clique no lance para fixar esta janela.'), fechar: t('Fechar (Esc)')}}; }
 
 /* miniaturas: as posições do caminho que levam ao diagrama (ou que a engine mostra a partir dele) */
 function tiraDaLinha(l, quadro) {
@@ -436,7 +525,7 @@ function tiraDaPartida(imagens, quadro) {
 function pagina(doc, P) {
   const H = 1022, folha = q('.folha', doc);
   const medidor = document.createElement('div'); medidor.className = 'medidor'; folha.appendChild(medidor);
-  const D = dadosTabuleiros(P.quadros);
+  const D = {...dadosTabuleiros(P.quadros), parado: true};      // a prévia mostra exatamente o que vai para o arquivo
   const unidade = (html, linha) => { const u = document.createElement('div'); u.className = 'unidade'; u.innerHTML = html; u.linha = linha; medidor.appendChild(u); ativaPassadores(u, D); return u; };
   const alt = u => u.getBoundingClientRect().height;
   const unidades = [unidade(P.topo), ...P.linhas.map((h, i) => unidade(h, R.livro[i])), unidade(P.lances), unidade(P.final)];
@@ -456,6 +545,31 @@ function pagina(doc, P) {
       extra.remove();
     }
   };
+  /* as marcações dos comentários entram sempre: no vão ao lado do tabuleiro e, o que não couber, embaixo do bloco */
+  const poeMarcas = (u, figuras) => {
+    if (!figuras.length) return;
+    const fig = q('.linha-doc > .fig', u), texto = fig.nextElementSibling;
+    const monta = (naColuna, lado) => {                      // naColuna: quantas vão ao lado do tabuleiro
+      u.querySelectorAll('.marcas-pdf').forEach(x => x.remove());
+      [[texto, figuras.slice(0, naColuna)], [u, figuras.slice(naColuna)]].forEach(([onde, lote]) => {
+        if (!lote.length) return;
+        const caixa = document.createElement('div'); caixa.className = 'marcas-pdf'; caixa.innerHTML = lote.join('');
+        if (lado) caixa.querySelectorAll('figure').forEach(f => f.style.setProperty('--sq', lado + 'px'));
+        onde.appendChild(caixa); ativaPassadores(caixa, D);
+      });
+      return alt(u);
+    };
+    let cabem = 0;
+    while (cabem < figuras.length) {                         // quantas cabem no vão sem aumentar o bloco
+      monta(cabem + 1);
+      if (alt(texto) > alt(fig) + 2) break;
+      cabem++;
+    }
+    const opcoes = [...new Set([cabem, figuras.length, 0])].map(n => [monta(n), n]).sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+    monta(opcoes[0][1]);
+    if (alt(u) > H) monta(opcoes[0][1], 12);                 // um bloco nunca passa de uma página
+  };
+  unidades.filter(u => u.linha).forEach(u => poeMarcas(u, P.minis[R.livro.indexOf(u.linha)] || []));
   unidades.filter(u => u.linha).forEach(preencheColuna);
   const paginas = [[]]; let usado = 0;
   unidades.forEach(u => { const h = alt(u); if (usado + h > H && paginas[paginas.length - 1].length) { paginas.push([]); usado = 0; } paginas[paginas.length - 1].push(u); usado += h; });
@@ -550,7 +664,9 @@ function arquivoInterativo() {
 ativaPassadores(document, ${dados});<` + `/script></body></html>`;
 }
 const abreDocumento = () => montaDocumento(false);
-function fechaDocumento() { const d = q('#rel-doc'); if (d) d.remove(); document.body.classList.remove('rel-imprimindo'); }
+const fechaJanela = () => { if (document.rlJanela) document.rlJanela.fecha(); };
+document.addEventListener('rl-fixou', () => { if (voz.tocando) pausar(); });   // quem fixa um lance assume: a narração pausa
+function fechaDocumento() { fechaJanela(); const d = q('#rel-doc'); if (d) d.remove(); document.body.classList.remove('rel-imprimindo'); }
 
 /* ---------- janela do relatório ---------- */
 async function busca() {
@@ -601,7 +717,7 @@ async function abre() {
 /* com o relatório aberto, o teclado é dele (as setas não mexem na partida por trás) */
 addEventListener('keydown', e => {
   if (!q('#rel')) return;
-  if (e.key === 'Escape') { if (q('#rel-doc')) fechaDocumento(); else fecha(); }
+  if (e.key === 'Escape') { if (q('#rl-pop')) fechaJanela(); else if (q('#rel-doc')) fechaDocumento(); else fecha(); }
   else if (e.target.closest && e.target.closest('select,input,textarea')) return;
   else if (!q('#rel-doc') && (e.key === 'ArrowRight' || e.key === 'PageDown')) vaiSlide(atual + 1);
   else if (!q('#rel-doc') && (e.key === 'ArrowLeft' || e.key === 'PageUp')) vaiSlide(atual - 1);

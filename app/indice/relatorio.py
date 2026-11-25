@@ -304,7 +304,8 @@ def montar(job: dict, modo: str = "completo") -> dict:
     for i, r in enumerate(rows):
         if not r.get("move"): continue
         b_ = chess.Board(fens[i])
-        tabela.append(dict(n=b_.fullmove_number, brancas=b_.turn, san=r["move"] + SINAIS.get(r.get("jogada_classe_id"), ""), lance=_numero(chess.Board(fens[i])) + r["move"] + SINAIS.get(r.get("jogada_classe_id"), ""),
+        depois = b_.copy(stack=False); depois.push(chess.Move.from_uci(r["uci"]))
+        tabela.append(dict(fen=depois.fen(), uci=r["uci"], n=b_.fullmove_number, brancas=b_.turn, san=r["move"] + SINAIS.get(r.get("jogada_classe_id"), ""), lance=_numero(chess.Board(fens[i])) + r["move"] + SINAIS.get(r.get("jogada_classe_id"), ""),
                            aval=_fmt_av(r["engine_cp"], r["engine_mate"]) if (r.get("engine_cp") is not None or r.get("engine_mate") is not None) else "",
                            acerto=round(r["indice"]), jogada=None if r.get("jogada_indice") is None else round(r["jogada_indice"]),
                            classe=r.get("jogada_classe") or "", critico=bool(r.get("critico"))))

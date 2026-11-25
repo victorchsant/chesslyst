@@ -194,7 +194,7 @@ TXT = {
     "po.um": ("Posto avançado: {l}.", "Outpost: {l}."), "po.varios": ("Postos avançados: {l}.", "Outposts: {l}."),
     "rk.base": ("{k} está sob pressão: {m}.", "{k} is under pressure: {m}."),
     "it.pecas_desprotegidas.n": ("Peças desprotegidas", "Unprotected pieces"),
-    "it.pecas_desprotegidas.d": ("peças sem nenhuma proteção, ou com mais atacantes do que defensores (peões só neste segundo caso). Informativo: não altera o índice", "pieces with no protection at all, or with more attackers than defenders (pawns only in the second case). Informative: does not change the index"),
+    "it.pecas_desprotegidas.d": ("peças sem nenhuma proteção, ou com mais atacantes do que defensores; inclui os peões. Informativo: não altera o índice", "pieces with no protection at all, or with more attackers than defenders; pawns included. Informative: does not change the index"),
     "it.casas_desprotegidas.n": ("Casas desprotegidas", "Unprotected squares"),
     "it.casas_desprotegidas.d": ("casas das três primeiras fileiras de cada lado, sem peça própria, que nenhuma peça ou peão desse lado defende. Informativo: não altera o índice", "squares in each side's first three ranks, without an own piece, that no piece or pawn of that side defends. Informative: does not change the index"),
     "x.escapar": ("Deixou a vitória escapar.", "Let the win slip away."), "x.perdida": ("A posição ficou perdida.", "The position became lost."),

@@ -194,13 +194,12 @@ ITENS_INFO = {"debilidades": ["pecas_desprotegidas", "casas_desprotegidas"]}
 
 
 def pecas_desprotegidas(b, c):
-    """Peças de `c` sem nenhuma proteção, ou com mais atacantes do que defensores. Peões só entram no segundo caso
-    (peão sem defesa e sem ataque é comum demais para dizer algo). O rei não entra."""
+    """Peças e peões de `c` sem nenhuma proteção, ou com mais atacantes do que defensores. O rei não entra."""
     out = []
     for sq, p in sorted(b.piece_map().items()):
         if p.color != c or p.piece_type == chess.KING: continue
         atacantes, defensores = len(b.attackers(not c, sq)), len(b.attackers(c, sq))
-        if atacantes > defensores or (defensores == 0 and p.piece_type != chess.PAWN): out.append(sq)
+        if atacantes > defensores or defensores == 0: out.append(sq)
     return out
 
 

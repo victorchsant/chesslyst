@@ -364,5 +364,9 @@ window.EN_DICT = {
   'melhor lance': 'best move',
   'Clique num comentário para ver as marcações dele.': 'Click a comment to see its markings.',
   'Clique para ver no tabuleiro': 'Click to see it on the board',
-  'Marcações do comentário': 'Comment markings'
+  'Marcações do comentário': 'Comment markings',
+  /* ---- janela de variante ---- */
+  'Clique no lance para fixar esta janela.': 'Click the move to pin this window.',
+  /* ---- estilos de peça ---- */
+  'Desenho vetorial': 'Vector drawing'
 };

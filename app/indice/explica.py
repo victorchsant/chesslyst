@@ -67,7 +67,8 @@ def _cap(s):
 
 def _mlance(board, move, san=None):
     """Um lance da notação em negrito: ao passar o mouse, a tela desenha a seta e marca a casa de chegada."""
-    return mc(san or board.san(move), [chess.square_name(move.to_square)], "B" if board.turn else "P", seta=move.uci()[:4])
+    depois = board.copy(stack=False); depois.push(move)
+    return mc(san or board.san(move), [chess.square_name(move.to_square)], "B" if board.turn else "P", seta=move.uci()[:4], pos=depois.fen())
 
 
 # partes já marcadas ficam como estão; no resto, procura lances (SAN) e casas
@@ -83,7 +84,9 @@ def marca_notacao(texto, board, variantes=()):
 
     def guarda(b, m):
         s = b.san(m).rstrip("+#")
-        mapa.setdefault(s, (m, b.turn))
+        if s not in mapa:
+            depois = b.copy(stack=False); depois.push(m)
+            mapa[s] = (m, b.turn, depois.fen())
     try:
         for m in board.legal_moves: guarda(board, m)
         for pv in variantes:
@@ -98,8 +101,8 @@ def marca_notacao(texto, board, variantes=()):
     def troca(x):
         base, tudo = x.group(1), x.group(0)
         if base in mapa:
-            m, cor = mapa[base]
-            return mc(tudo, [chess.square_name(m.to_square)], "B" if cor else "P", seta=m.uci()[:4])
+            m, cor, fen = mapa[base]
+            return mc(tudo, [chess.square_name(m.to_square)], "B" if cor else "P", seta=m.uci()[:4], pos=fen)
         if re.fullmatch(r"[a-h][1-8]", base): return mc(tudo, [base], "B" if board.turn else "P")
         return tudo
     partes = _MARCADO.split(texto)

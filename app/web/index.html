@@ -161,6 +161,13 @@ table.lin tr[data-pv]{cursor:pointer}
 .cbar::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:#8fa0bd88}
 .cbar.fino{height:6px}.cbar i{position:absolute;top:0;bottom:0}.cbar i.p{background:var(--cb-pos)}.cbar i.n{background:var(--cb-neg)}
 html[data-tema="claro"] .cbar i.p{box-shadow:inset 0 0 0 1px #9aa6bd}
+#popvar{position:fixed;z-index:400;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px;box-shadow:0 10px 30px #0008;--sq:30px}
+#popvar .pv-tit{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px}#popvar .pv-tit b{flex:1}
+#popvar .pv-x{padding:0 7px;line-height:20px}#popvar.solta .pv-x{display:none}
+#popvar.solta{pointer-events:none}
+#popvar .pv-dica{font-size:11px;color:var(--mut);margin-top:5px;max-width:calc(var(--sq)*8)}
+#tabpop{position:relative;display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border:2px solid #000;border-radius:3px;user-select:none;width:max-content}
+.mc[data-f]{cursor:pointer}.mc.pv-fixo{background:color-mix(in srgb,var(--ac) 28%,transparent)}
 #tab2{position:relative;display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border:2px solid #000;border-radius:3px;user-select:none;margin:6px auto;width:max-content}
 #var-card{max-width:calc(var(--sq)*8 + 130px);margin-top:10px;border-color:#ffd54a}
 #var-card .bh button{margin-left:4px}
@@ -306,7 +313,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     <label>Tema da interface
       <select id="c-tui"><option value="escuro">Escuro</option><option value="claro">Claro</option><option value="auto">Automático (segue o sistema)</option></select></label>
     <label>Estilo das peças
-      <select id="c-peca"><option value="vetor">Clássico (desenho nítido)</option><option value="classico">Clássico (fonte do sistema)</option><option value="contorno">Contorno</option><option value="neon">Neon</option><option value="letras">Letras em discos</option></select></label>
+      <select id="c-peca"><option value="classico">Clássico (cheias)</option><option value="vetor">Desenho vetorial</option><option value="contorno">Contorno</option><option value="neon">Neon</option><option value="letras">Letras em discos</option></select></label>
     <label>Cavalos
       <select id="c-cav"><option value="todos">Todos olhando para dentro (b1 e b8)</option><option value="pretos">Só os pretos olhando para dentro</option><option value="off">Como no desenho original</option></select></label>
     <label>Cores do tabuleiro
@@ -432,7 +439,7 @@ const BARRAS=['engine','posicao','material','acerto','jogada'];
 const BARRAS4=['engine','posicao','acerto','jogada'];
 const CLS_COR={brilhante:'#1abc9c',melhor:'#27ae60',excelente:'#2ecc71',bom:'#8bc34a',imprecisao:'#f1c40f',erro:'#e67e22',grave:'#e74c3c'};
 const BANDA_COR=v=>`hsl(${Math.round(v*1.2)},70%,48%)`;
-const DEF={peca:'vetor',tema:'madeira',clara:'#f0d9b5',escura:'#b58863',layout:'dois',slots:{engine:'esq',posicao:'esq',material:'off',acerto:'dir',jogada:'dir'},varSep:false,ver:7,fixo:true,fixaLinhas:false,completa:false,cProp:50,lProp:50,temaUi:'escuro',cav:'todos',sqAuto:true,wLances:220,wBlocos:0,blocos:{},colapsados:{},neutros:false,local:{interp:'lat',pos:'lat',lances:'col',graf:'lat',linhas:'lat'},fixo:false,gAberto:{},linhas:'lateral',flip:false,
+const DEF={peca:'classico',tema:'madeira',clara:'#f0d9b5',escura:'#b58863',layout:'dois',slots:{engine:'esq',posicao:'esq',material:'off',acerto:'dir',jogada:'dir'},varSep:false,ver:8,fixo:true,fixaLinhas:false,completa:false,cProp:50,lProp:50,temaUi:'escuro',cav:'todos',sqAuto:true,wLances:220,wBlocos:0,blocos:{},colapsados:{},neutros:false,local:{interp:'lat',pos:'lat',lances:'col',graf:'lat',linhas:'lat'},fixo:false,gAberto:{},linhas:'lateral',flip:false,
   sq:Math.max(40,Math.min(76,Math.floor((innerHeight-250)/8))),seta:true,coord:true,depth:14,som:true,notif:false};
 const SALVO=JSON.parse(localStorage.getItem('indiceCfg')||'{}');
 let cfg=Object.assign({},DEF,SALVO);
@@ -444,7 +451,7 @@ if((SALVO.ver||0)<4){   // novo padrão (madeira, 2 barras de cada lado, lances 
   localStorage.setItem('indiceCfg',JSON.stringify(cfg))}
 cfg.fixo=true;   // tabuleiro fixo é o comportamento padrão e não é mais uma escolha
 if((SALVO.ver||0)<5){cfg.cav='todos';cfg.ver=5;localStorage.setItem('indiceCfg',JSON.stringify(cfg))}   // o cavalo de b1 (brancas) também olha para dentro
-if((SALVO.ver||0)<7){if(cfg.peca==='classico')cfg.peca='vetor';cfg.ver=7;localStorage.setItem('indiceCfg',JSON.stringify(cfg))}   // quem usava o padrão antigo passa ao desenho vetorial (as outras escolhas ficam)
+if((SALVO.ver||0)<8){if(cfg.peca==='vetor')cfg.peca='classico';cfg.ver=8;localStorage.setItem('indiceCfg',JSON.stringify(cfg))}   // o Clássico (cheias) é o padrão; o desenho vetorial é uma opção em Aparência
 cfg.blocos=cfg.blocos||{};cfg.colapsados=cfg.colapsados||{};cfg.local=Object.assign({},DEF.local,cfg.local||{});cfg.gAberto=cfg.gAberto||{};
 const S={rows:[],cur:0,job:null,estado:'',info:{},timer:null,lances:[],esperado:0,atual:null,decorrido:null,pedido:null,pre:null,fonte:null};
 const save=()=>localStorage.setItem('indiceCfg',JSON.stringify(cfg));
@@ -568,6 +575,7 @@ function sinalTab(ant){if(!ant||!ant.move)return null;const x=SINAL[ant.jogada_c
 function pintaTab(tab,fen,ult,sg,dest,svgId,cav){
   tab.className='est-'+cfg.peca;
   const {b}=parseFen(fen);let h='';
+  tab.ocupadas=new Set();b.forEach((linha,r)=>linha.forEach((p,c)=>{if(p)tab.ocupadas.add(nomeCasa(c,r))}));
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
     const fr=cfg.flip?7-r:r,fc=cfg.flip?7-c:c;const p=b[fr][fc];const nome=String.fromCharCode(97+fc)+(8-fr);
     h+=`<div class="c ${(r+c)%2?'d':'l'} ${ult.includes(nome)?'ult':''}">${nome===dest?`<u class="sinal" style="background:${sg[1]}">${sg[0]==='+'?'<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.6v6.8M1.6 5h6.8" stroke="#fff" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>':sg[0]}</u>`:''}${cfg.coord&&c===0?`<i class="r">${8-fr}</i>`:''}${cfg.coord&&r===7?`<i class="f">${String.fromCharCode(97+fc)}</i>`:''}${p?peca(p,c,cav?cav.get(nome):undefined):''}</div>`;
@@ -592,16 +600,25 @@ function desenhaTab(row){mostraAbertura();setTimeout(()=>{marcaFixo();if(destAtu
   if(V){if(V.ucis[V.k])seta(V.ucis[V.k],SETA_COR)}else setasPadrao(row);
 }
 const SETA_COR='#ff9f43';   // laranja = cálculo da engine (amarelo ficou para as casas do último lance; ciano/violeta = marcações de posição)
-function setaMarkup(uci,cor,op=1){
+/* onde a seta termina. Ela fica abaixo das peças: se a casa de chegada está ocupada, a ponta para na borda da peça (senão
+   some debaixo dela); entre casas vizinhas a ponta encurta para caber no vão. `ponta` = comprimento normal da ponta. */
+function fimSeta(A,Z,ocupado,ponta){
+  const d=Math.hypot(Z[0]-A[0],Z[1]-A[1])||1,ux=(Z[0]-A[0])/d,uy=(Z[1]-A[1])/d,recuo=ocupado?.38:0;
+  const h=ocupado?Math.max(ponta*.74,Math.min(ponta,d-recuo-.34)):ponta;
+  const tip=[Z[0]-ux*recuo,Z[1]-uy*recuo];
+  return {ux,uy,h,tip,base:[tip[0]-ux*h,tip[1]-uy*h]};
+}
+function setaMarkup(uci,cor,op=1,ocup=($('#tab')||{}).ocupadas){
   const [x1,y1]=sqXY(uci.slice(0,2)),[x2,y2]=sqXY(uci.slice(2,4));
-  const a=[x1+.5,y1+.5],z=[x2+.5,y2+.5],d=Math.hypot(z[0]-a[0],z[1]-a[1])||1,ux=(z[0]-a[0])/d,uy=(z[1]-a[1])/d;
-  const e=[z[0]-ux*.35,z[1]-uy*.35],pts=`${z[0]},${z[1]} ${e[0]-uy*.19},${e[1]+ux*.19} ${e[0]+uy*.19},${e[1]-ux*.19}`;
+  const a=[x1+.5,y1+.5],z=[x2+.5,y2+.5],ocupado=!!(ocup&&ocup.has(uci.slice(2,4)));
+  const {ux,uy,tip,base:e}=fimSeta(a,z,ocupado,.35),larg=ocupado?.21:.19;
+  const pts=`${tip[0]},${tip[1]} ${e[0]-uy*larg},${e[1]+ux*larg} ${e[0]+uy*larg},${e[1]-ux*larg}`;
   return `<line x1="${a[0]}" y1="${a[1]}" x2="${e[0]}" y2="${e[1]}" stroke="#2b2100" stroke-width=".16" stroke-linecap="round" opacity="${.3*op}"/>
   <polygon points="${pts}" fill="#2b2100" stroke="#2b2100" stroke-width=".03" stroke-linejoin="round" opacity="${.3*op}"/>
   <line x1="${a[0]}" y1="${a[1]}" x2="${e[0]}" y2="${e[1]}" stroke="${cor}" stroke-width=".12" stroke-linecap="round" opacity="${.98*op}"/>
   <polygon points="${pts}" fill="${cor}" opacity="${.98*op}"/>`;
 }
-function seta(uci,cor,el){const s=el||$('#seta');if(s)s.innerHTML=setaMarkup(uci,cor)}
+function seta(uci,cor,el){const s=el||$('#seta');if(s)s.innerHTML=setaMarkup(uci,cor,1,(s.parentElement||{}).ocupadas)}
 function setasMelhores(row){   // fixa os melhores lances de todas as linhas de cálculo (e o primeiro de cada outra engine): o 1º mais forte
   const s=$('#seta');if(!s)return;const vistos=new Set(),m=[];
   (row.linhas||[]).forEach((l,i)=>{if(l.uci&&!vistos.has(l.uci)){vistos.add(l.uci);m.push([l.uci,i])}});
@@ -684,6 +701,39 @@ function posDica(el){const tip=el.querySelector('.tip');if(!tip)return;const r=e
   tip.style.maxHeight=(innerHeight-16)+'px';tip.style.overflowY='auto';tip.style.left=x+'px';tip.style.top=y+'px'}
 document.addEventListener('mouseover',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
 document.addEventListener('focusin',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
+/* ---------- variantes da interpretação: janela pequena com a posição depois do lance citado ----------
+   Passar o mouse abre; clicar fixa; fecha no ✕, clicando fora ou com Esc. */
+let pvAlvo=null,pvFixo=false,pvLance=-1;
+const lanceDeVariante=e=>{const m=e.target&&e.target.closest&&e.target.closest('.mc[data-f]');return m&&m.closest('#interp')?m:null};
+function fechaVariante(){const p=$('#popvar');if(p)p.remove();$$('.mc.pv-fixo').forEach(x=>x.classList.remove('pv-fixo'));pvAlvo=null;pvFixo=false}
+function posicionaVariante(p,alvo){
+  const r=alvo.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight,f=8;
+  let x=r.left-w-12;if(x<f)x=Math.min(r.right+12,innerWidth-w-f);               // de preferência à esquerda do texto, sem cobri-lo
+  let y=Math.min(Math.max(f,r.top+r.height/2-h/2),innerHeight-h-f);
+  if(x<r.right&&x+w>r.left)y=r.bottom+10+h<innerHeight?r.bottom+10:Math.max(f,r.top-h-10);   // janela estreita: abaixo ou acima do lance
+  p.style.left=Math.max(f,x)+'px';p.style.top=Math.max(f,y)+'px';
+}
+function mostraVariante(alvo,fixar){
+  fechaVariante();
+  const fen=alvo.dataset.f,u=alvo.dataset.s||'';const {vez,mv}=parseFen(fen);
+  const rotulo=(vez==='b'?mv+'.':(mv-1)+'…')+alvo.textContent;                     // número do lance que levou à posição
+  const p=document.createElement('div');p.id='popvar';p.className=fixar?'fixa':'solta';
+  p.innerHTML=`<div class="pv-tit"><b>${t('Posição após {x}',{x:esc(rotulo)})}</b><button class="pv-x" title="${esc(t('Fechar (Esc)'))}">✕</button></div><div id="tabpop"></div>${fixar?'':`<div class="pv-dica">${t('Clique no lance para fixar esta janela.')}</div>`}`;
+  document.body.appendChild(p);
+  pintaTab(p.querySelector('#tabpop'),fen,u?[u.slice(0,2),u.slice(2,4)]:[],null,'','pvseta');
+  if(u)seta(u,SETA_COR,p.querySelector('#pvseta'));
+  pvAlvo=alvo;pvFixo=!!fixar;pvLance=S.cur;if(fixar)alvo.classList.add('pv-fixo');
+  p.querySelector('.pv-x').onclick=fechaVariante;
+  posicionaVariante(p,alvo);
+}
+document.addEventListener('mouseover',e=>{const m=lanceDeVariante(e);if(m&&!pvFixo&&m!==pvAlvo)mostraVariante(m,false)});
+document.addEventListener('mouseout',e=>{const m=lanceDeVariante(e);if(m&&!pvFixo&&!(e.relatedTarget&&m.contains(e.relatedTarget)))fechaVariante()});
+document.addEventListener('click',e=>{
+  const m=lanceDeVariante(e);if(m){mostraVariante(m,true);return}
+  if($('#popvar')&&!e.target.closest('#popvar'))fechaVariante()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#popvar')){fechaVariante();e.stopImmediatePropagation()}},true);
+addEventListener('scroll',()=>{if($('#popvar')&&!pvFixo)fechaVariante()},true);
+
 /* ---------- destaques no tabuleiro (itens do Índice de Posição) ---------- */
 const DEST_COR={B:'#35e0c2',P:'#b388ff',D:'#ff2d2d'};   // cor de quem tem a característica: brancas / pretas; D (vermelho) = desprotegido
 const destCache={};let destFixos=[],destAtual=null,ULT=[];   // ULT: casas do último lance (amarelas): as marcações de posição não pintam por cima delas
@@ -694,8 +744,9 @@ function pintaDest(d){
     h+=tipo==='tinta'?`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}" opacity="${lado==='D'?.45:.30}"/>`
       :`<rect x="${x+.04}" y="${y+.04}" width=".92" height=".92" rx=".1" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width=".09"/>`}
   if(d)for(const [a,z,lado] of d.setas||[]){const c=DEST_COR[lado],[x1,y1]=sqXY(a),[x2,y2]=sqXY(z);
-    const A=[x1+.5,y1+.5],Z=[x2+.5,y2+.5],L=Math.hypot(Z[0]-A[0],Z[1]-A[1])||1,ux=(Z[0]-A[0])/L,uy=(Z[1]-A[1])/L,E=[Z[0]-ux*.3,Z[1]-uy*.3];
-    const pts=`${Z[0]},${Z[1]} ${E[0]-uy*.15},${E[1]+ux*.15} ${E[0]+uy*.15},${E[1]-ux*.15}`;
+    const A=[x1+.5,y1+.5],Z=[x2+.5,y2+.5],ocupado=!!(($('#tab')||{}).ocupadas||new Set()).has(z);
+    const {ux,uy,tip,base:E}=fimSeta(A,Z,ocupado,.3),larg=ocupado?.18:.15;
+    const pts=`${tip[0]},${tip[1]} ${E[0]-uy*larg},${E[1]+ux*larg} ${E[0]+uy*larg},${E[1]-ux*larg}`;
     h+=`<line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="#101010" stroke-width=".135" stroke-linecap="round" opacity=".28"/><polygon points="${pts}" fill="#101010" stroke="#101010" stroke-width=".03" stroke-linejoin="round" opacity=".28"/>
     <line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="${c}" stroke-width=".1" stroke-linecap="round" opacity=".85"/><polygon points="${pts}" fill="${c}" opacity=".9"/>`}
   s.innerHTML=h;
@@ -722,7 +773,7 @@ const chavesDe=e=>e.dataset.d.split(',');   // linha de grupo: as chaves de todo
 function marcaFixo(){$$('.rw[data-d]').forEach(e=>e.classList.toggle('fixo',chavesDe(e).every(k=>destFixos.includes(k))));
   $$('.solta-fixos').forEach(b=>{b.hidden=!destFixos.length;b.textContent=t('✕ Desafixar tudo')})}
 document.addEventListener('mouseover',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r)mostraDest(r.dataset.d);
-  const m=e.target.closest&&e.target.closest('.mc');if(!m)return;   // negrito da interpretação: marca no tabuleiro a(s) casa(s) ou o item citado
+  const m=e.target.closest&&e.target.closest('.mc');if(!m||lanceDeVariante(e))return;   // negrito da interpretação: marca no tabuleiro a(s) casa(s) ou o item citado
   if(m.dataset.i){mostraDest(m.dataset.i);return}
   const c=(m.dataset.c||'').split(',').filter(Boolean),s=m.dataset.s;if(c.length){destAtual=null;repinta({casas:c.map(q=>[q,m.dataset.l||'B',m.dataset.t||'anel']),setas:s?[[s.slice(0,2),s.slice(2,4),m.dataset.l||'B']]:[],forca:true})}});
 document.addEventListener('mouseout',e=>{const m=e.target.closest&&e.target.closest('.mc');if(m&&!(e.relatedTarget&&m.contains(e.relatedTarget)))limpaDest()});
@@ -833,6 +884,7 @@ function grafico(){desenhaNumeros();
 
 /* ---------- desenho geral ---------- */
 function desenha(){
+  if($('#popvar')&&pvLance!==S.cur)fechaVariante();
   mostraAbertura();
   const row=S.rows[S.cur];
   const linhasOn=cfg.blocos.linhas!==false;

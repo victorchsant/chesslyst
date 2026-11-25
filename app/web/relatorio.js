@@ -161,21 +161,50 @@ function ativaPassadores(raiz, D) {
     return tipo === 'tinta' ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}" opacity=".35"/>`
       : `<rect x="${x + .04}" y="${y + .04}" width=".92" height=".92" rx=".1" fill="${c}" fill-opacity=".22" stroke="${c}" stroke-width=".09"/>`;
   }).join('');
-  const setas = lista => (lista || []).map(([a, b, cor, ordem]) => {
+  const setas = (lista, ocupadas) => (lista || []).map(([a, b, cor, ordem]) => {
     const [x1, y1] = xy(a), [x2, y2] = xy(b), A = [x1 + .5, y1 + .5], Z = [x2 + .5, y2 + .5];
-    const L = Math.hypot(Z[0] - A[0], Z[1] - A[1]) || 1, ux = (Z[0] - A[0]) / L, uy = (Z[1] - A[1]) / L, E = [Z[0] - ux * .35, Z[1] - uy * .35];
-    const num = n => n ? `<circle cx="${A[0] + (Z[0] - A[0]) * .45}" cy="${A[1] + (Z[1] - A[1]) * .45}" r=".19" fill="#fff" stroke="${cor}" stroke-width=".05"/><text x="${A[0] + (Z[0] - A[0]) * .45}" y="${A[1] + (Z[1] - A[1]) * .45 + .095}" text-anchor="middle" font-size=".27" font-weight="700" font-family="Segoe UI,sans-serif" fill="#111">${n}</text>` : '';
-    return `<line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="${cor}" stroke-width=".13" stroke-linecap="round" opacity=".95"/><polygon points="${Z[0]},${Z[1]} ${E[0] - uy * .19},${E[1] + ux * .19} ${E[0] + uy * .19},${E[1] - ux * .19}" fill="${cor}"/>${num(ordem)}`;
+    const L = Math.hypot(Z[0] - A[0], Z[1] - A[1]) || 1, ux = (Z[0] - A[0]) / L, uy = (Z[1] - A[1]) / L;
+    /* a seta fica abaixo das peças: se a casa de chegada está ocupada, a ponta para na borda da peça; entre casas
+       vizinhas ela encurta para caber no vão */
+    const ocupado = !!(ocupadas && ocupadas.has(b)), recuo = ocupado ? .38 : 0, larg = ocupado ? .21 : .19;
+    const h = ocupado ? Math.max(.26, Math.min(.35, L - recuo - .34)) : .35;
+    const P = [Z[0] - ux * recuo, Z[1] - uy * recuo], E = [P[0] - ux * h, P[1] - uy * h];
+    /* o número fica no trecho livre; numa seta curta ele sai para o lado, para não sumir debaixo das peças */
+    const curta = L < 1.6, meio = curta ? [(A[0] + Z[0]) / 2 - uy * .36, (A[1] + Z[1]) / 2 + ux * .36] : [(A[0] + E[0]) / 2, (A[1] + E[1]) / 2];
+    const num = ordem ? `<circle cx="${meio[0]}" cy="${meio[1]}" r=".19" fill="#fff" stroke="${cor}" stroke-width=".05"/><text x="${meio[0]}" y="${meio[1] + .095}" text-anchor="middle" font-size=".27" font-weight="700" font-family="Segoe UI,sans-serif" fill="#111">${ordem}</text>` : '';
+    return `<line x1="${A[0]}" y1="${A[1]}" x2="${E[0]}" y2="${E[1]}" stroke="${cor}" stroke-width=".13" stroke-linecap="round" opacity=".95"/><polygon points="${P[0]},${P[1]} ${E[0] - uy * larg},${E[1] + ux * larg} ${E[0] + uy * larg},${E[1] - ux * larg}" fill="${cor}"/>${num}`;
   }).join('');
+  const CHEIAS = {K: '\u265A', Q: '\u265B', R: '\u265C', B: '\u265D', N: '\u265E', P: '\u265F'};
+  const VAZADAS = {K: '\u2654', Q: '\u2655', R: '\u2656', B: '\u2657', N: '\u2658', P: '\u2659'};
+  /* a peça no estilo escolhido em Aparência; os cavalos da metade esquerda olham para dentro, como no programa */
+  function peca(p, coluna, mini) {
+    const branca = p === p.toUpperCase(), tipo = p.toUpperCase(), estilo = D.estilo;
+    const olha = D.cav === 'todos' || (D.cav === 'pretos' && !branca);
+    const vira = tipo === 'N' && estilo !== 'letras' && olha && coluna < 4;
+    let miolo;
+    if (estilo === 'vetor' && D.pecas) miolo = D.pecas[p];
+    else if (estilo === 'letras') miolo = `<circle cx="22.5" cy="22.5" r="17" fill="${branca ? '#f5f5f5' : '#222'}" stroke="${branca ? '#000' : '#ddd'}" stroke-width="2"/><text x="22.5" y="30" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="21" fill="${branca ? '#111' : '#f5f5f5'}">${tipo}</text>`;
+    else {
+      const glifo = (estilo === 'contorno' && branca ? VAZADAS : CHEIAS)[tipo] + '\uFE0E';
+      const cor = estilo === 'contorno' ? ['#000', 'none', 0] : estilo === 'neon' ? (branca ? ['#e4fbff', '#1199ee', 1.6] : ['#ffc2ce', '#e01144', 1.6])
+        : (branca ? ['#ffffff', '#000000', mini ? 5.4 : 3.2] : mini ? ['#000000', '#000000', 1.2] : ['#161616', '#ffffff', .7]);
+      miolo = `<text x="22.5" y="23" text-anchor="middle" dominant-baseline="central" font-family="'Segoe UI Symbol','DejaVu Sans',sans-serif" font-size="${mini ? 44 : 41}" fill="${cor[0]}" stroke="${cor[1]}" stroke-width="${cor[2]}"${estilo === 'classico' && !branca ? ' stroke-opacity=".55"' : ''} stroke-linejoin="round" style="paint-order:stroke">${glifo}</text>`;
+    }
+    return `<span class="p"${vira ? ' style="transform:scaleX(-1)"' : ''}><svg viewBox="0 0 45 45">${miolo}</svg></span>`;
+  }
   function desenha(el, fen, op) {
     const linhas = fen.split(' ')[0].split('/').map(l => [].concat(...[...l].map(c => /\d/.test(c) ? Array(+c).fill('') : [c])));
     const ult = op.ult || [];
+    const mini = !(el.parentElement && el.parentElement.classList.contains('fig'));   // miniatura: contorno mais forte
+    el.ocupadas = new Set();
+    linhas.forEach((l, r) => l.forEach((p, c) => { if (p) el.ocupadas.add('abcdefgh'[c] + (8 - r)); }));
     let h = '';
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
       const fr = D.flip ? 7 - r : r, fc = D.flip ? 7 - c : c, p = linhas[fr][fc], nome = 'abcdefgh'[fc] + (8 - fr);
-      h += `<div class="c ${(r + c) % 2 ? 'd' : 'l'}${ult.includes(nome) ? ' ult' : ''}">${D.coord && c === 0 ? `<i class="r">${8 - fr}</i>` : ''}${D.coord && r === 7 ? `<i class="f">${'abcdefgh'[fc]}</i>` : ''}${p ? `<span class="p"><svg viewBox="0 0 45 45">${D.pecas[p]}</svg></span>` : ''}</div>`;
+      h += `<div class="c ${(r + c) % 2 ? 'd' : 'l'}${ult.includes(nome) ? ' ult' : ''}">${D.coord && c === 0 ? `<i class="r">${8 - fr}</i>` : ''}${D.coord && r === 7 ? `<i class="f">${'abcdefgh'[fc]}</i>` : ''}${p ? peca(p, c, mini) : ''}</div>`;
     }
-    el.innerHTML = `<div class="est-classico">${h}<svg class="seta" viewBox="0 0 8 8">${rects(op.casas)}${setas(op.setas)}</svg><svg class="seta sobre" viewBox="0 0 8 8"></svg></div>`;
+    const cores = D.cores ? ` style="--clara:${D.cores[0]};--escura:${D.cores[1]}"` : '';
+    el.innerHTML = `<div class="rl-tab"${cores}>${h}<svg class="seta" viewBox="0 0 8 8">${rects(op.casas)}${setas(op.setas, el.ocupadas)}</svg><svg class="seta rl-camada" viewBox="0 0 8 8"></svg></div>`;
   }
   raiz.querySelectorAll('.rtab[data-q]').forEach(el => {
     const q = D.quadros[+el.dataset.q];
@@ -225,11 +254,11 @@ function ativaPassadores(raiz, D) {
       if (par) fixar(+par.dataset.p);
     });
     linha.addEventListener('mouseover', e => {        // passar o mouse num lance ou casa em negrito marca este tabuleiro
-      const m = e.target.closest('.mc'), sobre = el.querySelector('svg.sobre'); if (!m || !sobre || !m.dataset.c) return;
+      const m = e.target.closest('.mc'), sobre = el.querySelector('svg.rl-camada'); if (!m || !sobre || !m.dataset.c) return;
       const lado = m.dataset.l || 'B', u = m.dataset.s;
-      sobre.innerHTML = rects(m.dataset.c.split(',').map(c => [c, lado, m.dataset.t || 'anel'])) + (u ? setas([[u.slice(0, 2), u.slice(2, 4), CORES[lado] || CORES.B]]) : '');
+      sobre.innerHTML = rects(m.dataset.c.split(',').map(c => [c, lado, m.dataset.t || 'anel'])) + (u ? setas([[u.slice(0, 2), u.slice(2, 4), CORES[lado] || CORES.B]], el.ocupadas) : '');
     });
-    linha.addEventListener('mouseout', e => { if (e.target.closest('.mc')) { const sobre = el.querySelector('svg.sobre'); if (sobre) sobre.innerHTML = ''; } });
+    linha.addEventListener('mouseout', e => { if (e.target.closest('.mc')) { const sobre = el.querySelector('svg.rl-camada'); if (sobre) sobre.innerHTML = ''; } });
     if (!ctl || !seqs.length) return;
     ctl.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -256,7 +285,7 @@ const CSS_DOC = `
 :is(#rel-doc,#rel-sdoc) .c.l i{color:var(--escura)}:is(#rel-doc,#rel-sdoc) .c.d i{color:var(--clara)}
 :is(#rel-doc,#rel-sdoc) .p{position:relative;z-index:2;display:block;width:96%;height:96%;line-height:0}
 :is(#rel-doc,#rel-sdoc) .p svg{display:block;width:100%;height:100%;overflow:visible}
-:is(#rel-doc,#rel-sdoc) svg.seta{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}:is(#rel-doc,#rel-sdoc) svg.sobre{z-index:3;opacity:.9}
+:is(#rel-doc,#rel-sdoc) svg.seta{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}:is(#rel-doc,#rel-sdoc) svg.rl-camada{z-index:3;opacity:.9}
 :is(#rel-doc,#rel-sdoc) h1{font-size:21px;margin:0}:is(#rel-doc,#rel-sdoc) .sub{font-size:11.5px;color:#333}
 :is(#rel-doc,#rel-sdoc) h2{font-size:15px;border-bottom:2px solid #111;padding-bottom:2px;margin:10px 0 8px}
 :is(#rel-doc,#rel-sdoc) h3{font-size:13px;margin:0}:is(#rel-doc,#rel-sdoc) h4{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#555;margin:0 0 2px}
@@ -376,7 +405,7 @@ function pecasDoLivro(interativo, clicavel) {
     <div class="rodape">${t(DICA_PRECISAO)} ${t('Relatório gerado pelo Chesslyst.')}</div></div>`;
   return {topo, linhas, lances, final, quadros, quadro};
 }
-function dadosTabuleiros(quadros) { return {pecas: window.PECAS_SVG, flip: !!cfg.flip, coord: !!cfg.coord, quadros, txt: {diagrama: t('Posição do diagrama'), inicio: t('Começo da linha'), marcado: t('Marcações do comentário')}}; }
+function dadosTabuleiros(quadros) { return {estilo: cfg.peca, cav: cfg.cav, cores: [cfg.clara, cfg.escura], pecas: cfg.peca === 'vetor' ? window.PECAS_SVG : null, flip: !!cfg.flip, coord: !!cfg.coord, quadros, txt: {diagrama: t('Posição do diagrama'), inicio: t('Começo da linha'), marcado: t('Marcações do comentário')}}; }
 
 /* miniaturas: as posições do caminho que levam ao diagrama (ou que a engine mostra a partir dele) */
 function tiraDaLinha(l, quadro) {

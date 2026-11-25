@@ -45,13 +45,14 @@ _NOME_PT = {chess.PAWN: ("peão", "m"), chess.KNIGHT: ("cavalo", "m"), chess.BIS
 _NOME_EN = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop", chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
 
 
-def mc(txt, casas=None, lado=None, item=None, seta=None, tipo=None):
+def mc(txt, casas=None, lado=None, item=None, seta=None, tipo=None, pos=None):
     """Trecho em negrito da interpretação. Ao passar o mouse, a tela marca no tabuleiro as `casas` (ou o item de posição `item`)."""
     at = ' class="mc"'
     if casas: at += ' data-c="' + ",".join(casas) + '"'
     if lado: at += f' data-l="{lado}"'
     if item: at += f' data-i="{item}"'
     if seta: at += f' data-s="{seta}"'          # lance: a tela desenha a seta
+    if pos: at += f' data-f="{pos}"'            # posição depois do lance: a tela a mostra numa janela pequena
     if tipo: at += f' data-t="{tipo}"'
     return f"<b{at}>{txt}</b>"
 

@@ -167,7 +167,8 @@ html[data-tema="claro"] .cbar i.p{box-shadow:inset 0 0 0 1px #9aa6bd}
 #popvar.solta{pointer-events:none}
 #popvar .pv-dica{font-size:11px;color:var(--mut);margin-top:5px;max-width:calc(var(--sq)*8)}
 #tabpop{position:relative;display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border:2px solid #000;border-radius:3px;user-select:none;width:max-content}
-.mc[data-f]{cursor:pointer}.mc.pv-fixo{background:color-mix(in srgb,var(--ac) 28%,transparent)}
+.mc[data-f]{cursor:pointer}table.lin tr[data-pv] td:nth-child(2) b{cursor:pointer;border-radius:3px;padding:0 2px}table.lin tr[data-pv] td:nth-child(2) b:hover,table.lin .pvm.pv-fixo,table.lin b.pv-fixo{background:color-mix(in srgb,var(--ac) 28%,transparent)}
+#popvar .pv-abre{width:100%;font-size:12px}.mc.pv-fixo{background:color-mix(in srgb,var(--ac) 28%,transparent)}
 #tab2{position:relative;display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border:2px solid #000;border-radius:3px;user-select:none;margin:6px auto;width:max-content}
 #var-card{max-width:calc(var(--sq)*8 + 130px);margin-top:10px;border-color:#ffd54a}
 #var-card .bh button{margin-left:4px}
@@ -355,7 +356,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.2.2</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.2.3</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -666,16 +667,15 @@ function ev(c,m){if(m!=null)return(m>0?'+':'−')+'M'+Math.abs(m);return c==null
 function linhasHtml(row){
   const L=row.linhas||[];if(!L.length)return'';
   const mn=row.rating?'~'+Math.round(Math.max(1100,Math.min(1900,row.rating))/100)*100:'1900';
-  const dica=esc(t('Clique para ver a variante no tabuleiro'));
-  let h=`<h3>${t('Linhas de cálculo')}${ajuda('Valores originais da engine, sem ajuste dos índices.')}${S.engines&&S.engines.referencia?' · '+S.engines.referencia:''} · ${t('profundidade {d}',{d:cfg.depth})} <button class="chip fixa-linhas ${cfg.fixaLinhas?'on':''}" title="${esc(t('Mostra no tabuleiro, em laranja, os melhores lances de todas as linhas (o primeiro mais forte); clique de novo para soltar'))}">${t('📌 Fixar lances')}</button></h3><table class="lin"><tr><th>#</th><th>${t('Lance')}</th><th>${t('Aval. (brancas)')}</th><th title="${esc(t('Chance de acerto: probabilidade de um jogador desse nível (rating ~{n}, modelo Maia) escolher este lance',{n:mn.replace('~','')}))}">${t('Acerto')} ⓘ</th><th>${t('Variante')}</th></tr>`;
+  let h=`<h3>${t('Linhas de cálculo')}${ajuda('Valores originais da engine, sem ajuste dos índices.\nPasse o mouse num lance para ver a posição numa janela e clique para fixá-la. Clique no resto da linha para ver a variante no tabuleiro principal.')}${S.engines&&S.engines.referencia?' · '+S.engines.referencia:''} · ${t('profundidade {d}',{d:cfg.depth})} <button class="chip fixa-linhas ${cfg.fixaLinhas?'on':''}" title="${esc(t('Mostra no tabuleiro, em laranja, os melhores lances de todas as linhas (o primeiro mais forte); clique de novo para soltar'))}">${t('📌 Fixar lances')}</button></h3><table class="lin"><tr><th>#</th><th>${t('Lance')}</th><th>${t('Aval. (brancas)')}</th><th title="${esc(t('Chance de acerto: probabilidade de um jogador desse nível (rating ~{n}, modelo Maia) escolher este lance',{n:mn.replace('~','')}))}">${t('Acerto')} ⓘ</th><th>${t('Variante')}</th></tr>`;
   L.forEach((l,i)=>{const jog=l.san===row.move;
-    h+=`<tr data-uci="${l.uci}" data-pv="${esc(l.pv.join(','))}" data-eng="${esc((S.engines&&S.engines.referencia)||'engine')}" title="${dica}"><td>${i+1}</td><td><b>${l.san}</b>${jog?` <span class="mut">${t('▶ jogado')}</span>`:''}</td><td>${ev(l.cp,l.mate)}</td>
+    h+=`<tr data-uci="${l.uci}" data-pv="${esc(l.pv.join(','))}" data-eng="${esc((S.engines&&S.engines.referencia)||'engine')}"><td>${i+1}</td><td><b>${l.san}</b>${jog?` <span class="mut">${t('▶ jogado')}</span>`:''}</td><td>${ev(l.cp,l.mate)}</td>
     <td><span class="hb" style="width:${Math.round(l.p_humano*60)}px"></span>${Math.round(l.p_humano*100)}%</td><td class="pv">${pvClic(row.fen,l.pv)}</td></tr>`});
   h+='</table>';
   (row.outras||[]).forEach(o=>{
     h+=`<div class="outra"><b>${o.nome}</b> `;
     if(o.erro)h+=`<span class="er">${t('indisponível: {e}',{e:o.erro})}</span>`;
-    else{h+='<table class="lin">';o.linhas.forEach((l,i)=>h+=`<tr data-uci="${l.uci}" data-pv="${esc(l.pv.join(','))}" data-eng="${esc(o.nome)}" title="${dica}"><td>${i+1}</td><td><b>${l.san}</b></td><td>${ev(l.cp,l.mate)}</td><td class="pv">${pvClic(row.fen,l.pv)}</td></tr>`);h+='</table>'}
+    else{h+='<table class="lin">';o.linhas.forEach((l,i)=>h+=`<tr data-uci="${l.uci}" data-pv="${esc(l.pv.join(','))}" data-eng="${esc(o.nome)}"><td>${i+1}</td><td><b>${l.san}</b></td><td>${ev(l.cp,l.mate)}</td><td class="pv">${pvClic(row.fen,l.pv)}</td></tr>`);h+='</table>'}
     h+='</div>'});
   if(row.move&&!L.some(l=>l.san===row.move))h+=`<div class="mut" style="margin-top:6px">${t('Lance jogado: {m} (fora das {n} melhores linhas)',{m:lanceMc(row.move,row.uci,row.side),n:L.length})}</div>`;
   return h;
@@ -703,34 +703,52 @@ document.addEventListener('mouseover',e=>{const d=e.target.closest&&e.target.clo
 document.addEventListener('focusin',e=>{const d=e.target.closest&&e.target.closest('.dica');if(d)posDica(d)});
 /* ---------- variantes da interpretação: janela pequena com a posição depois do lance citado ----------
    Passar o mouse abre; clicar fixa; fecha no ✕, clicando fora ou com Esc. */
-let pvAlvo=null,pvFixo=false,pvLance=-1;
-const lanceDeVariante=e=>{const m=e.target&&e.target.closest&&e.target.closest('.mc[data-f]');return m&&m.closest('#interp')?m:null};
-function fechaVariante(){const p=$('#popvar');if(p)p.remove();$$('.mc.pv-fixo').forEach(x=>x.classList.remove('pv-fixo'));pvAlvo=null;pvFixo=false}
-function posicionaVariante(p,alvo){
-  const r=alvo.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight,f=8;
+let pvAlvo=null,pvFixo=false,pvLance=-1,pvPedido=0;
+const LANCE_TABELA='table.lin tr[data-pv] .pvm, table.lin tr[data-pv] td:nth-child(2) b';   // Linhas de cálculo: o lance e cada lance da variante
+const lanceDeVariante=e=>{const x=e.target&&e.target.closest?e.target:null;if(!x)return null;
+  const m=x.closest('.mc[data-f]');if(m&&m.closest('#interp'))return m;
+  return x.closest(LANCE_TABELA)};
+function fechaVariante(){const p=$('#popvar');if(p)p.remove();$$('.pv-fixo').forEach(x=>x.classList.remove('pv-fixo'));pvAlvo=null;pvFixo=false;pvPedido++}
+function posicionaVariante(p,r){   // r = retângulo do lance, medido antes de a tela poder ser redesenhada
+  const w=p.offsetWidth,h=p.offsetHeight,f=8;
   let x=r.left-w-12;if(x<f)x=Math.min(r.right+12,innerWidth-w-f);               // de preferência à esquerda do texto, sem cobri-lo
   let y=Math.min(Math.max(f,r.top+r.height/2-h/2),innerHeight-h-f);
   if(x<r.right&&x+w>r.left)y=r.bottom+10+h<innerHeight?r.bottom+10:Math.max(f,r.top-h-10);   // janela estreita: abaixo ou acima do lance
   p.style.left=Math.max(f,x)+'px';p.style.top=Math.max(f,y)+'px';
 }
-function mostraVariante(alvo,fixar){
+const pvCache={};
+async function dadosDoLance(alvo){   // -> {fen (depois do lance), uci, san, linha (só nas Linhas de cálculo)}
+  if(alvo.dataset.f)return {fen:alvo.dataset.f,uci:alvo.dataset.s||'',san:alvo.textContent};
+  const tr=alvo.closest('tr[data-pv]'),row=S.rows[S.cur];if(!tr||!row)return null;
+  const pv=tr.dataset.pv.split(','),k=alvo.classList.contains('pvm')?+alvo.dataset.k:1,fen0=row.fen,chave=fen0+'|'+pv.join(',');
+  if(!pvCache[chave]){const d=await api('/api/variante?fen='+encodeURIComponent(fen0)+'&pv='+encodeURIComponent(pv.join(',')));if(d.erro)return null;pvCache[chave]=d}
+  const d=pvCache[chave];
+  return {fen:d.fens[k],uci:d.ucis[k-1]||'',san:pv[k-1],linha:{fen0,pv,k,eng:tr.dataset.eng}};
+}
+async function mostraVariante(alvo,fixar){
   fechaVariante();
-  const fen=alvo.dataset.f,u=alvo.dataset.s||'';const {vez,mv}=parseFen(fen);
-  const rotulo=(vez==='b'?mv+'.':(mv-1)+'…')+alvo.textContent;                     // número do lance que levou à posição
+  const meu=++pvPedido,r=alvo.getBoundingClientRect();pvAlvo=alvo;pvFixo=!!fixar;
+  let d=null;try{d=await dadosDoLance(alvo)}catch(e){}
+  if(meu!==pvPedido||!d||!d.fen)return;                                          // o mouse já saiu, ou outro lance foi pedido
+  const u=d.uci,{vez,mv}=parseFen(d.fen);
+  const rotulo=(vez==='b'?mv+'.':(mv-1)+'…')+d.san;                               // número do lance que levou à posição
   const p=document.createElement('div');p.id='popvar';p.className=fixar?'fixa':'solta';
-  p.innerHTML=`<div class="pv-tit"><b>${t('Posição após {x}',{x:esc(rotulo)})}</b><button class="pv-x" title="${esc(t('Fechar (Esc)'))}">✕</button></div><div id="tabpop"></div>${fixar?'':`<div class="pv-dica">${t('Clique no lance para fixar esta janela.')}</div>`}`;
+  const pe=!fixar?`<div class="pv-dica">${t('Clique no lance para fixar esta janela.')}</div>`
+    :d.linha?`<div class="pv-dica"><button class="pv-abre">${t('Abrir no tabuleiro principal')}</button></div>`:'';
+  p.innerHTML=`<div class="pv-tit"><b>${t('Posição após {x}',{x:esc(rotulo)})}</b><button class="pv-x" title="${esc(t('Fechar (Esc)'))}">✕</button></div><div id="tabpop"></div>${pe}`;
   document.body.appendChild(p);
-  pintaTab(p.querySelector('#tabpop'),fen,u?[u.slice(0,2),u.slice(2,4)]:[],null,'','pvseta');
+  pintaTab(p.querySelector('#tabpop'),d.fen,u?[u.slice(0,2),u.slice(2,4)]:[],null,'','pvseta');
   if(u)seta(u,SETA_COR,p.querySelector('#pvseta'));
-  pvAlvo=alvo;pvFixo=!!fixar;pvLance=S.cur;if(fixar)alvo.classList.add('pv-fixo');
+  pvLance=S.cur;if(fixar)alvo.classList.add('pv-fixo');
   p.querySelector('.pv-x').onclick=fechaVariante;
-  posicionaVariante(p,alvo);
+  const abre=p.querySelector('.pv-abre');if(abre)abre.onclick=()=>{const l=d.linha;fechaVariante();abreVariante(l.fen0,l.pv,l.k,l.eng)};
+  posicionaVariante(p,r);
 }
 document.addEventListener('mouseover',e=>{const m=lanceDeVariante(e);if(m&&!pvFixo&&m!==pvAlvo)mostraVariante(m,false)});
-document.addEventListener('mouseout',e=>{const m=lanceDeVariante(e);if(m&&!pvFixo&&!(e.relatedTarget&&m.contains(e.relatedTarget)))fechaVariante()});
+document.addEventListener('mouseout',e=>{const m=lanceDeVariante(e);if(m&&!pvFixo&&!(e.relatedTarget&&m.contains(e.relatedTarget)))fechaVariante()});   // vale também para um pedido ainda em andamento
 document.addEventListener('click',e=>{
   const m=lanceDeVariante(e);if(m){mostraVariante(m,true);return}
-  if($('#popvar')&&!e.target.closest('#popvar'))fechaVariante()});
+  if((pvFixo||$('#popvar'))&&!e.target.closest('#popvar'))fechaVariante()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#popvar')){fechaVariante();e.stopImmediatePropagation()}},true);
 addEventListener('scroll',()=>{if($('#popvar')&&!pvFixo)fechaVariante()},true);
 
@@ -904,7 +922,7 @@ function desenha(){
   const lh=linhasHtml(row);$('#lin-lat').innerHTML=lh;$('#lin-baixo').innerHTML=lh;
   $$('table.lin tr[data-uci]').forEach(tr=>{tr.onmouseenter=()=>seta(tr.dataset.uci,SETA_COR);tr.onmouseleave=()=>setasPadrao(row)});
   $$('.fixa-linhas').forEach(b=>b.onclick=()=>{cfg.fixaLinhas=!cfg.fixaLinhas;save();$$('.fixa-linhas').forEach(x=>x.classList.toggle('on',!!cfg.fixaLinhas));if(!V)setasPadrao(row)});
-  $$('table.lin tr[data-pv]').forEach(tr=>tr.onclick=e=>{const m=e.target.closest('.pvm');abreVariante(row.fen,tr.dataset.pv.split(','),m?+m.dataset.k:1,tr.dataset.eng)});
+  $$('table.lin tr[data-pv]').forEach(tr=>tr.onclick=e=>{if(lanceDeVariante(e))return;const m=e.target.closest('.pvm');abreVariante(row.fen,tr.dataset.pv.split(','),m?+m.dataset.k:1,tr.dataset.eng)});
   listaLances();grafico();
 }
 async function abreVariante(fen,pv,k,eng){const d=await api('/api/variante?fen='+encodeURIComponent(fen)+'&pv='+encodeURIComponent(pv.join(',')));

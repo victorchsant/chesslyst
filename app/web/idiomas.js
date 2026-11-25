@@ -368,5 +368,8 @@ window.EN_DICT = {
   /* ---- janela de variante ---- */
   'Clique no lance para fixar esta janela.': 'Click the move to pin this window.',
   /* ---- estilos de peça ---- */
-  'Desenho vetorial': 'Vector drawing'
+  'Desenho vetorial': 'Vector drawing',
+  /* ---- janela nas linhas de cálculo ---- */
+  'Abrir no tabuleiro principal': 'Open on the main board',
+  'Valores originais da engine, sem ajuste dos índices.\nPasse o mouse num lance para ver a posição numa janela e clique para fixá-la. Clique no resto da linha para ver a variante no tabuleiro principal.': 'Original engine values, with no index adjustment.\nHover a move to see the position in a small window and click to pin it. Click elsewhere on the row to see the line on the main board.'
 };

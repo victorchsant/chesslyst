@@ -54,4 +54,16 @@ with zipfile.ZipFile(SITE / "app.zip", "w", zipfile.ZIP_DEFLATED, compresslevel=
     pasta = Path(chess.__file__).resolve().parent
     for f in sorted(pasta.rglob("*.py")): z.write(f, "chess/" + f.relative_to(pasta).as_posix())
     z.write(pasta / "py.typed", "chess/py.typed") if (pasta / "py.typed").exists() else None
+# marca de versão nos endereços: sem ela o navegador podia usar a página nova com o app.zip (ou um script) antigo do cache
+import hashlib
+partes = ["app.zip", "shim.js", "idiomas.js", "pecas.js", "relatorio.js"]
+marca = hashlib.md5(b"".join((SITE / n).read_bytes() for n in partes)).hexdigest()[:10]
+shim = (SITE / "shim.js").read_text(encoding="utf-8")
+assert "'app.zip'" in shim
+(SITE / "shim.js").write_text(shim.replace("'app.zip'", f"'app.zip?v={marca}'"), encoding="utf-8")
+pagina = (SITE / "index.html").read_text(encoding="utf-8")
+for nome in partes[1:]:
+    assert f'src="{nome}"' in pagina, nome
+    pagina = pagina.replace(f'src="{nome}"', f'src="{nome}?v={marca}"')
+(SITE / "index.html").write_text(pagina, encoding="utf-8")
 print("site pronto em", SITE, "|", round((SITE / "app.zip").stat().st_size / 1024), "KB de app.zip")

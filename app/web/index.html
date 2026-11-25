@@ -709,8 +709,9 @@ async function repinta(extra){   // desenha juntos todos os itens fixados e, por
 }
 function mostraDest(item){if(!item)return;destAtual=item;return repinta()}
 function limpaDest(){destAtual=null;repinta()}
-function marcaFixo(){$$('.rw[data-d]').forEach(e=>e.classList.toggle('fixo',destFixos.includes(e.dataset.d)));
-  $$('.solta-fixos').forEach(b=>{b.hidden=!destFixos.length;b.textContent=t('✕ Desafixar tudo ({n})',{n:destFixos.length})})}
+const chavesDe=e=>e.dataset.d.split(',');   // linha de grupo: as chaves de todos os subitens
+function marcaFixo(){$$('.rw[data-d]').forEach(e=>e.classList.toggle('fixo',chavesDe(e).every(k=>destFixos.includes(k))));
+  $$('.solta-fixos').forEach(b=>{b.hidden=!destFixos.length;b.textContent=t('✕ Desafixar tudo')})}
 document.addEventListener('mouseover',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r)mostraDest(r.dataset.d);
   const m=e.target.closest&&e.target.closest('.mc');if(!m)return;   // negrito da interpretação: marca no tabuleiro a(s) casa(s) ou o item citado
   if(m.dataset.i){mostraDest(m.dataset.i);return}
@@ -718,8 +719,11 @@ document.addEventListener('mouseover',e=>{const r=e.target.closest&&e.target.clo
 document.addEventListener('mouseout',e=>{const m=e.target.closest&&e.target.closest('.mc');if(m&&!(e.relatedTarget&&m.contains(e.relatedTarget)))limpaDest()});
 document.addEventListener('mouseout',e=>{const r=e.target.closest&&e.target.closest('.rw[data-d]');if(r&&!(e.relatedTarget&&r.contains(e.relatedTarget)))limpaDest()});
 document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.solta-fixos')){destFixos=[];destAtual=null;marcaFixo();repinta();return}
-  const r=e.target.closest&&e.target.closest('.rw[data-d]');if(!r)return;const k=r.dataset.d;   // cada clique fixa ou solta um item; dá para fixar vários
-  destFixos=destFixos.includes(k)?destFixos.filter(x=>x!==k):destFixos.concat(k);destAtual=null;marcaFixo();repinta()});
+  const r=e.target.closest&&e.target.closest('.rw[data-d]');if(!r)return;const ks=chavesDe(r);   // cada clique fixa ou solta; um grupo fixa/solta todos os subitens
+  const solta=ks.every(k=>destFixos.includes(k));
+  destFixos=solta?destFixos.filter(x=>!ks.includes(x)):destFixos.concat(ks.filter(k=>!destFixos.includes(k)));
+  const sm=r.closest('summary');if(sm){e.preventDefault();sm.parentElement.open=true}   // clicar no nome do grupo mantém os subitens à vista (a setinha recolhe)
+  destAtual=null;marcaFixo();repinta()});
 const fcp=c=>(c>=0?'+':'−')+num(Math.abs(c)/100);
 function cbar(cp,fino){const w=Math.min(50,Math.abs(cp)/6);return `<span class="cbar${fino?' fino':''}"><i class="${cp>=0?'p':'n'}" style="${cp>=0?'left':'right'}:50%;width:${w}%"></i></span>`}
 function posHtml(row){
@@ -729,7 +733,7 @@ function posHtml(row){
   let h=`<div class="stats">${st(t('Estático'),fcp(row.posicao_cp),t('material + estrutura, calculado pelo programa sem usar a engine'))}${st(t('Engine'),eng,t('valor original da engine'))}${st(t('Dinâmica/tática'),row.posicao_residuo!=null?fcp(row.posicao_residuo):'—',t('o que a engine enxerga além do estático: tática, iniciativa, ameaças'))}</div>`;
   const linha=(nome,cp,cls,extra,dd)=>`<div class="rw ${cls}"${dd?` data-d="${dd}"${cls==='g'?` title="${esc(t('Passe o mouse para ver no tabuleiro; clique para fixar (pode fixar vários)'))}"`:''}`:''}><span class="rn">${nome}${extra||''}</span>${cbar(cp,cls==='i')}<span class="rv">${Math.abs(cp)<5?'—':fcp(cp)}</span></div>`;
   // itens informativos (peças e casas desprotegidas): lista por lado, com cada casa em negrito marcando o tabuleiro
-  const doGrupo=g=>(g.id==='estrutura'?'peoes,':'')+g.itens.filter(i=>!i.info).map(i=>i.chave).join(',');
+  const doGrupo=g=>(g.id==='estrutura'?'peoes,':'')+g.itens.map(i=>i.chave).join(',');
   const porLado=(nome,lista,tipo)=>`<div><span class="mut">${nome} (${lista.length}):</span> ${lista.length?lista.map(([c,r])=>`<b class="mc" data-c="${c}" data-l="D" data-t="${tipo}">${r}</b>`).join(', '):t('nenhuma')}</div>`;
   const tipoMarca=i=>i.chave==='casas_desprotegidas'?'tinta':'anel';
   const info=i=>`<div title="${esc(i.desc)}"><div class="rw i inf" data-d="${i.chave}"><span class="rn">${i.nome}</span></div></div><div class="infl">${porLado(t('Brancas'),i.B||[],tipoMarca(i))}${porLado(t('Pretas'),i.P||[],tipoMarca(i))}</div>`;
@@ -875,6 +879,11 @@ async function inicia(fonte){   // começa a analisar a partida já carregada (m
   status(t('Iniciando análise… (a primeira posição leva alguns segundos)'));
   const r=await api('/api/job',{fonte,depth:cfg.depth,lang:LANG});S.job=r.id;poll();S.timer=setInterval(poll,800);
 }
+function textoSalvas(d){   // o que já está salvo desta partida (a análise salva reaparece ao clicar em Analisar, sem recalcular)
+  const s=d.salvas||{},p=Object.keys(s);if(!p.length)return d.mundial?`<b>💾 ${t('Mundial: as análises desta partida ficam salvas.')}</b>`:'';
+  const dp=s[cfg.depth]?String(cfg.depth):p.sort((a,b)=>s[b]-s[a])[0],q={n:s[dp],total:d.fens.length,d:dp};
+  return `<b>💾 ${s[cfg.depth]?t('Análise salva: {n} de {total} posições. Clique em “▶ Analisar” para mostrar.',q):t('Há análise salva na profundidade {d} ({n} de {total} posições). Escolha essa profundidade para mostrá-la.',q)}</b>`;
+}
 async function carrega(fonte){   // abre a partida SEM analisar: dá para navegar pelos lances na hora
   if(S.job){try{await api('/api/parar',{id:S.job})}catch(e){}}
   if(S.timer)clearInterval(S.timer);S.job=null;S.rows=[];S.estado='';V=null;V2=null;S.fonte=fonte;S.chave='';S._ult=null;S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';
@@ -886,6 +895,7 @@ async function carrega(fonte){   // abre a partida SEM analisar: dá para navega
   $('#seguir').checked=!!S.live;$('#fonte-det').hidden=true;
   desenha();status(t('Partida carregada: {n} lances. Navegue com ◀ ▶ e clique em “▶ Analisar” para calcular os índices.',{n:d.lances.length}));
   if(S.live){S.liveTimer=setInterval(()=>acompanhaAoVivo(fonte),15000);status(t('{n} lances até agora. Os lances novos aparecem sozinhos; clique em “▶ Analisar” para calcular os índices.',{n:d.lances.length}))}
+  const sv=textoSalvas(d);if(sv)$('#status').innerHTML+=' '+sv;
   return true;
 }
 async function acompanhaAoVivo(fonte){   // partida ao vivo ainda não analisada: busca os lances novos a cada 15 s
@@ -938,7 +948,7 @@ async function poll(){
   if(S.rows.length&&$('#seguir').checked&&!V)S.cur=S.rows.length-1;   // marcado: mantém no lance mais recente e atualiza
   const i=S.info;const jog=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} · ${descPartida(i)}`:'';
   const vivo='';const np=S.rows.length;
-  status(`${vivo}${jog} · ${np===1?t('1 posição analisada'):t('{n} posições analisadas',{n:np})} · ${t(d.estado)}${d.aviso?' · '+d.aviso:''}`);
+  status(`${vivo}${jog} · ${np===1?t('1 posição analisada'):t('{n} posições analisadas',{n:np})} · ${t(d.estado)}${d.aviso?' · '+d.aviso:''}${d.salva==='mundial'?' · 💾 '+t('análise do Mundial salva'):d.salva==='falhou'?' · ⚠ '+t('não consegui salvar a análise'):''}`);
   const chave=[d.versao,d.estado,(d.lances||[]).length,d.esperado,d.atual,S.cur,V?1:0].join('|');
   if(chave!==S.chave){S.chave=chave;desenha()}else desenhaProg();   // só redesenha se algo mudou: a rolagem fica livre
   if(S.live&&S.estadoAnt==='ao vivo'&&S.rows.length>antes)avisaLance();

@@ -8,7 +8,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 import chess, chess.engine, chess.pgn
 
-from indice import pipeline, fontes
+from indice import pipeline, fontes, memoria
 from indice.gerente import Gerente
 from indice.i18n import set_lang, T
 from indice import baixador, relogio
@@ -84,23 +84,18 @@ def escolhe_jogo(job, pgn_texto):
 
 
 # ---------- memória das análises: pausar e continuar (ou reabrir o programa) não recomeça do zero ----------
-CACHE_ARQ = DADOS / "cache_analises.json"
-CACHE_MAX = 10                       # partidas guardadas (as mais recentes)
-try: ANALISES = json.loads(CACHE_ARQ.read_text(encoding="utf-8"))
-except (OSError, ValueError): ANALISES = {}
+MEMORIA = memoria.Memoria(DADOS)
 
 
-def chave_analise(depth, fen0):
-    """Mesma partida, mesma profundidade e mesmas engines = mesma análise (idioma não conta: o texto é refeito ao mostrar)."""
-    import hashlib
+def config_analise():
+    """O que, na configuração das engines, muda o resultado de uma análise (o idioma não conta: o texto é refeito ao mostrar)."""
     with LOCK: c = GER.cfg
-    assin = json.dumps({k: c.get(k) for k in ("engines", "referencia", "humano", "divergencia_peso")}, sort_keys=True, default=str)
-    return f"{depth}|{hashlib.md5(assin.encode()).hexdigest()}|{fen0}"
+    return {k: c.get(k) for k in ("engines", "referencia", "humano", "divergencia_peso")}
 
 
-def reaproveita(job, raws, boards, moves, chave):
-    """Carrega o que já foi analisado desta partida (a parte que ainda confere com a partida) e devolve o estado de 'em teoria'."""
-    antigas = ANALISES.get(chave) or []
+def reaproveita(job, raws, boards, moves):
+    """Carrega o que já foi analisado desta partida (a parte que ainda confere com ela) e devolve o estado de 'em teoria'."""
+    antigas = MEMORIA.carrega(job["_chave"], job["_headers"])
     for i, r in enumerate(antigas):
         if i >= len(boards) or r.get("fen") != boards[i].fen(): break
         if r.get("move") is not None and (i >= len(moves) or r.get("uci") != moves[i].uci()): break
@@ -109,14 +104,14 @@ def reaproveita(job, raws, boards, moves, chave):
     for i, r in enumerate(raws):
         if em: em = bool(r.get("book_games") and r["book_games"] >= 20)
         push_row(job, r, i)
-    ANALISES.pop(chave, None); ANALISES[chave] = raws          # a lista viva do job é a memória: cresce junto com a análise
-    while len(ANALISES) > CACHE_MAX: ANALISES.pop(next(iter(ANALISES)))
+    if raws: job["salva"] = guarda_analise(job)
     return em
 
 
-def guarda_analises():
-    try: CACHE_ARQ.write_text(json.dumps(ANALISES, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    except (OSError, TypeError, ValueError): pass
+def guarda_analise(job):
+    """Salva o que há até agora (chamada a cada posição calculada)."""
+    if not job.get("_chave"): return ""
+    return MEMORIA.salva(job["_chave"], job["_headers"], job.get("raws") or [])
 
 
 def rodar_job(job):
@@ -149,8 +144,10 @@ def rodar_job(job):
             job["fens"], job["ucis"] = [bb.fen() for bb in boards], [m.uci() for m in moves]
             job["aberturas"] = nomes_abertura(job["fens"])
             if not job.get("_memoria"):                      # primeira volta: aproveita a análise guardada desta partida
-                job["_memoria"] = True; job["_chave"] = chave_analise(depth, boards[0].fen())
-                if not raws: em_livro = reaproveita(job, raws, boards, moves, job["_chave"])
+                job["_memoria"] = True; job["_headers"] = dict(h)
+                job["_chave"] = memoria.chave(depth, config_analise(), job["_headers"], boards[0].fen(), job["ucis"])
+                if not raws: em_livro = reaproveita(job, raws, boards, moves)
+            job["_headers"] = dict(h)                        # o resultado muda quando a partida termina
             if any(i < len(boards) - 1 and raws[i]["fen"] != boards[i].fen() for i in range(min(len(raws), len(boards)))):
                 raws.clear(); job["rows"].clear(); em_livro = True
             for i in range(len(raws), len(boards)):
@@ -163,6 +160,7 @@ def rodar_job(job):
                 if lance is None and b.is_game_over():   # fim de partida: não há o que calcular
                     raw = dict(fen=b.fen(), move=None, terminal=True, rating=rt[side], tempo=tempos[i])
                     raws.append(raw); push_row(job, raw, i); job["atual"] = None
+                    job["salva"] = guarda_analise(job)
                     continue
                 with LOCK:
                     (e_ref, sf), maia, outras = GER.referencia(), GER.maia(), [(e["nome"], eng, er, e.get("tempo", 4)) for e, eng, er in GER.outras()]
@@ -172,6 +170,7 @@ def rodar_job(job):
                 raws.append(raw)
                 push_row(job, raw, i)
                 job["atual"] = None
+                job["salva"] = guarda_analise(job)
                 # a posição anterior agora tem lance conhecido? (ao vivo: posição "atual" ganha seu lance)
             # posição atual anterior sem lance que agora tem lance
             for i in range(len(moves)):
@@ -188,6 +187,7 @@ def rodar_job(job):
                         raws[i].update(move=san, uci=m.uci(), jogado=jog, pv_jogado=pvj)
                         b2 = b.copy(); b2.push(m); raws[i]["fen_depois"] = b2.fen()
                     push_row(job, raws[i], i)
+                    job["salva"] = guarda_analise(job)
             if job["parar"]: break   # parado no meio: não marcar como "ao vivo"
             resultado = h.get("Result", "*")
             completo = len(raws) == len(boards) and all(r["move"] is not None for r in raws[:len(moves)])
@@ -199,7 +199,7 @@ def rodar_job(job):
     except Exception as e:
         job["estado"] = "erro"; job["aviso"] = repr(e)
     finally:
-        guarda_analises()
+        if raws: job["salva"] = guarda_analise(job)
 
 
 def _ant(r, extra=""):
@@ -253,7 +253,8 @@ def partida(fonte):
     for m in game.mainline_moves():
         lances.append(b.san(m)); ucis.append(m.uci()); b.push(m); fens.append(b.fen())
     info = {k: h.get(k, "") for k in ("White", "Black", "WhiteElo", "BlackElo", "Event", "Result", "Date", "Round", "BroadcastName", "BroadcastURL")}
-    return dict(info=info, lances=lances, fens=fens, ucis=ucis, aberturas=nomes_abertura(fens))
+    salvas = MEMORIA.resumo(config_analise(), dict(h), fens, ucis)
+    return dict(info=info, lances=lances, fens=fens, ucis=ucis, aberturas=nomes_abertura(fens), salvas=salvas, mundial=memoria.eh_mundial(dict(h)))
 
 
 EXEMPLO = {"pgn": None, "titulo": ""}
@@ -388,7 +389,7 @@ class H(BaseHTTPRequestHandler):
                 v = int(q.get("v", -1))
                 mudadas = [r for r in job["rows"][:desde] if r.get("_v", 0) > v] if v >= 0 else []   # linhas já enviadas que mudaram (ex.: lance ao vivo que acabou de ser analisado)
                 return self.json(dict(estado=job["estado"], aviso=job["aviso"], info=job["info"], engines=job["engines"], total=len(job["rows"]),
-                                      versao=job["versao"], desde=desde, rows=job["rows"][desde:], mudadas=mudadas, lances=job["lances"], esperado=job["esperado"], fens=job["fens"], ucis=job["ucis"], aberturas=job.get("aberturas") or [],
+                                      versao=job["versao"], desde=desde, rows=job["rows"][desde:], mudadas=mudadas, lances=job["lances"], esperado=job["esperado"], fens=job["fens"], ucis=job["ucis"], aberturas=job.get("aberturas") or [], salva=job.get("salva", ""),
                                       atual=job["atual"], decorrido=(None if job["atual"] is None else round(time.time() - job["atual_ini"], 1))))
             # estáticos
             p = "index.html" if u.path in ("/", "") else u.path.lstrip("/")

@@ -9,6 +9,8 @@ cache_fontes.json
 engines.json
 servidor.log
 cache_analises.json
+analises_mundial/
+*.corrompido
 
 # empacotamento do .exe
 app/exe/.venv-build/

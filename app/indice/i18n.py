@@ -104,6 +104,8 @@ TXT = {
     "x.bom": ("Bom lance, mas {m} era um pouco melhor.", "A good move, but {m} was slightly better."),
     "x.permitiu_mate": ("Permitiu xeque-mate em {n}.", "Allowed checkmate in {n}."),
     "x.perdeu_mate": ("Perdeu o xeque-mate em {n}.", "Missed checkmate in {n}."),
+    "x.entregou": ("Saiu perdendo na troca: entregou {p} por {g}.", "Came out behind in the exchange: gave up {p} for {g}."),
+    "x.a_linha": ("A linha: {l}.", "The line: {l}."),
     "x.perdeu_troca": ("Perdeu {p} na troca.", "Lost {p} in the exchange."), "x.perdeu": ("Perdeu {p}.", "Lost {p}."),
     "x.sem_defesa": ("Deixou {p} sem defesa.", "Left {p} undefended."),
     "x.deixou_ganhar": ("Deixou de ganhar {p}.", "Missed winning {p}."),

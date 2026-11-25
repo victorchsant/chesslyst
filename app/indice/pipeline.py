@@ -25,6 +25,7 @@ def _acha(nome):
 SF = _acha("stockfish")            # None enquanto o usuário não baixar/cadastrar uma engine
 LC0 = _acha("lc0") or ROOT / "engines/lc0/lc0.exe"
 ENDGAME_PIECES = 7
+PV_GUARDADA = 12                     # meios-lances de cada linha usados nas explicações: com 8, uma troca ficava pela metade
 _P = re.compile(r"info string (\S+) .*?\(P:\s*([\d.]+)%\)")
 
 
@@ -102,7 +103,7 @@ def candidates(sf, board, n, depth, tempo=None):
         b2, sans = board.copy(), []
         for m in i["pv"][:8]:
             sans.append(b2.san(m)); b2.push(m)
-        pvs.append(dict(uci=i["pv"][0].uci(), pv=sans, pv_uci=[m.uci() for m in i["pv"][:8]]))
+        pvs.append(dict(uci=i["pv"][0].uci(), pv=sans, pv_uci=[m.uci() for m in i["pv"][:PV_GUARDADA]]))
     stable, target = None, final[0]["pv"][0]
     for d in sorted(best_at, reverse=True):
         if best_at[d] != target: break
@@ -114,7 +115,7 @@ def avalia_jogado(sf, board, move, depth):
     """Avaliação (cp, mate) do lance realmente jogado, do ponto de vista de quem jogou."""
     info = sf.analyse(board, chess.engine.Limit(depth=depth), root_moves=[move])
     s = info["score"].relative
-    return s.score(), s.mate(), [m.uci() for m in info.get("pv", [])[:8]]
+    return s.score(), s.mate(), [m.uci() for m in info.get("pv", [])[:PV_GUARDADA]]
 
 
 def candidatos_simples(eng, board, n, depth, tempo):

@@ -95,7 +95,7 @@ async def colher(board, move, rating, depth, multipv, em_livro, tempo):
     cands, pvs = [], []
     for i in r["linhas"]:
         cands.append((board.san(chess.Move.from_uci(i["pv"][0])), i["cp"], i["mate"]))
-        pvs.append(dict(uci=i["pv"][0], pv=_linha_de(board, i), pv_uci=i["pv"][:8]))
+        pvs.append(dict(uci=i["pv"][0], pv=_linha_de(board, i), pv_uci=i["pv"][:pipeline.PV_GUARDADA]))
     stable, alvo = None, r["linhas"][0]["pv"][0]
     for d in sorted((int(k) for k in r["bestAt"]), reverse=True):
         if r["bestAt"][str(d)] != alvo: break
@@ -108,7 +108,7 @@ async def colher(board, move, rating, depth, multipv, em_livro, tempo):
         hit = next((j for j, (s_, c_, m_) in enumerate(cands) if s_ == san), None)
         if hit is not None: jogado, pv_jogado = [cands[hit][1], cands[hit][2]], pvs[hit]["pv_uci"]
         else:
-            x = await motor_jogado(board.fen(), uci, depth); jogado, pv_jogado = [x["cp"], x["mate"]], x["pv"][:8]
+            x = await motor_jogado(board.fen(), uci, depth); jogado, pv_jogado = [x["cp"], x["mate"]], x["pv"][:pipeline.PV_GUARDADA]
         b2 = board.copy(); b2.push(move); fen_depois = b2.fen()
     linhas = pipeline.montar_linhas(board, cands, pvs, pol)
     return dict(fen=board.fen(), fen_depois=fen_depois, ply=board.ply() + 1, side="B" if board.turn else "P", move=san, uci=uci,
@@ -235,7 +235,7 @@ async def rodar_job(job):
                     j = next((k for k, (s_, c_, m_) in enumerate(raws[i]["cands"]) if s_ == san), None)
                     if j is not None: jog, pvj = [raws[i]["cands"][j][1], raws[i]["cands"][j][2]], raws[i]["linhas"][j].get("pv_uci")
                     else:
-                        x = await motor_jogado(b.fen(), m.uci(), depth); jog, pvj = [x["cp"], x["mate"]], x["pv"][:8]
+                        x = await motor_jogado(b.fen(), m.uci(), depth); jog, pvj = [x["cp"], x["mate"]], x["pv"][:pipeline.PV_GUARDADA]
                     raws[i]["tempo"] = tempos[i]
                     raws[i].update(move=san, uci=m.uci(), jogado=jog, pv_jogado=pvj)
                     b2 = b.copy(); b2.push(m); raws[i]["fen_depois"] = b2.fen()

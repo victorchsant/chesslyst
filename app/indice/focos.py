@@ -11,7 +11,7 @@ relevância (0 a 100) calculada sobre a posição; só os mais relevantes entram
 from __future__ import annotations
 import chess
 from .core import win_pct
-from .explica import _mlance, _seq, _ideias, _lista
+from .explica import _mlance, _seq, _ideias, _lista, _linha_longa, _linha_do_mate
 from .posicional import (mc, CENTRO, VAL, peoes_passados, peoes_isolados, peoes_dobrados, ilhas, cavalos, cavalo_mal,
                          bispos_maus, pecas_desprotegidas, destaques, _raiox, _fuga, _PESO_ATQ, _NOME_PT, _NOME_EN)
 from .i18n import T, P, lang
@@ -208,7 +208,7 @@ def taticas(rows, fens, a, b, limite=2):
         if mate is not None and (mate > 0) == tab.turn and abs(mate) <= 6:
             tipo, extra, peso = "mate", abs(mate), 100 - abs(mate)
         else:
-            seq = _seq(tab, L0["pv_uci"][:5])
+            seq = _seq(tab, L0["pv_uci"], 5)
             y = _ideias(tab, mv)
             if y and y[0][0] in ("garfo", "cravada"): tipo, extra, peso = y[0][0], y[0][1], 60 + 5 * max(0, seq["liquido"])
             elif seq["liquido"] >= 2 and seq["ganhou"] and len(seq["passos"]) >= 3: tipo, extra, peso = "ganho", _lista(seq["ganhou"]), 55 + 5 * seq["liquido"]
@@ -236,6 +236,8 @@ def _foco_taticas(rows, fens, a, b):
         alvos = [x[0] for x in citadas(frase)]
         mk = do_lance(fens[i], L0["uci"], BOA, citadas(frase), T("mk.antes", x=num + L0["san"]), alvos)
         if not jogou and r.get("uci") and r["uci"] != L0["uci"]: mk["setas"].append([r["uci"][:2], r["uci"][2:4], RUIM])
+        if tipo == "mate": frase += _linha_do_mate(tab, L0.get("pv_uci"))       # depois das marcas: a linha não marca casas
+        elif tipo == "ganho": frase += _linha_longa(tab, _seq(tab, L0["pv_uci"], 5))
         itens.append(dict(html=frase, marca=mk))
     if not itens: return None
     return dict(id="taticas", nome=T("fc.taticas"), nota=min(100, round(max(p for *_, p in L) + 10)), html="", itens=itens, marca=itens[0]["marca"])

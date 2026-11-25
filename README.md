@@ -52,6 +52,7 @@ Depois de analisar, **📑 Relatório** monta, a partir da análise já feita:
 ### Momento Crítico e precisão
 - **Momento Crítico:** só um lance resolve a posição e ele não é óbvio, ou o lance jogado muda o rumo da partida.
 - **Precisão** de cada jogador (0 a 100), pelo método usado pelo Lichess: nota de cada lance pelos pontos de chance de vitória perdidos, combinando a média ponderada pela oscilação da avaliação com a média harmônica. Como a engine e a profundidade podem ser outras, o número pode diferir do Lichess.
+- Quando um ganho, uma perda ou um mate só se decide numa **linha mais longa**, o texto escreve a variante da engine.
 
 As ideias, as fases e os focos são identificados por regras sobre a análise da engine: descrevem ações concretas, mas não reconhecem planos estratégicos longos.
 

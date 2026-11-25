@@ -40,6 +40,17 @@ def _lista(tipos):
     return (" and " if lang() == "en" else " e ").join(_n_peca(pt, n) for pt, n in itens)
 
 
+def _retomada(b, casa):
+    """Troca em `casa` para quem joga: (quanto ainda dá para recuperar, lance de retomada que compensa ou None)."""
+    opcoes = [m for m in b.legal_moves if m.to_square == casa and b.is_capture(m) and m.promotion in (None, chess.QUEEN)]
+    if not opcoes: return 0, None
+    m = min(opcoes, key=lambda m: VAL.get(b.piece_type_at(m.from_square), 100))       # primeiro a peça de menor valor
+    vitima = VAL.get(b.piece_type_at(casa), 0)
+    depois = b.copy(stack=False); depois.push(m)
+    saldo = vitima - _retomada(depois, casa)[0]
+    return (saldo, m) if saldo >= 0 else (0, None)
+
+
 def _seq(board, ucis, limite=8):
     """Simula a variante. Material do ponto de vista de quem joga na posição inicial."""
     b = board.copy(); eu = b.turn
@@ -56,9 +67,52 @@ def _seq(board, ucis, limite=8):
         if cap: (ganhou if quem == eu else perdeu).append(cap)
         passos.append(dict(meu=(quem == eu), move=m, cap=cap, destino=m.to_square))
         b.push(m)
+    else:
+        # a linha guardada acabou logo depois de uma captura: completa a troca naquela casa, senão a peça
+        # que seria retomada no lance seguinte contaria como perdida de graça
+        while passos and passos[-1]["cap"]:
+            m = _retomada(b, passos[-1]["destino"])[1]
+            if m is None: break
+            quem, cap = b.turn, b.piece_type_at(m.to_square)
+            (ganhou if quem == eu else perdeu).append(cap)
+            passos.append(dict(meu=(quem == eu), move=m, cap=cap, destino=m.to_square))
+            b.push(m)
     p_net, g_net = Counter(perdeu) - Counter(ganhou), Counter(ganhou) - Counter(perdeu)
     return dict(perdeu=list(p_net.elements()), ganhou=list(g_net.elements()), passos=passos, n_ganhou=len(ganhou),
                 liquido=sum(VAL[t] for t in ganhou) - sum(VAL[t] for t in perdeu))
+
+
+def _ate_o_saldo(seq):
+    """Quantos lances da variante são precisos para o material ficar como no fim dela (sem parar no meio de uma troca)."""
+    passos = seq["passos"]
+
+    def contas(ps):
+        c = Counter()
+        for p in ps:
+            if p["cap"]: c[p["cap"]] += 1 if p["meu"] else -1
+        return {k: v for k, v in c.items() if v}
+    fim = contas(passos)
+    for k, p in enumerate(passos):
+        if p["cap"] and contas(passos[:k + 1]) == fim and (k + 1 == len(passos) or not passos[k + 1]["cap"]): return k + 1
+    return len(passos)
+
+
+def _linha_longa(board, seq):
+    """' A linha: …' quando a conclusão sobre o material depende de mais de um lance e a resposta; senão, nada."""
+    n = _ate_o_saldo(seq)
+    if n <= 2: return ""
+    return " " + T("x.a_linha", l=_notacao(board, [p["move"].uci() for p in seq["passos"][:n]], n))
+
+
+def _linha_do_mate(board, ucis):
+    """' A linha: …' até o xeque-mate, quando a linha guardada chega até ele e tem mais de um lance e a resposta."""
+    b = board.copy()
+    for k, u in enumerate(ucis or []):
+        m = chess.Move.from_uci(u)
+        if m not in b.legal_moves: return ""
+        b.push(m)
+        if b.is_checkmate(): return " " + T("x.a_linha", l=_notacao(board, ucis, k + 1)) if k >= 2 else ""
+    return ""
 
 
 def _cap(s):
@@ -546,7 +600,9 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
     def perdeu_algo():
         if jog["n_ganhou"] == 0 and primeira and primeira["destino"] == move.to_square and pm in VAL:
             return "perdeu_sem_defesa", T("x.sem_defesa", p=_n_peca(pm, 1))
-        if jog["n_ganhou"] > 0: return "perdeu_troca", T("x.perdeu_troca", p=_lista(jog["perdeu"]))
+        if jog["n_ganhou"] > 0:               # diz também o que veio em troca: só a perda dava a entender que saiu de graça
+            if jog["ganhou"]: return "perdeu_troca", T("x.entregou", p=_lista(jog["perdeu"]), g=_lista(jog["ganhou"]))
+            return "perdeu_troca", T("x.perdeu_troca", p=_lista(jog["perdeu"]))
         return "perdeu", T("x.perdeu", p=_lista(jog["perdeu"]))
 
     omite = False
@@ -576,7 +632,13 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
         else: k, causa = "piorou", T("x.piorou")
     if k in ("perdeu", "perdeu_troca") and idx_perda is not None and idx_perda >= 3:      # perda que não vem logo: diz em quantos lances
         causa = T("x.perde_em", p=_lista(jog["perdeu"]), n=(idx_perda + 1) // 2)
-    texto = causa + (T("x.melhor_era", m=san_melhor, i="") if omite else melhor_era)   # sem repetir o que já foi dito
+    prova = ""                                  # a variante que sustenta a causa, quando ela é longa
+    if k in ("perdeu", "perdeu_troca"): prova = _linha_longa(board, jog)
+    elif k == "permitiu_mate": prova = _linha_do_mate(board, raw["pv_jogado"])
+    texto = causa + prova + (T("x.melhor_era", m=san_melhor, i="") if omite else melhor_era)   # sem repetir o que já foi dito
+    if k == "deixou_ganhar": texto += _linha_longa(board, best)
+    elif k == "perdeu_mate": texto += _linha_do_mate(board, melhor.get("pv_uci"))
+    elif best["ganhou"] and ideia == T("x.i_ganha", p=_lista(best["ganhou"])): texto += _linha_longa(board, best)
     if acerto >= 75 and cid in ("erro", "grave"): texto += T("j.facil")
     return _r(info, k, texto)
 
@@ -602,7 +664,7 @@ def explicar_avaliacao(raw, info=None):
     cp, mate = L[0]["cp"], L[0]["mate"]          # do ponto de vista das brancas
     if mate is not None:
         quem = T("w.brancas") if mate > 0 else T("w.pretas")
-        return _r(info, "mate", T("a.mate", l=quem, n=abs(mate)))
+        return _r(info, "mate", T("a.mate", l=quem, n=abs(mate)) + _linha_do_mate(board, L[0]["pv_uci"]))
     if cp is None: return None
     if abs(cp) < 40: return _r(info, "equilibrio", T("a.eq") + ".")
     fav = chess.WHITE if cp > 0 else chess.BLACK
@@ -627,7 +689,7 @@ def explicar_avaliacao(raw, info=None):
             if len(grupos) >= 2: causa, k = T("a.c_pos", a=_nome_vantagem(grupos[0]), b=_nome_vantagem(grupos[1])), "posicional"
             elif grupos: causa, k = T("a.c_pos1", a=_nome_vantagem(grupos[0])), "posicional"
             else: causa, k = T("a.c_pos0"), "sem_causa"
-    return _r(info, k, cabeca + ": " + causa + ".")
+    return _r(info, k, cabeca + ": " + causa + "." + (_linha_longa(board, seq) if k == "perde_material" else ""))
 
 
 def _mate_contra(board, ucis):

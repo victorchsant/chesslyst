@@ -356,7 +356,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.2.8</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.2.9</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -934,7 +934,10 @@ async function abreVariante(fen,pv,k,eng){const d=await api('/api/variante?fen='
   if(o.k)somDoPasso(o.pv[o.k-1]);
   $('#seguir').checked=false;desenha()}
 function somDoPasso(san){if(cfg.som)somPeca(san||'')}   // o lance que levou à posição mostrada; no começo, só o toque da peça
-const somDaPartida=i=>somDoPasso(i>0?((S.lances&&S.lances[i-1])||(S.rows[i-1]&&S.rows[i-1].move)):'');
+const lanceAntes=i=>i>0?((S.lances&&S.lances[i-1])||(S.rows[i-1]&&S.rows[i-1].move)||''):'';
+function somDaPartida(i){const san=lanceAntes(i);somDoPasso(san);
+  const total=S.pre?S.pre.fens.length:S.rows.length,lances=(S.lances||[]).length;      // só na posição depois do último lance
+  if(i>0&&i===total-1&&(!lances||i===lances))somDoResultado((S.info||{}).Result,san,.6)}
 function passo(d){if(!V)return;const k=V.k;V.k=Math.max(0,Math.min(V.pv.length,V.k+d));if(V.k!==k)somDoPasso(V.k?V.pv[V.k-1]:'');desenha()}
 function saiVariante(){V=null;desenha()}
 function desenhaBanner(){const b=$('#vbanner');if(!V){b.hidden=true;return}b.hidden=false;
@@ -964,7 +967,7 @@ function vai(i){V=null;foco2=false;const n=totalPos();if(!n)return;
 async function api(u,corpo){const r=await fetch(u,corpo?{method:'POST',headers:{'Content-Type':'application/json','X-Lang':LANG},body:JSON.stringify(corpo)}:{headers:{'X-Lang':LANG}});return r.json()}
 function status(x){$('#status').innerHTML=x}
 async function inicia(fonte){   // começa a analisar a partida já carregada (mantém o tabuleiro e a posição atual)
-  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.rows=[];S.numeros=null;S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;
+  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.viuAberta=false;S.fimAvisado=false;S.rows=[];S.numeros=null;S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;
   S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';$('#seguir').checked=S.live;desenha();
   status(t('Iniciando análise… (a primeira posição leva alguns segundos)'));
   const r=await api('/api/job',{fonte,depth:cfg.depth,lang:LANG});S.job=r.id;poll();S.timer=setInterval(poll,800);
@@ -992,9 +995,11 @@ async function acompanhaAoVivo(fonte){   // partida ao vivo ainda não analisada
   if(S.job||S.fonte!==fonte){clearInterval(S.liveTimer);return}
   let d;try{d=await api('/api/partida',{fonte})}catch(e){return}
   if(!d||d.erro||!d.fens||d.fens.length<=(S.pre?S.pre.fens.length:0)&&(d.info||{}).Result===(S.info||{}).Result)return;
+  const antesRes=(S.info||{}).Result||'*';
   const noFim=S.cur>=totalPos()-1||$('#seguir').checked;S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;
   if(noFim)S.cur=d.fens.length-1;
   if((S.info.Result||'*')!=='*')clearInterval(S.liveTimer);
+  if(antesRes==='*'&&decidida(S.info.Result)){avisa(t('Partida encerrada'),t('Resultado: {r}',{r:S.info.Result}),false,'',true);somDoResultado(S.info.Result,(S.lances||[]).slice(-1)[0])}
   desenha();
 }
 function analisar(){if(S.fonte)inicia(S.fonte)}
@@ -1042,7 +1047,11 @@ async function poll(){
   const chave=[d.versao,d.estado,(d.lances||[]).length,d.esperado,d.atual,S.cur,V?1:0].join('|');
   if(chave!==S.chave){S.chave=chave;desenha()}else desenhaProg();   // só redesenha se algo mudou: a rolagem fica livre
   if(S.live&&S.estadoAnt==='ao vivo'&&S.rows.length>antes)avisaLance();
-  if(S.live&&d.estado==='fim'&&S.estadoAnt==='ao vivo'){const res=(S.info&&S.info.Result)||'?';avisa(t('Partida encerrada'),t('Resultado: {r}',{r:res}),false,res==='1/2-1/2'?'½':'',String((S.lances||[]).slice(-1)[0]||'').includes('#'))}
+  const res=(S.info&&S.info.Result)||'*';
+  if(S.live&&res==='*')S.viuAberta=true;                                        // esta análise acompanhou a partida em andamento
+  if(S.live&&S.viuAberta&&!S.fimAvisado&&d.estado==='fim'&&decidida(res)){S.fimAvisado=true;
+    avisa(t('Partida encerrada'),t('Resultado: {r}',{r:res}),false,'',true);
+    somDoResultado(res,(S.lances||[]).slice(-1)[0],S.rows.length>antes?.8:0)}   // se o último lance chegou junto, o som dele vem primeiro
   S.estadoAnt=d.estado;
   if(['fim','erro','parado'].includes(d.estado))clearInterval(S.timer);
 }
@@ -1058,11 +1067,16 @@ function toquePeca(q,forca=1){
 function sino(q,freq,pico,dur){   // nota de sino: a fundamental e um harmônico que some mais depressa
   for(const [f,v,d] of [[freq,pico,dur],[freq*2.76,pico*.22,dur*.45]]){const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;
     g.gain.setValueAtTime(.0001,q);g.gain.exponentialRampToValueAtTime(v,q+.004);g.gain.exponentialRampToValueAtTime(.0001,q+.004+d);o.connect(g).connect(ac.destination);o.start(q);o.stop(q+d+.1)}}
-function somPeca(san=''){try{   // o lance em notação decide o som: x = captura, + = xeque (campainha curta), # = xeque-mate (duas notas de sino)
+const decidida=r=>r==='1-0'||r==='0-1'||r==='1/2-1/2';
+function somDoResultado(res,ultimo,atraso=0){   // o som que encerra a partida: vitória sem mate (abandono, tempo) soa como o xeque-mate
+  if(!cfg.som||!decidida(res)||String(ultimo||'').includes('#'))return;      // no mate, o próprio lance já encerra
+  somPeca(res==='1/2-1/2'?'½':'#',atraso);
+}
+function somPeca(san='',atraso=0){try{   // o lance em notação decide o som: x = captura, + = xeque (campainha curta), # = xeque-mate (duas notas de sino)
   if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();ruidoSom=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);
     const d=ruidoSom.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
   if(ac.state==='suspended')ac.resume();
-  const q=ac.currentTime+.03;
+  const q=ac.currentTime+.03+atraso;
   if(san==='½'){toquePeca(q);toquePeca(q+.2);sino(q+.42,523,.19,.9);return}   // empate: “aperto de mãos”, dois toques e um sino calmo
   const mate=san.includes('#'),xeque=san.includes('+'),captura=san.includes('x');
   toquePeca(q,mate?1.2:1);if(captura)toquePeca(q+.085,mate?1.2:1);

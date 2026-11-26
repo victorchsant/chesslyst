@@ -426,11 +426,15 @@ def indice_posicao(b: chess.Board, engine_cp=None):
         lado_b = cp - mat > 0
         grau = T("g.leve") if din < 100 else (T("g.moderada") if din < 200 else (T("g.clara") if din < 350 else T("g.grande")))
         engine_eq = engine_cp is not None and abs(engine_cp) < 40 and din >= 100
+        engine_pouco = not engine_eq and engine_cp is not None and din >= 200 and abs(engine_cp) < 100   # "clara" com a engine vendo pouco
         lado = T("w.brancas") if lado_b else T("w.pretas")
-        txt = pre + (T("p.trunfos", l=lado) if engine_eq else T("p.vant", g=grau, l=lado) + ".")
+        txt = pre + (T("p.trunfos", l=lado) if engine_eq else T("p.trunfos_pouco", l=lado) if engine_pouco else T("p.vant", g=grau, l=lado) + ".")
         fav = {True: [], False: []}
         for k, v in maiores:
-            if abs(v) >= 8: fav[v > 0].append(mc(T("pf." + k), None, None, item=k))
+            if abs(v) < 8: continue
+            if k == "pecas_em_risco" and b.turn != (v > 0): continue      # quem tem a peça atacada é quem joga: ainda pode salvá-la
+            chave = "torre" if k == "torres" and len(b.pieces(chess.ROOK, v > 0)) == 1 else k
+            fav[v > 0].append(mc(T("pf." + chave), None, None, item=k))
         for lado, itens in ((lado_b, fav[lado_b]), (not lado_b, fav[not lado_b])):
             if itens: txt += " " + T("p.favor", l=T("w.brancas") if lado else T("w.pretas"), i=itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + T("db.e") + itens[-1])
     return idx, txt, contrib

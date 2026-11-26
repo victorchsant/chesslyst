@@ -167,7 +167,7 @@ def push_row(job, raw, i):
         row = pipeline.linha_final(chess.Board(raw["fen"]), raw.get("rating"), raw.get("tempo"))
     else:
         pos = pipeline.para_posicao(raw, 0.0)
-        row = pipeline.linha(raw, pos, analyse(pos), job["raws"][i - 1] if 0 < i <= len(job.get("raws") or []) else None)
+        row = pipeline.linha(raw, pos, analyse(pos), job["raws"][i - 1] if 0 < i <= len(job.get("raws") or []) else None, job["raws"][i - 3] if 2 < i <= len(job.get("raws") or []) else None)
         res = (job.get("info") or {}).get("Result")
         if raw.get("move") is None and res in ("1-0", "0-1", "1/2-1/2"):      # partida encerrada: não há lance a escolher
             row["motivos"] = T("f.encerrada", r=res)

@@ -9,7 +9,7 @@ from pathlib import Path
 import chess, chess.engine, chess.pgn
 from . import fontes
 from .core import Candidate, Position, analyse, win_pct, indice_jogada, nome_classe
-from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao, tomada_de, posicao_resolvida, peca_solta, e_retomada, _notacao
+from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao, tomada_de, posicao_resolvida, peca_solta, e_retomada, retomada_adiada, _notacao
 from .critico import momento_critico
 from .i18n import T
 from .posicional import indice_posicao, desc_material, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei, texto_pecas
@@ -261,10 +261,17 @@ def _texto_posicao(unidades, anteriores):
     return (" ".join(novas) + " " if novas else "") + velho
 
 
-def linha(raw, pos, r, ant=None):
+def linha(raw, pos, r, ant=None, ant3=None):
     """Linha de resultados de uma posição. Sem lance jogado (posição atual), os campos de jogada ficam vazios.
-    `ant` = dados brutos da posição anterior: diz se há uma troca em andamento e o que mudou na posição."""
+    `ant` = dados brutos da posição anterior: diz se há uma troca em andamento e o que mudou na posição.
+    `ant3` = os de três lances atrás: reconhece a retomada que um xeque intermediário adiou."""
     tomada = tomada_de(ant, raw["fen"])
+    adiada = retomada_adiada(ant3, ant, raw["fen"])
+    if adiada:
+        melhor = raw["linhas"][0]["uci"] if raw.get("linhas") else None
+        tab = chess.Board(raw["fen"])
+        if any(u and chess.Move.from_uci(u).to_square == adiada[0] and tab.is_capture(chess.Move.from_uci(u)) for u in (melhor, raw.get("uci"))):
+            tomada = adiada
     raw = dict(raw, tomada=tomada)
     brancas = raw["side"] == "B"
     tab_atual = chess.Board(raw["fen"])

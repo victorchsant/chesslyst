@@ -77,6 +77,31 @@ def e_retomada(board, uci, tomada):
     return m.to_square == tomada[0] and board.is_capture(m)
 
 
+def retomada_adiada(ant3, ant, fen):
+    """Captura que ficou sem retomar porque veio antes um xeque intermediário: `ant3` captura em uma casa, o adversário dela
+    dá um xeque que não captura, e `ant` é a resposta a esse xeque. -> (casa, peça capturada) se a retomada continua pendente."""
+    try:
+        if not (ant3 and ant3.get("uci") and ant and ant.get("uci")): return None
+        b = chess.Board(ant3["fen"]); m = chess.Move.from_uci(ant3["uci"])
+        if not b.is_capture(m): return None
+        cap = chess.PAWN if b.is_en_passant(m) else b.piece_type_at(m.to_square)
+        b.push(m)
+        casa = m.to_square; quem = b.piece_at(casa)
+        xeque = chess.Board(ant["fen"]); atual = chess.Board(fen)           # `xeque`: logo depois do lance intermediário
+        if not xeque.is_check() or xeque.turn != (not b.turn) or chess.popcount(xeque.occupied) != chess.popcount(b.occupied): return None
+        if xeque.piece_at(casa) != quem or atual.piece_at(casa) != quem or atual.turn == quem.color: return None
+        return (casa, cap)
+    except Exception:
+        return None
+
+
+def troca_igual(board, move, passos):
+    """O lance captura uma peça e é retomado logo em seguida, na mesma casa, valendo o mesmo: é uma troca, não um ganho."""
+    if not board.is_capture(move) or len(passos) < 2 or not (passos[1]["cap"] and passos[1]["destino"] == move.to_square): return False
+    capturada = chess.PAWN if board.is_en_passant(move) else board.piece_type_at(move.to_square)
+    return VAL.get(capturada) is not None and VAL.get(capturada) == VAL.get(board.piece_type_at(move.from_square))
+
+
 def completar_troca(board, pv, tomada):
     """Troca em andamento: o adversário acabou de capturar e a linha da engine retoma naquela casa (de imediato, ou depois de
     um xeque intermediário). -> (tabuleiro com a troca completada, lances da engine usados) ou None.
@@ -146,7 +171,9 @@ def posicao_resolvida(board, linha, tomada):
         primeiro = chess.Move.from_uci(lances[0])
         calmo = not (board.is_capture(primeiro) or board.gives_check(primeiro))
         a_favor = (novo - base) * (1 if board.turn else -1) > 0
-        if abs(novo - base) >= 90 and abs(novo - motor) + 25 <= abs(base - motor) and not b.is_checkmate() and (a_favor or not calmo):
+        # se apenas continua a troca em andamento (começa pelos mesmos lances), basta não se afastar da avaliação
+        folga = 0 if troca and lances[:len(troca[1])] == list(troca[1]) else 25
+        if abs(novo - base) >= 90 and abs(novo - motor) + folga <= abs(base - motor) and not b.is_checkmate() and (a_favor or not calmo):
             melhor = (b, lances, "tatica")
     return melhor
 
@@ -319,7 +346,8 @@ def _consequencia(board, pv_uci):
         d = {k: (c1[k] - c0[k]) * sg for k in c0 if k in _PZ and k != "pecas_em_risco" and _PZ[k][0]}
         if not d: return None
         k, v = max(d.items(), key=lambda kv: kv[1])
-        return T(_PZ[k][0]) if v >= 12 else None
+        chave = _PZ[k][0].replace("torres", "torre") if k == "torres" and len(board.pieces(chess.ROOK, board.turn)) == 1 else _PZ[k][0]
+        return T(chave) if v >= 12 else None
     except Exception:
         return None
 
@@ -338,7 +366,7 @@ def _justifica(board, linha, tomada=None):
     if e_retomada(board, linha["uci"], tomada): return T("pq.j_retoma", s=chess.square_name(mv.to_square))
     if board.is_castling(mv): return T("pq.j_roque")
     if board.is_capture(mv):
-        recaptura = seq["liquido"] <= 0 and len(seq["passos"]) > 1 and seq["passos"][1]["cap"]
+        recaptura = troca_igual(board, mv, seq["passos"]) or (seq["liquido"] <= 0 and len(seq["passos"]) > 1 and seq["passos"][1]["cap"])
         p = _n_peca(chess.PAWN if board.is_en_passant(mv) else board.piece_type_at(mv.to_square), 1)
         return T("pq.j_troca" if recaptura else "pq.j_captura", p=p)
     y = _ideias(board, mv)
@@ -572,13 +600,18 @@ def _motivo_posicional(board, move, limiar=8.0):
         cor = board.turn; b2 = board.copy(); b2.push(move)
         _, c0 = _avalia_pos(board); _, c1 = _avalia_pos(b2)
         sg = 1 if cor == chess.WHITE else -1
+        antes = _em_risco(board, cor)
+        depois = {move.from_square if s == move.to_square else s for s in _em_risco(b2, cor)}      # a peça movida conta pela casa de onde saiu
         d = {k: (c1[k] - c0[k]) * sg for k in c0 if k != "material" and k in _PZ and not (k == "pecas_em_risco" and board.is_capture(move))
              and not (k == "rei_fuga" and board.piece_type_at(move.from_square) not in (chess.PAWN, chess.KING))}   # troca: o "risco" some na recaptura
+        if "pecas_em_risco" in d and not ((d["pecas_em_risco"] > 0 and depois < antes) or (d["pecas_em_risco"] < 0 and depois - antes)):
+            del d["pecas_em_risco"]
         k_mais, v_mais = max(d.items(), key=lambda kv: kv[1])
         k_menos, v_menos = min(d.items(), key=lambda kv: kv[1])
-        if v_mais >= limiar and _PZ[k_mais][0] and v_mais >= -v_menos: return k_mais, T(_PZ[k_mais][0]), True
-        if v_menos <= -limiar: return k_menos, T(_PZ[k_menos][1]), False
-        if v_mais >= limiar and _PZ[k_mais][0]: return k_mais, T(_PZ[k_mais][0]), True
+        frase = lambda k, i: T(_PZ[k][i].replace("torres", "torre") if k == "torres" and len(board.pieces(chess.ROOK, cor)) == 1 else _PZ[k][i])
+        if v_mais >= limiar and _PZ[k_mais][0] and v_mais >= -v_menos: return k_mais, frase(k_mais, 0), True
+        if v_menos <= -limiar: return k_menos, frase(k_menos, 1), False
+        if v_mais >= limiar and _PZ[k_mais][0]: return k_mais, frase(k_mais, 0), True
     except Exception:
         return None
     return None
@@ -716,7 +749,9 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
         if e_retomada(board, raw["uci"], tomada):
             return _r(info, "retoma", T("x.retoma", s=chess.square_name(move.to_square)))
         if board.is_capture(move):
-            return _r(info, "captura", T("x.captura", p=_n_peca(chess.PAWN if board.is_en_passant(move) else board.piece_type_at(move.to_square), 1)))
+            alvo = _n_peca(chess.PAWN if board.is_en_passant(move) else board.piece_type_at(move.to_square), 1)
+            if troca_igual(board, move, jog["passos"]): return _r(info, "troca", T("x.troca", p=alvo))
+            return _r(info, "captura", T("x.captura", p=alvo))
         if board.gives_check(move): return _r(info, "xeque", T("x.xeque"))
         ef = _efeito(board, move)
         ef = ef if ef and ef[2] else None          # só efeitos positivos num bom lance
@@ -739,6 +774,8 @@ def explicar_lance(raw, cid, acerto, eval_antes, eval_depois, info=None):
     elif not ef:
         pz = _motivo_posicional(board, move)
         if pz and pz[2]: ef = ("pz_" + pz[0], pz[1], True)
+    if troca_igual(board, move, jog["passos"]):                # diz o que o lance é, antes de qualquer efeito posicional
+        ef = ("troca", T("x.troca", p=_n_peca(board.piece_type_at(move.to_square) or chess.PAWN, 1)), True)
     if cid == "excelente":
         igual = eval_antes - eval_depois <= 0.5                 # não é o 1º da engine, mas vale o mesmo
         if e_retomada(board, raw["uci"], tomada): ef = ("retoma", T("x.retoma", s=chess.square_name(move.to_square)), True)

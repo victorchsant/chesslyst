@@ -356,7 +356,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.3.3</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.3.4</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -777,12 +777,13 @@ async function buscaDest(fen,item){const k=fen+'|'+item;
 }
 async function repinta(extra){   // desenha juntos todos os itens fixados e, por cima, o que está sob o mouse (item ou casas soltas)
   const n=++destSeq,fen=fenAtual();if(!fen){pintaDest(null);return}
+  if(extra&&extra.setas&&extra.setas.length){pintaDest(extra);return}   // um movimento fica sozinho no tabuleiro; as fixadas voltam quando o mouse sai
   const itens=[...new Set(destFixos.concat(destAtual?[destAtual]:[]))];
   const L=await Promise.all(itens.map(i=>buscaDest(fen,i)));
   if(n!==destSeq||fenAtual()!==fen)return;   // chegou outra marcação (ou mudou a posição) enquanto isso
   const casas=new Map(),setas=new Map();
   for(const d of L.concat(extra?[extra]:[])){if(!d)continue;
-    for(const c of d.casas||[])if(d.forca||c[1]==='D'||!ULT.includes(c[0]))casas.set(c.join(),c);
+    for(const c of d.casas||[])if(d.forca||!ULT.includes(c[0]))casas.set(c.join(),c);   // nas casas do último lance fica só a marcação dele
     for(const a of d.setas||[])setas.set(a.join(),a)}
   pintaDest({casas:[...casas.values()].sort((a,b)=>(b[2]==='tinta')-(a[2]==='tinta')),setas:[...setas.values()],forca:true});   // os anéis ficam por cima das casas pintadas
 }

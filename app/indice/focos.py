@@ -299,7 +299,7 @@ def _foco_rei_final(b):
         k = b.king(c); d[c] = dist(k)
         mov = len(_fuga(b, k, c))
         perto = [s for s in b.pieces(chess.PAWN, c) | b.pieces(chess.PAWN, not c) if chess.square_distance(k, s) <= 2]
-        frases.append(T("fc.reif_lado", l=_cap(_lado(c)), k=mc(chess.square_name(k), [chess.square_name(k)], _L(c)), m=mov, c=P(mov, "pos.casa"), n=len(perto)))
+        frases.append(T("fc.reif_lado", l=_cap(_lado(c)), k=mc(chess.square_name(k), [chess.square_name(k)], _L(c)), m=mov, c=P(mov, "pos.casa_livre"), n=len(perto)))
     if abs(d[True] - d[False]) >= 1: frases.append(T("fc.reif_ativo", l=_lado(d[True] < d[False])))
     livres = [_tinta(x, _L(c)) for c in (True, False) for x in _fuga(b, b.king(c), c)]
     return _foco("rei_final", 66 + 8 * abs(d[True] - d[False]), frases, [(b.king(c), c) for c in (True, False)], extra=livres)

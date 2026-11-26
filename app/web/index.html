@@ -356,7 +356,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.3.2</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.3.3</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -969,7 +969,7 @@ function somDoPasso(san){if(cfg.som)somPeca(san||'')}   // o lance que levou à 
 /* a análise (ou a transmissão) levou a tela adiante sozinha: um toque por avanço. Quando muitos lances chegam de uma vez
    (análise salva, o primeiro pacote), fica em silêncio para não virar uma rajada. */
 function somAoAcompanhar(curAntes,linhasAntes,novas){
-  if(!S.live&&$('#seguir').checked&&!V&&S.cur!==curAntes&&linhasAntes>0&&novas>0&&novas<=3)somDaPartida(S.cur);
+  if($('#seguir').checked&&!V&&S.cur!==curAntes&&linhasAntes>0&&novas>0&&novas<=3)somDaPartida(S.cur);
 }
 const lanceAntes=i=>i>0?((S.lances&&S.lances[i-1])||(S.rows[i-1]&&S.rows[i-1].move)||''):'';
 function somDaPartida(i){const san=lanceAntes(i);somDoPasso(san);
@@ -992,21 +992,23 @@ function desenhaVar2(){
   if(V2.ucis[V2.k])seta(V2.ucis[V2.k],SETA_COR,$('#seta2'));
 }
 const totalPos=()=>S.pre?S.pre.fens.length:S.rows.length;
-/* o "lance mais recente": no ao vivo é o último lance da partida, analisado ou não; fora dele, com a análise rodando, o último já analisado */
-const ultimaPos=()=>((!S.live&&S.job&&S.rows.length)?S.rows.length:totalPos())-1;
+/* o "lance mais recente": enquanto a análise percorre os lances que já existiam, é o último analisado (a tela vai junto com ela);
+   no ao vivo, depois de alcançá-los, é o último lance da partida, analisado ou não */
+const recuperando=()=>S.live&&!!S.job&&S.rows.length<(S.alvo||0);
+const ultimaPos=()=>((((!S.live&&S.job)||recuperando())&&S.rows.length)?S.rows.length:totalPos())-1;
 function irAoRecente(){   // “Lance mais recente”: vai para o último lance e, enquanto marcado, acompanha cada lance novo
   V=null;foco2=false;const n=ultimaPos()+1;if(!n)return;if(S.cur!==n-1)somDaPartida(n-1);S.cur=n-1;desenha()}
 $('#seguir').onchange=e=>{if(e.target.checked)irAoRecente()};
 function vai(i){V=null;foco2=false;const n=totalPos();if(!n)return;
   const de=S.cur;S.cur=Math.max(0,Math.min(n-1,i));if(S.cur!==de)somDaPartida(S.cur);
-  $('#seguir').checked=S.cur>=ultimaPos();   // a caixa acompanha onde você está: no lance mais recente fica marcada, em lance antigo desmarca
+  $('#seguir').checked=S.cur===ultimaPos();   // a caixa acompanha onde você está: no lance mais recente fica marcada, em lance antigo desmarca
   desenha()}
 
 /* ---------- jobs ---------- */
 async function api(u,corpo){const r=await fetch(u,corpo?{method:'POST',headers:{'Content-Type':'application/json','X-Lang':LANG},body:JSON.stringify(corpo)}:{headers:{'X-Lang':LANG}});return r.json()}
 function status(x){$('#status').innerHTML=x}
 async function inicia(fonte){   // começa a analisar a partida já carregada (mantém o tabuleiro e a posição atual)
-  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.viuAberta=false;S.fimAvisado=false;S.rows=[];S.numeros=null;S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;S.avisoPly=null;S._barras=null;
+  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.viuAberta=false;S.fimAvisado=false;S.rows=[];S.numeros=null;S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;S.avisoPly=null;S._barras=null;S.alvo=totalPos();
   S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';$('#seguir').checked=S.live;desenha();
   status(t('Iniciando análise… (a primeira posição leva alguns segundos)'));
   const r=await api('/api/job',{fonte,depth:cfg.depth,lang:LANG});S.job=r.id;poll();S.timer=setInterval(poll,800);
@@ -1083,7 +1085,7 @@ async function poll(){
   if(!atrasada){S.info=d.info||{};S.lances=d.lances||S.lances;S.esperado=d.esperado||S.esperado}
   S.numeros=d.numeros||null;S.atual=d.atual;S.decorrido=d.decorrido;
   if(!atrasada&&d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
-  if(totalPos()&&$('#seguir').checked&&!V&&(S.live||S.rows.length))S.cur=ultimaPos();   // marcado: mantém no lance mais recente (no ao vivo, assim que o lance sai)
+  if(totalPos()&&$('#seguir').checked&&!V&&(S.rows.length||(S.live&&!recuperando())))S.cur=ultimaPos();   // marcado: vai com a análise; no ao vivo já alcançado, o lance entra assim que sai
   const i=S.info;const jog=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} · ${descPartida(i)}`:'';
   const vivo='';const np=S.rows.length;
   status(`${vivo}${jog} · ${np===1?t('1 posição analisada'):t('{n} posições analisadas',{n:np})} · ${t(d.estado)}${d.aviso?' · '+d.aviso:''}${d.salva==='mundial'?' · 💾 '+t('análise do Mundial salva'):d.salva==='falhou'?' · ⚠ '+t('não consegui salvar a análise'):''}`);
@@ -1129,7 +1131,7 @@ const tituloOriginal=document.title;
 addEventListener('focus',()=>{document.title=tituloOriginal});
 function avisa(titulo,corpo,verBotao,san='',semSom=false){
   const to=$('#toast');to.hidden=false;to.innerHTML=`<b>${titulo}</b><br>${corpo}<br>${verBotao?`<button class="pri" id="t-ver">${t('Ver agora')}</button>`:''}<button id="t-ok">${t('Fechar')}</button>`;
-  $('#t-ok').onclick=()=>to.hidden=true;if(verBotao)$('#t-ver').onclick=()=>{to.hidden=true;V=null;$('#seguir').checked=true;S.cur=ultimaPos();desenha()};
+  $('#t-ok').onclick=()=>to.hidden=true;if(verBotao)$('#t-ver').onclick=()=>{to.hidden=true;vai(totalPos()-1)};
   clearTimeout(avisa.t);avisa.t=setTimeout(()=>to.hidden=true,15000);
   if(document.hidden)document.title='● '+titulo+' — Chesslyst';
   if(cfg.som&&!semSom)somPeca(san);

@@ -356,7 +356,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.3.0</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.3.1</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -689,7 +689,7 @@ function interpHtml(row){
     <span class="mut">${t('Vez das {lado}',{lado})}${row.rating?' · '+t('rating {r}',{r:row.rating}):''}${row.tempo_restante!=null?' · ⏱ '+fmtT(row.tempo_restante):''}</span></div>
     <p class="ires">${row.resumo}</p>`;
   if(row.critico)h+=`<div class="critico"><b>⚠ ${row.critico.titulo}</b>${ajuda('Momento crítico: só um lance resolve a posição e ele não é óbvio, ou o lance jogado muda o rumo da partida. Teoria de abertura, lance forçado e posição já decidida ficam de fora.')}<div>${row.critico.texto}</div></div>`;
-  if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}${ajuda('Os fatores que mais pesaram na chance de acerto desta posição.')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
+  if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}${ajuda('Os fatores que mais pesaram na chance de acerto desta posição.\n“Lances praticamente iguais” são os que ficam muito perto do melhor: no máximo 3 pontos numa escala de 0 a 100 de chance de vitória, calculada da avaliação da engine (não vem de estatística de partidas). A engine calcula 5 linhas; por isso o texto diz “pelo menos 5” quando todas são boas.\nNa mesma escala: “um pouco pior” perde menos de 5 pontos; “claramente pior”, menos de 10; “bem pior”, menos de 20; “muito pior”, 20 ou mais.')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
   if(row.repeticao_texto)h+=`<div class="kv"><span class="k">${t('Repetição')}</span><div class="v">${row.repeticao_texto}</div></div>`;
   if(row.avaliacao_texto)h+=`<div class="kv"><span class="k">${t('Avaliação')}${ajuda('Explica a pontuação da engine lendo a linha principal dela (material, mate, vantagem). Não altera o valor original da engine.')}</span><div class="v">${row.avaliacao_texto}</div></div>`;
   h+=`<div class="kv"><span class="k">${t('Posição')}${ajuda('Índice de Posição: avaliação estática (material, estrutura de peões, atividade das peças, rei), calculada pelo programa sem usar a engine.\n⇄ Com uma troca em andamento, uma peça solta ou uma tática imediata, a barra, a tabela e este texto medem a posição depois da sequência que a engine indica. Se o lance jogado for outro, passam a refletir a nova posição.')}</span><div class="v">${row.posicao_texto}</div></div>`;
@@ -934,6 +934,11 @@ async function abreVariante(fen,pv,k,eng){const d=await api('/api/variante?fen='
   if(o.k)somDoPasso(o.pv[o.k-1]);
   $('#seguir').checked=false;desenha()}
 function somDoPasso(san){if(cfg.som)somPeca(san||'')}   // o lance que levou à posição mostrada; no começo, só o toque da peça
+/* a análise (ou a transmissão) levou a tela adiante sozinha: um toque por avanço. Quando muitos lances chegam de uma vez
+   (análise salva, o primeiro pacote), fica em silêncio para não virar uma rajada. */
+function somAoAcompanhar(curAntes,linhasAntes,novas){
+  if($('#seguir').checked&&!V&&S.cur!==curAntes&&linhasAntes>0&&novas>0&&novas<=3)somDaPartida(S.cur);
+}
 const lanceAntes=i=>i>0?((S.lances&&S.lances[i-1])||(S.rows[i-1]&&S.rows[i-1].move)||''):'';
 function somDaPartida(i){const san=lanceAntes(i);somDoPasso(san);
   const total=S.pre?S.pre.fens.length:S.rows.length,lances=(S.lances||[]).length;      // só na posição depois do último lance
@@ -997,9 +1002,11 @@ async function acompanhaAoVivo(fonte){   // partida ao vivo ainda não analisada
   if(!d||d.erro||!d.fens||d.fens.length<=(S.pre?S.pre.fens.length:0)&&(d.info||{}).Result===(S.info||{}).Result)return;
   const antesRes=(S.info||{}).Result||'*';
   const noFim=S.cur>=totalPos()-1||$('#seguir').checked;S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;
-  if(noFim)S.cur=d.fens.length-1;
+  const curAntes=S.cur;if(noFim)S.cur=d.fens.length-1;
+  const terminou=antesRes==='*'&&decidida(S.info.Result);
+  if(S.cur!==curAntes){const san=lanceAntes(S.cur);if(san)somDoPasso(san)}
   if((S.info.Result||'*')!=='*')clearInterval(S.liveTimer);
-  if(antesRes==='*'&&decidida(S.info.Result)){avisa(t('Partida encerrada'),t('Resultado: {r}',{r:S.info.Result}),false,'',true);somDoResultado(S.info.Result,(S.lances||[]).slice(-1)[0])}
+  if(terminou){avisa(t('Partida encerrada'),t('Resultado: {r}',{r:S.info.Result}),false,'',true);somDoResultado(S.info.Result,(S.lances||[]).slice(-1)[0],S.cur!==curAntes?.8:0)}
   desenha();
 }
 function analisar(){if(S.fonte)inicia(S.fonte)}
@@ -1036,7 +1043,7 @@ async function carregaExemplo(){
 async function poll(){
   if(!S.job)return;let d;try{d=await api(`/api/job?id=${S.job}&desde=${S.rows.length}&v=${S.versao||0}`)}catch(e){return}
   if(d.erro){status(t('Erro: {e}',{e:d.erro}));clearInterval(S.timer);return}
-  const seguindo=S.cur===S.rows.length-1||S.rows.length===0;const antes=S.rows.length;
+  const seguindo=S.cur===S.rows.length-1||S.rows.length===0;const antes=S.rows.length,curAntes=S.cur;
   (d.mudadas||[]).forEach(r=>{S.rows[r.idx]=r});d.rows.forEach((r,k)=>S.rows[d.desde+k]=r);S.versao=d.versao;S.estado=d.estado;S.info=d.info||{};S.engines=d.engines;
   S.lances=d.lances||S.lances;S.numeros=d.numeros||null;S.esperado=d.esperado||S.esperado;S.atual=d.atual;S.decorrido=d.decorrido;
   if(d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
@@ -1046,7 +1053,9 @@ async function poll(){
   status(`${vivo}${jog} · ${np===1?t('1 posição analisada'):t('{n} posições analisadas',{n:np})} · ${t(d.estado)}${d.aviso?' · '+d.aviso:''}${d.salva==='mundial'?' · 💾 '+t('análise do Mundial salva'):d.salva==='falhou'?' · ⚠ '+t('não consegui salvar a análise'):''}`);
   const chave=[d.versao,d.estado,(d.lances||[]).length,d.esperado,d.atual,S.cur,V?1:0].join('|');
   if(chave!==S.chave){S.chave=chave;desenha()}else desenhaProg();   // só redesenha se algo mudou: a rolagem fica livre
-  if(S.live&&S.estadoAnt==='ao vivo'&&S.rows.length>antes)avisaLance();
+  const avisouLance=S.live&&S.estadoAnt==='ao vivo'&&S.rows.length>antes;
+  if(avisouLance)avisaLance();                                                   // lance novo ao vivo: o aviso já toca
+  else somAoAcompanhar(curAntes,antes,S.rows.length-antes);
   const res=(S.info&&S.info.Result)||'*';
   if(S.live&&res==='*')S.viuAberta=true;                                        // esta análise acompanhou a partida em andamento
   if(S.live&&S.viuAberta&&!S.fimAvisado&&d.estado==='fim'&&decidida(res)){S.fimAvisado=true;

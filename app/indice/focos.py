@@ -102,11 +102,11 @@ def _mob(b, c):
 
 
 def _soltas(b, c):
-    """Peças (sem peões) atacadas mais vezes do que defendidas, e peças sem nenhuma defesa."""
+    """Peças (sem peões) atacadas e mal defendidas, e peças sem nenhuma defesa."""
     atacadas, soltas = [], []
     for s in pecas_desprotegidas(b, c):
         if b.piece_type_at(s) == chess.PAWN: continue
-        (atacadas if len(b.attackers(not c, s)) > len(b.attackers(c, s)) else soltas).append(s)
+        (atacadas if b.attackers(not c, s) else soltas).append(s)
     return atacadas, [s for s in soltas if s not in MENORES_EM_CASA[c] and b.piece_type_at(s) != chess.ROOK]
 
 

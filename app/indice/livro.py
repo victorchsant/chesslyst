@@ -19,7 +19,7 @@ from .posicional import mc, peoes_passados, peoes_isolados, peoes_dobrados, bisp
 from .i18n import T, lang
 from .relogio import fmt as fmt_tempo
 from .marcas import marca, vazia, citadas, lances_citados, do_texto, do_lance, da_linha, COR, BOA, RUIM
-from .posicional import pecas_desprotegidas
+from .posicional import pecas_desprotegidas, desprotegida
 
 MAX_PASSOS_ATE = 10     # quantos lances o passador de um momento mostra antes da posição
 MIN_TRECHO = 6          # meios-lances: menos que isso entra junto do momento seguinte
@@ -107,7 +107,7 @@ def _soltas_marcas(b, limite=4):
     out = []
     for cor in (True, False):
         for sq in pecas_desprotegidas(b, cor):
-            if b.piece_type_at(sq) != chess.PAWN and len(b.attackers(not cor, sq)) > len(b.attackers(cor, sq)):
+            if b.piece_type_at(sq) != chess.PAWN and b.attackers(not cor, sq) and desprotegida(b, sq, cor):
                 out.append([chess.square_name(sq), "D", "anel"])
     return out[:limite]
 

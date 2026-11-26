@@ -9,7 +9,7 @@ from pathlib import Path
 import chess, chess.engine, chess.pgn
 from . import fontes
 from .core import Candidate, Position, analyse, win_pct, indice_jogada, nome_classe
-from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao, tomada_de, posicao_resolvida, peca_solta, _notacao
+from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao, tomada_de, posicao_resolvida, peca_solta, e_retomada, _notacao
 from .critico import momento_critico
 from .i18n import T
 from .posicional import indice_posicao, desc_material, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei, texto_pecas
@@ -280,7 +280,7 @@ def linha(raw, pos, r, ant=None):
         tipo = feita[2]
         troca = dict(tipo=tipo, casa=chess.square_name(tomada[0]) if tipo == "troca" else "", lances=re.sub(r"<[^>]+>", "", lances))
         tp = T("p.depois", l=lances) + " " + " ".join(unidades)      # a análise é a da posição depois da sequência
-        solta = peca_solta(tab_atual, feita[1]) if tipo == "tatica" else ""
+        solta = peca_solta(tab_atual, feita[1]) if tipo == "tatica" and not e_retomada(tab_atual, feita[1][0], tomada) else ""
         if solta: tp = solta + " " + tp
     else:
         # se a posição anterior foi medida depois de uma sequência, nada dela é apagado como "já visto"

@@ -8,7 +8,7 @@ import re
 from collections import Counter
 import chess
 from .i18n import T, lang
-from .posicional import desc_material, material as _material, analise as _analise_pos, _fase, avalia as _avalia_pos, pc, mc
+from .posicional import tem_defesa, desc_material, material as _material, analise as _analise_pos, _fase, avalia as _avalia_pos, pc, mc
 from .core import win_pct as _wp
 from .aberturas import nome_da_posicao
 from .i18n import num as _num, P, pontos
@@ -159,11 +159,18 @@ def peca_solta(board, lances):
         alvo = board.piece_at(m.to_square)
         if not alvo or alvo.piece_type in (chess.PAWN, chess.KING) or not board.is_capture(m): return ""
         quem = pc(board, m.to_square, cap=True)
-        if not board.attackers(alvo.color, m.to_square): return T("p.solta", p=quem)
+        if not tem_defesa(board, m.to_square, alvo.color): return T("p.solta", p=quem)
         if VAL.get(board.piece_type_at(m.from_square), 100) < VAL[alvo.piece_type]: return T("p.exposta", p=quem)
     except (IndexError, ValueError, KeyError):
         pass
     return ""
+
+
+def quao_pior(pontos_perdidos):
+    """Em palavras, o quanto um lance é pior que o melhor (pontos de 0 a 100 de chance de vitória; a escala está no ⓘ)."""
+    for limite, chave in ((5, "pior.1"), (10, "pior.2"), (20, "pior.3")):
+        if pontos_perdidos < limite: return T(chave)
+    return T("pior.4")
 
 
 def _vale(board, linha, minimo=100):
@@ -390,7 +397,7 @@ def _em_risco(board, cor):
         atac = board.attackers(not cor, sq)
         if not atac: continue
         menor = min(VAL[board.piece_type_at(a)] if board.piece_type_at(a) != chess.KING else 99 for a in atac)
-        if not board.is_attacked_by(cor, sq) or menor < VAL[pc.piece_type]: r.add(sq)
+        if not tem_defesa(board, sq, cor) or menor < VAL[pc.piece_type]: r.add(sq)
     return r
 
 
@@ -420,7 +427,7 @@ def _efeito(board, move):
         art, a_, de_ = (_ART_EN[pt],) * 3 if lang() == "en" else _ART_PT[pt]
         if not board.is_capture(move):                      # ataca uma peça maior ou sem defesa
             alvos = [s for s in b2.attacks(move.to_square) if (p := b2.piece_at(s)) and p.color != cor and p.piece_type not in (chess.KING, chess.PAWN)
-                     and (VAL[p.piece_type] > VAL.get(pt, 0) or not b2.is_attacked_by(not cor, s))]
+                     and (VAL[p.piece_type] > VAL.get(pt, 0) or not tem_defesa(b2, s, not cor))]
             if alvos and not (b2.is_attacked_by(not cor, move.to_square) and not b2.is_attacked_by(cor, move.to_square)):
                 alvo = max(alvos, key=lambda s: VAL[b2.piece_type_at(s)])
                 return "ataca", T("x.ataca", p=pc(b2, alvo)), True
@@ -458,7 +465,7 @@ def _fracas(board, cor):
         atq = board.attackers(not cor, sq)
         if not atq: continue
         menor = min(VAL.get(board.piece_type_at(a), 99) for a in atq)
-        if not board.is_attacked_by(cor, sq) or menor < VAL[pc.piece_type]: r.add(sq)
+        if not tem_defesa(board, sq, cor) or menor < VAL[pc.piece_type]: r.add(sq)
     return r
 
 
@@ -483,7 +490,7 @@ def _ideias(board, move):
         # 1) ataque duplo
         if not captura and seguro and pt != chess.KING:
             alvos = [s for s in b2.attacks(to) if (p := b2.piece_at(s)) and p.color != cor
-                     and (p.piece_type == chess.KING or (p.piece_type != chess.PAWN and (VAL[p.piece_type] >= VAL.get(pt, 0) or not b2.is_attacked_by(not cor, s))))]
+                     and (p.piece_type == chess.KING or (p.piece_type != chess.PAWN and (VAL[p.piece_type] > VAL.get(pt, 0) or not tem_defesa(b2, s, not cor))))]
             if len(alvos) >= 2:
                 alvos.sort(key=lambda s: -(99 if b2.piece_type_at(s) == chess.KING else VAL[b2.piece_type_at(s)]))
                 add("garfo", a=pc(b2, alvos[0]), b=pc(b2, alvos[1]))
@@ -635,14 +642,15 @@ def explicar_porque(raw, pos, ap=None):
         em_teoria = bool(bg and bg >= 20)
         if len(bons) >= 3:
             mostra = bons[:3]
-            dif = max(max(perda[l["san"]] for l in mostra), 0.0)
-            entre = T("pq.entre") if len(bons) > len(mostra) else ""
             ditas = set()
-            cabeca = T("pq.varios0", n=len(bons), e=entre) if dif < 0.05 else T("pq.varios", n=len(bons), d=_num(dif), u=pontos(dif), e=entre)
+            # a engine calcula poucas linhas: quando todas são boas, pode haver outras que ela não mostrou
+            pode_haver_mais = len(bons) == len(L) and board.legal_moves.count() > len(L)
+            quantos = T("pq.pelo_menos", n=len(bons)) if pode_haver_mais else str(len(bons))
+            cabeca = T("pq.varios", n=quantos, e=T("pq.exemplos") if len(bons) > len(mostra) or pode_haver_mais else "")
             txt = cabeca + "".join("<br>• " + _linha_engine(board, l, tomada, ditas) for l in mostra)
             if resto:
                 r0 = resto[0]
-                txt += "<br>" + T("pq.fora", m=_mlance(board, chess.Move.from_uci(r0["uci"]), r0["san"]), a=_fmt_av(r0["cp"], r0["mate"]), d=_num(perda[r0["san"]], 0))
+                txt += "<br>" + T("pq.fora", m=_mlance(board, chess.Move.from_uci(r0["uci"]), r0["san"]), a=_fmt_av(r0["cp"], r0["mate"]), g=quao_pior(perda[r0["san"]]))
             out.append(txt)
         else:
             mate = raw["cands"][0][2]
@@ -659,7 +667,7 @@ def explicar_porque(raw, pos, ap=None):
                 b2 = board.copy(); b2.push(chess.Move.from_uci(r0["uci"]))
                 resposta = (r0.get("pv_uci") or [])[1:4]
                 out.append(T("pq.segundo", m=_mlance(board, chess.Move.from_uci(r0["uci"]), r0["san"]), a=_fmt_av(r0["cp"], r0["mate"]),
-                             d=_num(perda[r0["san"]], 0)) + (" " + T("pq.resposta", l=_notacao(b2, resposta, 3)) if resposta else ""))
+                             g=quao_pior(perda[r0["san"]])) + (" " + T("pq.resposta", l=_notacao(b2, resposta, 3)) if resposta else ""))
         # 4) peças em risco na posição: tática
         if ap and not board.is_capture(chess.Move.from_uci(ln["uci"])):     # numa troca em andamento a frase não ajuda
             risco = next((i for g in ap["grupos"] for i in g["itens"] if i["chave"] == "pecas_em_risco"), None)
@@ -843,6 +851,7 @@ def explicar_avaliacao(raw, info=None):
             if len(grupos) >= 2: causa, k = T("a.c_pos", a=_nome_vantagem(grupos[0]), b=_nome_vantagem(grupos[1])), "posicional"
             elif grupos: causa, k = T("a.c_pos1", a=_nome_vantagem(grupos[0])), "posicional"
             else: causa, k = T("a.c_pos0"), "sem_causa"
+    if k == "sem_causa": return _r(info, k, cabeca + ".")
     return _r(info, k, cabeca + ": " + causa + "." + (_linha_longa(board, seq) if k == "perde_material" else ""))
 
 

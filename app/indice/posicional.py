@@ -195,7 +195,7 @@ def _lado(b, c, fase):
             if not atq: continue
             v = VAL[t]
             menor = min(VAL.get(b.piece_type_at(a), 10_000) for a in atq)
-            if not b.attackers(c, sq): risco = v / 100
+            if not tem_defesa(b, sq, c): risco = v / 100
             elif menor < v: risco = (v - menor) / 100
             else: continue
             f["pecas_em_risco"] += risco * (0.5 if b.turn == c else 1.0)
@@ -260,13 +260,49 @@ def _lado_txt(v):
 ITENS_INFO = {"debilidades": ["pecas_desprotegidas", "casas_desprotegidas"]}
 
 
+_VALOR_TROCA = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100}
+
+
+def _troca_em(b, casa):
+    """A troca em `casa` para quem tem a vez, simulada lance a lance (a peça de menor valor primeiro; cada um para quando
+    continuar não compensa; quem estava atrás numa linha entra quando ela se abre). -> material que se ganha capturando."""
+    opcoes = [m for m in b.legal_moves if m.to_square == casa and b.is_capture(m) and m.promotion in (None, chess.QUEEN)]
+    if not opcoes: return 0
+    m = min(opcoes, key=lambda m: _VALOR_TROCA[b.piece_type_at(m.from_square)])
+    vitima = _VALOR_TROCA.get(b.piece_type_at(casa), 0)
+    depois = b.copy(stack=False); depois.push(m)
+    return max(0, vitima - _troca_em(depois, casa))
+
+
+def ganho_ao_capturar(b, sq, por):
+    """Quanto o lado `por` ganha de material se começar a troca na casa `sq` (0 se não compensa)."""
+    t = b.copy(stack=False); t.turn = por; t.ep_square = None
+    return _troca_em(t, sq)
+
+
+def tem_defesa(b, sq, c):
+    """A peça de `c` em `sq` tem quem a retome? Contra cada atacante é preciso haver uma retomada, inclusive através dele:
+    uma dama atrás da dama adversária protege, porque a linha se abre quando esta captura."""
+    atacantes = b.attackers(not c, sq)
+    if not atacantes: return bool(b.attackers(c, sq))
+    for a in atacantes:
+        sem_ele = b.occupied & ~chess.BB_SQUARES[a]      # o atacante saiu da casa de origem e está em `sq`
+        if not b.attackers_mask(c, sq, sem_ele) & sem_ele & ~chess.BB_SQUARES[sq]: return False
+    return True
+
+
+def desprotegida(b, sq, c):
+    """Sem quem a retome, ou o adversário ganha material ao capturá-la."""
+    if not tem_defesa(b, sq, c): return True
+    return bool(b.attackers(not c, sq)) and ganho_ao_capturar(b, sq, not c) > 0
+
+
 def pecas_desprotegidas(b, c):
-    """Peças e peões de `c` sem nenhuma proteção, ou com mais atacantes do que defensores. O rei não entra."""
+    """Peças e peões de `c` sem nenhuma proteção, ou que o adversário ganha material ao capturar. O rei não entra."""
     out = []
     for sq, p in sorted(b.piece_map().items()):
         if p.color != c or p.piece_type == chess.KING: continue
-        atacantes, defensores = len(b.attackers(not c, sq)), len(b.attackers(c, sq))
-        if atacantes > defensores or defensores == 0: out.append(sq)
+        if desprotegida(b, sq, c): out.append(sq)
     return out
 
 
@@ -437,7 +473,7 @@ def destaques(b: chess.Board, chaves):
                 for sq in pecas_desprotegidas(b, c):
                     casas.append([nm(sq), "D", "anel"])           # "D" = vermelho (desprotegido)
                     ats = list(b.attackers(opp, sq))
-                    if len(ats) > len(b.attackers(c, sq)):       # mais atacantes que defensores: mostra um atacante
+                    if ats and desprotegida(b, sq, c):           # atacada e mal defendida: mostra um atacante
                         a = min(ats, key=lambda a: VAL.get(b.piece_type_at(a), 10_000))
                         if len(setas) < 14: setas.append([nm(a), nm(sq), "D"])
             elif chave == "casas_desprotegidas":
@@ -523,7 +559,7 @@ def destaques(b: chess.Board, chaves):
                         atq = list(b.attackers(opp, sq))
                         if not atq: continue
                         menor = min(VAL.get(b.piece_type_at(a), 10_000) for a in atq)
-                        if not b.attackers(c, sq) or menor < VAL[t]:
+                        if not tem_defesa(b, sq, c) or menor < VAL[t]:
                             casa(sq, c)
                             seta(min(atq, key=lambda a: VAL.get(b.piece_type_at(a), 10_000)), sq, opp)
             elif chave == "casas_fracas":

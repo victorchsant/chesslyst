@@ -358,6 +358,10 @@ class H(BaseHTTPRequestHandler):
                     return self.json({"fens": fens, "ucis": ucis})
                 except Exception as e:
                     return self.json({"erro": str(e)}, 400)
+            if u.path == "/api/relogio":       # relógios atuais de uma partida de transmissão em andamento
+                url = relogio.url_ao_vivo(q.get("round"))
+                try: return self.json(relogio.ao_vivo(http_get(url), q.get("brancas"), q.get("pretas")) if url else {})
+                except Exception: return self.json({})
             if u.path == "/api/inicial":
                 return self.json(partida_inicial())
             if u.path == "/api/exemplo":

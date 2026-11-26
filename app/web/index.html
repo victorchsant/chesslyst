@@ -139,7 +139,7 @@ table.lin tr[data-pv]{cursor:pointer}
 #area-tab>.strip,#area-tab>.resultado,#area-tab>.abertura{box-sizing:border-box;width:calc(var(--sq)*8 + 4px);max-width:100%}
 #area-tab>.abertura{text-align:center}
 .pd{display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid #888}.pd.bl{background:#f2f2f2}.pd.pr{background:#222}
-.vez{color:var(--ac);font-size:12px;font-weight:700}.vez i{display:inline-block;width:12px;height:12px;border-radius:50%;background:currentColor;margin-right:4px;vertical-align:-1px}.clk{margin-left:auto;font-family:Consolas,monospace;background:var(--bg2);border:1px solid var(--bd);border-radius:5px;padding:1px 8px}
+.vez{color:var(--ac);font-size:12px;font-weight:700}.vez i{display:inline-block;width:12px;height:12px;border-radius:50%;background:currentColor;margin-right:4px;vertical-align:-1px}.clk{margin-left:auto;font-family:Consolas,monospace;background:var(--bg2);border:1px solid var(--bd);border-radius:5px;padding:1px 8px}.slot.velho{opacity:.35}.clk.corre{border-color:var(--ac);color:var(--ac);font-weight:700}
 .sinal{position:absolute;right:2px;top:2px;z-index:4;min-width:calc(var(--sq)*.3);height:calc(var(--sq)*.3);border-radius:50%;color:#fff;font:700 calc(var(--sq)*.17)/1 "Segoe UI";display:flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;box-shadow:0 0 0 1px #0008;padding:0}
 .sinal svg{display:block;width:62%;height:62%}   /* o "+" do xeque é desenhado: a fonte o deixava fora do centro do círculo */
 .lances .m{display:inline-flex;align-items:center;gap:1px}
@@ -356,7 +356,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.3.1</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.3.2</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -686,7 +686,7 @@ function interpHtml(row){
   const ant=row.ant,lado=row.side==='B'?t('brancas'):t('pretas');
   const mot=row.motivos?row.motivos.split(' | '):[];
   let h=`<div class="ih"><span class="badge" style="background:${BANDA_COR(row.indice)}">${row.faixa} · ${Math.round(row.indice)}%</span>${ajuda('Chance de Acerto: probabilidade de o jogador, com o seu nível de rating, escolher um lance adequado nesta posição.\n• Base: a engine identifica os lances adequados (os que quase não pioram a posição) e o modelo Maia, no nível do jogador, estima a probabilidade de ele escolher cada um deles.\n• Ajustes: teoria de abertura e mate curto elevam o valor; cálculo muito profundo o reduz; finais técnicos impõem um limite.\n• Calibração com partidas reais, que também considera o rating.\n• A divergência entre engines só reduz o valor se estiver ativada. O tempo de relógio é uma leitura à parte e não altera este valor.')}
-    <span class="mut">${t('Vez das {lado}',{lado})}${row.rating?' · '+t('rating {r}',{r:row.rating}):''}${row.tempo_restante!=null?' · ⏱ '+fmtT(row.tempo_restante):''}</span></div>
+    <span class="mut">${t('Vez das {lado}',{lado})}${row.rating?' · '+t('rating {r}',{r:row.rating}):''}${row.tempo_restante!=null?` · ⏱ <span data-rv="${row.side}" data-fixo="${row.tempo_restante}">${fmtRel(row.tempo_restante)}</span>`:''}</span></div>
     <p class="ires">${row.resumo}</p>`;
   if(row.critico)h+=`<div class="critico"><b>⚠ ${row.critico.titulo}</b>${ajuda('Momento crítico: só um lance resolve a posição e ele não é óbvio, ou o lance jogado muda o rumo da partida. Teoria de abertura, lance forçado e posição já decidida ficam de fora.')}<div>${row.critico.texto}</div></div>`;
   if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}${ajuda('Os fatores que mais pesaram na chance de acerto desta posição.\n“Lances praticamente iguais” são os que ficam muito perto do melhor: no máximo 3 pontos numa escala de 0 a 100 de chance de vitória, calculada da avaliação da engine (não vem de estatística de partidas). A engine calcula 5 linhas; por isso o texto diz “pelo menos 5” quando todas são boas.\nNa mesma escala: “um pouco pior” perde menos de 5 pontos; “claramente pior”, menos de 10; “bem pior”, menos de 20; “muito pior”, 20 ou mais.')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
@@ -846,11 +846,42 @@ function listaLances(){
 }
 function desenhaPlayers(row){
   const i=S.info||{};if(!i.White){$('#pl-topo').innerHTML=$('#pl-base').innerHTML='';return}
+  const vivo=relogioVivo();
   const mk=lado=>{const nome=lado==='B'?i.White:i.Black,elo=lado==='B'?i.WhiteElo:i.BlackElo;let rel=null;const nx=S.numeros&&S.numeros[lado];
-    for(let k=S.cur;k>=0;k--){const r=S.rows[k];if(r&&r.side===lado&&r.tempo_restante!=null){rel=r.tempo_restante;break}}
-    return `<span class="pd ${lado==='B'?'bl':'pr'}"></span><b>${nome||cap(t(lado==='B'?'brancas':'pretas'))}</b> <span class="mut">${elo||''}</span>${nx&&nx.precisao!=null?`<span class="prec" title="${esc(t(window.DICA_PRECISAO||''))}">${t('precisão')} <b>${num(nx.precisao,1)}%</b></span>`:''}${row&&row.side===lado?` <span class="vez">${t('● vez').replace('●','<i></i>')}</span>`:''}${rel!=null?`<span class="clk" title="${t('tempo no relógio antes do último lance dessa cor')}">⏱ ${fmtT(rel)}</span>`:''}`};
-  $('#pl-topo').innerHTML=mk(cfg.flip?'B':'P');$('#pl-base').innerHTML=mk(cfg.flip?'P':'B');
+    for(let k=S.cur<=S.rows.length?S.cur:-1;k>=0;k--){const r=S.rows[k];if(r&&r.side===lado&&r.tempo_restante!=null){rel=r.tempo_restante;break}}
+    return `<span class="pd ${lado==='B'?'bl':'pr'}"></span><b>${nome||cap(t(lado==='B'?'brancas':'pretas'))}</b> <span class="mut">${elo||''}</span>${nx&&nx.precisao!=null?`<span class="prec" title="${esc(t(window.DICA_PRECISAO||''))}">${t('precisão')} <b>${num(nx.precisao,1)}%</b></span>`:''}${row&&row.side===lado?` <span class="vez">${t('● vez').replace('●','<i></i>')}</span>`:''}${rel!=null||vivo?`<span class="clk" data-rv="${lado}" data-fixo="${rel??''}" title="${t('tempo no relógio antes do último lance dessa cor')}">⏱ ${fmtRel(rel)}</span>`:''}`};
+  $('#pl-topo').innerHTML=mk(cfg.flip?'B':'P');$('#pl-base').innerHTML=mk(cfg.flip?'P':'B');pintaRelogios();
 }
+/* ---------- relógio ao vivo: o de quem tem a vez corre na tela ---------- */
+let RV=null;   // últimos dados do Lichess (mais `fonte` e `em`, a hora em que chegaram)
+function fmtRel(s){if(s==null)return'–';s=Math.floor(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${x}`:`${m}:${x}`}
+function relogioVivo(){   // só no lance mais recente de uma partida em andamento, e se os dados são desta mesma posição
+  if(!RV||RV.fonte!==S.fonte||V||(S.info||{}).Result!=='*'||Date.now()-RV.em>45000)return null;
+  const fens=S.pre&&S.pre.fens;if(!fens||S.cur!==fens.length-1||fens[S.cur].split(' ').slice(0,2).join(' ')!==RV.fen)return null;
+  const c={B:RV.B,P:RV.P,corre:null};
+  if(RV.corre!=null){c.corre=RV.vez;c[RV.vez]=Math.max(0,RV[RV.vez]-RV.corre-(Date.now()-RV.em)/1000)}
+  return c;
+}
+function pintaRelogios(){   // atualiza só o texto dos relógios, sem redesenhar a tela
+  const v=relogioVivo();
+  document.querySelectorAll('[data-rv]').forEach(el=>{
+    const lado=el.dataset.rv,fixo=el.dataset.fixo===''?null:+el.dataset.fixo,s=v?v[lado]:fixo,faixa=el.classList.contains('clk');
+    const tx=(faixa?'⏱ ':'')+fmtRel(s);if(el.textContent!==tx)el.textContent=tx;
+    if(faixa){el.classList.toggle('corre',!!v&&v.corre===lado);
+      el.title=t(v?'relógio atual, pelos dados do Lichess (pode ter alguns segundos de diferença)':'tempo no relógio antes do último lance dessa cor')}
+  });
+}
+async function buscaRelogio(){
+  const f=S.fonte,i=S.info||{};
+  if(!(S.live&&f&&f.tipo==='rodada'&&i.Result==='*'&&i.White)||document.hidden)return;
+  let d;try{d=await api(`/api/relogio?round=${encodeURIComponent(f.round)}&brancas=${encodeURIComponent(i.White)}&pretas=${encodeURIComponent(i.Black)}`)}catch(e){return}
+  if(S.fonte!==f)return;
+  const antes=!!relogioVivo();RV=d&&d.fen?{...d,fonte:f,em:Date.now()}:null;
+  const fens=S.pre&&S.pre.fens;if(RV&&fens&&fens[fens.length-1].split(' ').slice(0,2).join(' ')!==RV.fen){if(S.job)adiantaLances(f);else acompanhaAoVivo(f)}   // saiu lance: busca já
+  if(!!relogioVivo()!==antes){const r=S.rows[S.cur],fen=S.pre&&S.pre.fens[S.cur];desenhaPlayers(r||{side:(fen||'').split(' ')[1]==='w'?'B':'P'})}else pintaRelogios();
+}
+setInterval(buscaRelogio,5000);setInterval(pintaRelogios,1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)buscaRelogio()});
 function desenhaProg(){
   const el=$('#prog');if(!S.job){el.hidden=true;return}
   const n=S.rows.length,esp=S.esperado||0,pct=esp?Math.round(100*n/esp):0;let tx='';
@@ -914,11 +945,12 @@ function desenha(){
     const fen=S.pre?S.pre.fens[Math.min(S.cur,S.pre.fens.length-1)]:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const u=S.pre&&S.cur>0?S.pre.ucis[S.cur-1]:null;
     pintaTab($('#tab'),fen,u?[u.slice(0,2),u.slice(2,4)]:[],null,'','seta',cavDe(V));
-    $$('.slot').forEach(x=>x.innerHTML='');desenhaPlayers({side:fen.split(' ')[1]==='w'?'B':'P'});
+    const esperando=!!S.job&&S._barras===S.cur-1;   // logo após o último lance analisado: as barras dele ficam, esmaecidas, para a tela não pular
+    $$('.slot').forEach(x=>{if(!esperando)x.innerHTML='';x.classList.toggle('velho',esperando)});if(!esperando)S._barras=null;desenhaPlayers({side:fen.split(' ')[1]==='w'?'B':'P'});
     $('#interp').innerHTML=S.job?`<p class="ires">${t('Esta posição ainda está sendo analisada…')}</p>`:`<p class="ires">${t('Partida carregada. Clique em “▶ Analisar” para calcular os índices.')}</p><div class="mut">${t('Você já pode navegar pelos lances.')}</div>`;
     $('#pos-det').innerHTML='<div class="mut">—</div>';$('#lin-lat').innerHTML='';$('#lin-baixo').innerHTML='';
     listaLances();grafico();return}
-  desenhaTab(row);desenhaBarras(row);desenhaBanner();
+  desenhaTab(row);desenhaBarras(row);S._barras=S.cur;$$('.slot').forEach(x=>x.classList.remove('velho'));desenhaBanner();
   $('#interp').innerHTML=interpHtml(row);$('#pos-det').innerHTML=posHtml(row);desenhaPlayers(row);
   $$('#pos-det details.gd').forEach(d=>d.ontoggle=()=>{cfg.gAberto[d.dataset.g]=d.open;save()});
   const lh=linhasHtml(row);$('#lin-lat').innerHTML=lh;$('#lin-baixo').innerHTML=lh;
@@ -937,7 +969,7 @@ function somDoPasso(san){if(cfg.som)somPeca(san||'')}   // o lance que levou à 
 /* a análise (ou a transmissão) levou a tela adiante sozinha: um toque por avanço. Quando muitos lances chegam de uma vez
    (análise salva, o primeiro pacote), fica em silêncio para não virar uma rajada. */
 function somAoAcompanhar(curAntes,linhasAntes,novas){
-  if($('#seguir').checked&&!V&&S.cur!==curAntes&&linhasAntes>0&&novas>0&&novas<=3)somDaPartida(S.cur);
+  if(!S.live&&$('#seguir').checked&&!V&&S.cur!==curAntes&&linhasAntes>0&&novas>0&&novas<=3)somDaPartida(S.cur);
 }
 const lanceAntes=i=>i>0?((S.lances&&S.lances[i-1])||(S.rows[i-1]&&S.rows[i-1].move)||''):'';
 function somDaPartida(i){const san=lanceAntes(i);somDoPasso(san);
@@ -960,19 +992,21 @@ function desenhaVar2(){
   if(V2.ucis[V2.k])seta(V2.ucis[V2.k],SETA_COR,$('#seta2'));
 }
 const totalPos=()=>S.pre?S.pre.fens.length:S.rows.length;
+/* o "lance mais recente": no ao vivo é o último lance da partida, analisado ou não; fora dele, com a análise rodando, o último já analisado */
+const ultimaPos=()=>((!S.live&&S.job&&S.rows.length)?S.rows.length:totalPos())-1;
 function irAoRecente(){   // “Lance mais recente”: vai para o último lance e, enquanto marcado, acompanha cada lance novo
-  V=null;foco2=false;const n=(S.job&&S.rows.length)?S.rows.length:totalPos();if(!n)return;if(S.cur!==n-1)somDaPartida(n-1);S.cur=n-1;desenha()}
+  V=null;foco2=false;const n=ultimaPos()+1;if(!n)return;if(S.cur!==n-1)somDaPartida(n-1);S.cur=n-1;desenha()}
 $('#seguir').onchange=e=>{if(e.target.checked)irAoRecente()};
 function vai(i){V=null;foco2=false;const n=totalPos();if(!n)return;
   const de=S.cur;S.cur=Math.max(0,Math.min(n-1,i));if(S.cur!==de)somDaPartida(S.cur);
-  const ult=(S.job&&S.rows.length)?S.rows.length-1:n-1;$('#seguir').checked=S.cur>=ult;   // a caixa acompanha onde você está: no lance mais recente fica marcada, em lance antigo desmarca
+  $('#seguir').checked=S.cur>=ultimaPos();   // a caixa acompanha onde você está: no lance mais recente fica marcada, em lance antigo desmarca
   desenha()}
 
 /* ---------- jobs ---------- */
 async function api(u,corpo){const r=await fetch(u,corpo?{method:'POST',headers:{'Content-Type':'application/json','X-Lang':LANG},body:JSON.stringify(corpo)}:{headers:{'X-Lang':LANG}});return r.json()}
 function status(x){$('#status').innerHTML=x}
 async function inicia(fonte){   // começa a analisar a partida já carregada (mantém o tabuleiro e a posição atual)
-  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.viuAberta=false;S.fimAvisado=false;S.rows=[];S.numeros=null;S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;
+  if(S.timer)clearInterval(S.timer);V=null;V2=null;S.viuAberta=false;S.fimAvisado=false;S.rows=[];S.numeros=null;S.estado='analisando';S.estadoAnt='';S.atual=null;S.decorrido=null;S.pedido=null;S.chave='';S._ult=null;S.versao=0;S.avisoPly=null;S._barras=null;
   S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';$('#seguir').checked=S.live;desenha();
   status(t('Iniciando análise… (a primeira posição leva alguns segundos)'));
   const r=await api('/api/job',{fonte,depth:cfg.depth,lang:LANG});S.job=r.id;poll();S.timer=setInterval(poll,800);
@@ -984,7 +1018,7 @@ function textoSalvas(d){   // o que já está salvo desta partida (a análise sa
 }
 async function carrega(fonte){   // abre a partida SEM analisar: dá para navegar pelos lances na hora
   if(S.job){try{await api('/api/parar',{id:S.job})}catch(e){}}
-  if(S.timer)clearInterval(S.timer);S.job=null;S.rows=[];S.numeros=null;S.estado='';V=null;V2=null;S.fonte=fonte;S.chave='';S._ult=null;S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';
+  if(S.timer)clearInterval(S.timer);S.job=null;S.rows=[];S.numeros=null;S.estado='';V=null;V2=null;S.fonte=fonte;S.chave='';S._ult=null;S.ultAviso='';S.avisoPly=null;S.live=!!fonte.ao_vivo&&fonte.tipo!=='pgn';
   status(t('Carregando partida…'));
   clearInterval(S.liveTimer);
   let d;try{d=await api('/api/partida',{fonte})}catch(e){status(t('Erro: {e}',{e:String(e)}));return false}
@@ -1001,12 +1035,12 @@ async function acompanhaAoVivo(fonte){   // partida ao vivo ainda não analisada
   let d;try{d=await api('/api/partida',{fonte})}catch(e){return}
   if(!d||d.erro||!d.fens||d.fens.length<=(S.pre?S.pre.fens.length:0)&&(d.info||{}).Result===(S.info||{}).Result)return;
   const antesRes=(S.info||{}).Result||'*';
-  const noFim=S.cur>=totalPos()-1||$('#seguir').checked;S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;
-  const curAntes=S.cur;if(noFim)S.cur=d.fens.length-1;
+  const tinha=totalPos(),noFim=S.cur>=totalPos()-1||$('#seguir').checked;S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;
+  if(noFim)S.cur=d.fens.length-1;
   const terminou=antesRes==='*'&&decidida(S.info.Result);
-  if(S.cur!==curAntes){const san=lanceAntes(S.cur);if(san)somDoPasso(san)}
+  const chegou=chegouLance(tinha);
   if((S.info.Result||'*')!=='*')clearInterval(S.liveTimer);
-  if(terminou){avisa(t('Partida encerrada'),t('Resultado: {r}',{r:S.info.Result}),false,'',true);somDoResultado(S.info.Result,(S.lances||[]).slice(-1)[0],S.cur!==curAntes?.8:0)}
+  if(terminou)avisaFim(S.info.Result,chegou);
   desenha();
 }
 function analisar(){if(S.fonte)inicia(S.fonte)}
@@ -1043,24 +1077,24 @@ async function carregaExemplo(){
 async function poll(){
   if(!S.job)return;let d;try{d=await api(`/api/job?id=${S.job}&desde=${S.rows.length}&v=${S.versao||0}`)}catch(e){return}
   if(d.erro){status(t('Erro: {e}',{e:d.erro}));clearInterval(S.timer);return}
-  const seguindo=S.cur===S.rows.length-1||S.rows.length===0;const antes=S.rows.length,curAntes=S.cur;
-  (d.mudadas||[]).forEach(r=>{S.rows[r.idx]=r});d.rows.forEach((r,k)=>S.rows[d.desde+k]=r);S.versao=d.versao;S.estado=d.estado;S.info=d.info||{};S.engines=d.engines;
-  S.lances=d.lances||S.lances;S.numeros=d.numeros||null;S.esperado=d.esperado||S.esperado;S.atual=d.atual;S.decorrido=d.decorrido;
-  if(d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
-  if(S.rows.length&&$('#seguir').checked&&!V)S.cur=S.rows.length-1;   // marcado: mantém no lance mais recente e atualiza
+  const antes=S.rows.length,curAntes=S.cur,tinha=totalPos();
+  const atrasada=!!(S.live&&S.pre&&d.fens&&d.fens.length&&d.fens.length<S.pre.fens.length&&d.fens.every((x,k)=>x===S.pre.fens[k]));   // a tela já sabe de lances que a análise ainda não buscou
+  (d.mudadas||[]).forEach(r=>{S.rows[r.idx]=r});d.rows.forEach((r,k)=>S.rows[d.desde+k]=r);S.versao=d.versao;S.estado=d.estado;S.engines=d.engines;
+  if(!atrasada){S.info=d.info||{};S.lances=d.lances||S.lances;S.esperado=d.esperado||S.esperado}
+  S.numeros=d.numeros||null;S.atual=d.atual;S.decorrido=d.decorrido;
+  if(!atrasada&&d.fens&&d.fens.length)S.pre={info:d.info||{},lances:d.lances,fens:d.fens,ucis:d.ucis,aberturas:d.aberturas||[]};   // lances novos de partidas ao vivo
+  if(totalPos()&&$('#seguir').checked&&!V&&(S.live||S.rows.length))S.cur=ultimaPos();   // marcado: mantém no lance mais recente (no ao vivo, assim que o lance sai)
   const i=S.info;const jog=i.White?`<b>${esc(i.White)}</b> ${i.WhiteElo||''} — <b>${esc(i.Black)}</b> ${i.BlackElo||''} · ${descPartida(i)}`:'';
   const vivo='';const np=S.rows.length;
   status(`${vivo}${jog} · ${np===1?t('1 posição analisada'):t('{n} posições analisadas',{n:np})} · ${t(d.estado)}${d.aviso?' · '+d.aviso:''}${d.salva==='mundial'?' · 💾 '+t('análise do Mundial salva'):d.salva==='falhou'?' · ⚠ '+t('não consegui salvar a análise'):''}`);
   const chave=[d.versao,d.estado,(d.lances||[]).length,d.esperado,d.atual,S.cur,V?1:0].join('|');
   if(chave!==S.chave){S.chave=chave;desenha()}else desenhaProg();   // só redesenha se algo mudou: a rolagem fica livre
-  const avisouLance=S.live&&S.estadoAnt==='ao vivo'&&S.rows.length>antes;
-  if(avisouLance)avisaLance();                                                   // lance novo ao vivo: o aviso já toca
-  else somAoAcompanhar(curAntes,antes,S.rows.length-antes);
+  const chegou=S.live&&chegouLance(tinha);                                       // lance novo ao vivo: toca quando ele aparece
+  if(!chegou)somAoAcompanhar(curAntes,antes,S.rows.length-antes);
+  completaAviso();                                                               // a nota do lance entra no aviso depois, sem som
   const res=(S.info&&S.info.Result)||'*';
   if(S.live&&res==='*')S.viuAberta=true;                                        // esta análise acompanhou a partida em andamento
-  if(S.live&&S.viuAberta&&!S.fimAvisado&&d.estado==='fim'&&decidida(res)){S.fimAvisado=true;
-    avisa(t('Partida encerrada'),t('Resultado: {r}',{r:res}),false,'',true);
-    somDoResultado(res,(S.lances||[]).slice(-1)[0],S.rows.length>antes?.8:0)}   // se o último lance chegou junto, o som dele vem primeiro
+  if(S.live&&S.viuAberta&&!S.fimAvisado&&decidida(res)){S.fimAvisado=true;avisaFim(res,chegou)}   // assim que o resultado sai, sem esperar a análise
   S.estadoAnt=d.estado;
   if(['fim','erro','parado'].includes(d.estado))clearInterval(S.timer);
 }
@@ -1095,17 +1129,40 @@ const tituloOriginal=document.title;
 addEventListener('focus',()=>{document.title=tituloOriginal});
 function avisa(titulo,corpo,verBotao,san='',semSom=false){
   const to=$('#toast');to.hidden=false;to.innerHTML=`<b>${titulo}</b><br>${corpo}<br>${verBotao?`<button class="pri" id="t-ver">${t('Ver agora')}</button>`:''}<button id="t-ok">${t('Fechar')}</button>`;
-  $('#t-ok').onclick=()=>to.hidden=true;if(verBotao)$('#t-ver').onclick=()=>{to.hidden=true;V=null;$('#seguir').checked=true;S.cur=S.rows.length-1;desenha()};
+  $('#t-ok').onclick=()=>to.hidden=true;if(verBotao)$('#t-ver').onclick=()=>{to.hidden=true;V=null;$('#seguir').checked=true;S.cur=ultimaPos();desenha()};
   clearTimeout(avisa.t);avisa.t=setTimeout(()=>to.hidden=true,15000);
   if(document.hidden)document.title='● '+titulo+' — Chesslyst';
   if(cfg.som&&!semSom)somPeca(san);
   if(cfg.notif&&'Notification' in window&&Notification.permission==='granted'&&document.hidden)new Notification(titulo,{body:corpo.replace(/<[^>]+>/g,'')});
 }
-function avisaLance(){
-  const r=S.rows[S.rows.length-2];if(!r||!r.move)return;
-  const nn=parseFen(r.fen).mv,quem=t(r.side==='B'?'brancas':'pretas'),prox=t(r.side==='B'?'pretas':'brancas');
-  const ult=S.rows[S.rows.length-1];const nota=r.jogada_classe?` · ${r.jogada_classe} (${Math.round(r.jogada_indice)})`:'';
-  avisa(t('Novo lance ao vivo'),`${nn}${r.side==='B'?'.':'…'} <b>${r.move}</b> (${quem})${nota}<br>${t('Agora jogam as {l} · chance de acerto {p}%',{l:prox,p:Math.round(ult.indice)})}`,S.cur!==S.rows.length-1||V,r.move);
+function chegouLance(tinha){   // saiu um lance na partida ao vivo: um aviso e um som, na hora em que ele aparece (a análise vem depois)
+  const n=totalPos(),ply=n-1;if(!tinha||n<=tinha||!S.pre)return false;
+  const san=lanceAntes(ply),chave=ply+'|'+san;if(!san||S.ultAviso===chave)return false;
+  S.ultAviso=chave;S.avisoPly=ply;
+  const campos=S.pre.fens[ply-1].split(' '),brancas=campos[1]==='w';
+  const prox=san.includes('#')?'':`<br>${t('Agora jogam as {l}',{l:t(brancas?'pretas':'brancas')})}`;
+  avisa(t('Novo lance ao vivo'),`${campos[5]}${brancas?'.':'…'} <b>${san}</b> (${t(brancas?'brancas':'pretas')})${prox}<span id="t-nota"></span>`,!!V||S.cur!==ply,san);
+  return true;
+}
+function completaAviso(){   // quando a análise do lance avisado fica pronta, a nota entra no aviso que ainda estiver aberto
+  const el=$('#t-nota'),ply=S.avisoPly;if(ply==null||!el||$('#toast').hidden)return;
+  const r=S.rows[ply-1],u=S.rows[ply];if(!r||!r.jogada_classe||!u||u.indice==null)return;
+  el.innerHTML=`<br>${r.jogada_classe} (${Math.round(r.jogada_indice)}) · ${t('chance de acerto agora: {p}%',{p:Math.round(u.indice)})}`;S.avisoPly=null;
+}
+async function adiantaLances(f){   // com a análise ocupada, ela só busca lances novos quando termina o que está calculando: a tela busca por conta própria
+  if(S.adiantando)return;S.adiantando=true;
+  try{const d=await api('/api/partida',{fonte:f});
+    if(S.fonte!==f||!S.job||!d||d.erro||!d.fens||d.fens.length<=totalPos())return;
+    const tinha=totalPos();S.pre=d;S.info=d.info||{};S.lances=d.lances;S.esperado=d.fens.length;
+    if($('#seguir').checked&&!V)S.cur=ultimaPos();
+    S.chave='';desenha();
+    const chegou=chegouLance(tinha),res=S.info.Result;
+    if(S.viuAberta&&!S.fimAvisado&&decidida(res)){S.fimAvisado=true;avisaFim(res,chegou)}
+  }catch(e){}finally{S.adiantando=false}
+}
+function avisaFim(res,comLance){   // se o último lance chegou junto, o som dele vem primeiro
+  S.avisoPly=null;avisa(t('Partida encerrada'),t('Resultado: {r}',{r:res}),false,'',true);
+  somDoResultado(res,(S.lances||[]).slice(-1)[0],comLance?.8:0);
 }
 
 /* ---------- fontes ---------- */

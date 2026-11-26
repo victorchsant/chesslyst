@@ -197,6 +197,7 @@ window.EN_DICT = {
   'ainda em análise: abre sozinho quando ficar pronto': 'still being analyzed: opens by itself when ready',
   '● vez': '● to move',
   'tempo no relógio antes do último lance dessa cor': 'time on the clock before that side’s last move',
+  'relógio atual, pelos dados do Lichess (pode ter alguns segundos de diferença)': 'current clock, from Lichess data (may differ by a few seconds)',
   /* ---- progresso e avisos ---- */
   'Analisando posição {a} de {b}': 'Analyzing position {a} of {b}',
   ' · {s} s nesta posição': ' · {s} s on this position',
@@ -214,7 +215,8 @@ window.EN_DICT = {
   '1 posição analisada': '1 position analyzed', '{n} posições analisadas': '{n} positions analyzed',
   'analisando': 'analyzing', 'fim': 'done', 'erro': 'error', 'parado': 'stopped', 'esperando': 'waiting',
   'Novo lance ao vivo': 'New live move',
-  'Agora jogam as {l} · chance de acerto {p}%': '{l} to move now · hit chance {p}%',
+  'Agora jogam as {l}': '{l} to move now',
+  'chance de acerto agora: {p}%': 'hit chance now: {p}%',
   'Ver agora': 'See now', 'Fechar': 'Close',
   'Partida ao vivo: {n} lances até agora. Os lances novos aparecem sozinhos; clique em “▶ Analisar” para calcular os índices.': 'Live game: {n} moves so far. New moves appear on their own; click “▶ Analyze” to compute the indices.',
   'Partida encerrada': 'Game over', 'Partida em andamento': 'Game in progress',

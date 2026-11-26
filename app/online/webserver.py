@@ -281,6 +281,10 @@ async def handle(metodo, caminho, query_json, corpo_json, lang):
         if caminho == "/api/baixaveis": return _ok([])
         if caminho == "/api/baixar/estado": return _ok({})
         if caminho == "/api/engines/testar": return _ok({"erro": "indisponível na versão online"}, 400)
+        if caminho == "/api/relogio":       # relógios atuais de uma partida de transmissão em andamento
+            url = relogio.url_ao_vivo(q.get("round"))
+            try: return _ok(relogio.ao_vivo(await http_get(url), q.get("brancas"), q.get("pretas")) if url else {})
+            except Exception: return _ok({})
         if caminho == "/api/inicial":
             return _ok(await inicial.escolhe(http_get))
         if caminho == "/api/exemplo":

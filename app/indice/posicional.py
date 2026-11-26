@@ -360,6 +360,10 @@ def desc_material(b):
     """A diferença de material pelas PEÇAS do tabuleiro (sem os pesos do índice posicional).
     -> (quem está na frente: True = brancas, "um cavalo a mais" | "uma torre contra um bispo e um peão") ou None se empata."""
     dif = {t: len(b.pieces(t, True)) - len(b.pieces(t, False)) for t in _VALOR_PECA}
+    # um cavalo de um lado contra um bispo do outro não é material a mais para ninguém: os dois saem da conta
+    if dif[chess.KNIGHT] * dif[chess.BISHOP] < 0:
+        pares = min(abs(dif[chess.KNIGHT]), abs(dif[chess.BISHOP]))
+        for t in (chess.KNIGHT, chess.BISHOP): dif[t] -= pares if dif[t] > 0 else -pares
     saldo = sum(_VALOR_PECA[t] * n for t, n in dif.items())
     if not saldo: return None
     lider = saldo > 0

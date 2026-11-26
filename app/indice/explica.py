@@ -77,6 +77,95 @@ def e_retomada(board, uci, tomada):
     return m.to_square == tomada[0] and board.is_capture(m)
 
 
+def completar_troca(board, pv, tomada):
+    """Troca em andamento: o adversário acabou de capturar e a linha da engine retoma naquela casa (de imediato, ou depois de
+    um xeque intermediário). -> (tabuleiro com a troca completada, lances da engine usados) ou None.
+    Só entram lances que a engine calculou; a sequência acaba quando ela para de capturar na casa da troca."""
+    if not tomada or not pv: return None
+    try:
+        casa = tomada[0]
+        lances = [chess.Move.from_uci(u) for u in pv]
+        b = board.copy(stack=False)
+        if lances[0] not in b.legal_moves: return None
+        if lances[0].to_square == casa and b.is_capture(lances[0]): inicio = 0
+        elif len(lances) >= 3 and b.gives_check(lances[0]) and not b.is_capture(lances[0]) and lances[2].to_square == casa: inicio = 2
+        else: return None
+        usados = []
+        for k, m in enumerate(lances):
+            if m not in b.legal_moves or (k >= inicio and not (m.to_square == casa and b.is_capture(m))): break
+            b.push(m); usados.append(m.uci())
+        return (b, usados) if len(usados) > inicio else None
+    except ValueError:
+        return None
+
+
+def _lances_imediatos(board, pv, limite=10):
+    """O começo forçado da linha da engine: quem joga captura ou dá xeque a cada lance (o primeiro também pode ser um
+    ataque duplo ou uma cravada que captura no lance seguinte), até a última captura. -> lances UCI ou []."""
+    try:
+        lances = [chess.Move.from_uci(u) for u in pv[:limite]]
+        b = board.copy(stack=False); feitos = []                      # (lance, foi captura)
+        for k, m in enumerate(lances):
+            if m not in b.legal_moves: break
+            if k % 2 == 0 and not (b.is_capture(m) or b.gives_check(m)):
+                if k or len(lances) < 3 or not any(i[0] in ("garfo", "cravada") for i in _ideias(b, m)): break
+                depois = b.copy(stack=False); depois.push(m)
+                if lances[1] not in depois.legal_moves: break
+                depois.push(lances[1])
+                if lances[2] not in depois.legal_moves or not depois.is_capture(lances[2]): break
+            feitos.append((m, b.is_capture(m))); b.push(m)
+        else:
+            if len(lances) == len(pv) and feitos and feitos[-1][1] and _retomada(b, feitos[-1][0].to_square)[1] is not None:
+                while feitos and feitos[-1][1]: feitos.pop()          # a linha acabou no meio de uma troca
+        while feitos and not feitos[-1][1]: feitos.pop()              # o que vem depois da última captura não muda o material
+        return [m.uci() for m, _ in feitos]
+    except ValueError:
+        return []
+
+
+def posicao_resolvida(board, linha, tomada):
+    """A posição que os índices estáticos devem medir quando há algo imediato no tabuleiro: uma troca em andamento ou um
+    ganho forçado (peça solta, tática). -> (tabuleiro depois da sequência, lances da engine, "troca" | "tatica") ou None.
+
+    A troca (retomada na casa da captura anterior) entra sempre. A tática só entra quando muda o material e deixa a
+    conta MAIS PERTO da avaliação da engine do que está agora: um peão que se pega mas é compensado não conta."""
+    if not linha: return None
+    pv = linha.get("pv_uci") or [linha.get("uci")]
+    mate, cp = linha.get("mate"), linha.get("cp")
+    motor = (1000 if mate > 0 else -1000) if mate is not None else cp          # do ponto de vista das brancas
+    troca = completar_troca(board, pv, tomada)
+    melhor = (troca[0], troca[1], "troca") if troca else None
+    if motor is None: return melhor
+    lances = _lances_imediatos(board, pv)
+    if lances and (not troca or len(lances) > len(troca[1])):
+        b = board.copy(stack=False)
+        for u in lances: b.push(chess.Move.from_uci(u))
+        base = _material(melhor[0] if melhor else board)
+        novo = _material(b)
+        # começando por um lance calmo (a armadilha de um ataque duplo), o ganho tem de ser de quem o joga
+        primeiro = chess.Move.from_uci(lances[0])
+        calmo = not (board.is_capture(primeiro) or board.gives_check(primeiro))
+        a_favor = (novo - base) * (1 if board.turn else -1) > 0
+        if abs(novo - base) >= 90 and abs(novo - motor) + 25 <= abs(base - motor) and not b.is_checkmate() and (a_favor or not calmo):
+            melhor = (b, lances, "tatica")
+    return melhor
+
+
+def peca_solta(board, lances):
+    """Quando a sequência começa tomando uma peça (não peão) que está sem defesa, ou atacada por peça de menor valor,
+    a frase que diz isso; senão, "". `lances` são os da sequência, a partir de `board`."""
+    try:
+        m = chess.Move.from_uci(lances[0])
+        alvo = board.piece_at(m.to_square)
+        if not alvo or alvo.piece_type in (chess.PAWN, chess.KING) or not board.is_capture(m): return ""
+        quem = pc(board, m.to_square, cap=True)
+        if not board.attackers(alvo.color, m.to_square): return T("p.solta", p=quem)
+        if VAL.get(board.piece_type_at(m.from_square), 100) < VAL[alvo.piece_type]: return T("p.exposta", p=quem)
+    except (IndexError, ValueError, KeyError):
+        pass
+    return ""
+
+
 def _vale(board, linha, minimo=100):
     """A avaliação da engine confirma que a linha é boa para quem joga? Sem isso, nada de dizer que ela ganha material."""
     mate, cp = linha.get("mate"), linha.get("cp")
@@ -734,13 +823,18 @@ def explicar_avaliacao(raw, info=None):
     entregou = seq["perdeu"] if do_lado else seq["ganhou"]    # e as que ele dá em troca
     liquido = seq["liquido"] if do_lado else -seq["liquido"]
     causa, k = None, "posicional"
-    if liquido >= 1.5 and ganhou and abs(cp) >= 100:
+    sobra = desc_material(feita[0]) if (feita := posicao_resolvida(board, L[0], raw.get("tomada"))) and feita[2] == "tatica" else None
+    if sobra and sobra[0] == (fav == chess.WHITE):
+        causa, k = T("a.c_apos", s=_notacao(board, feita[1], len(feita[1])), l=quem, d=sobra[1]), "material"
+    elif liquido >= 1.5 and ganhou and abs(cp) >= 100:
         # primeiro lance da variante em que o favorecido captura uma dessas peças
         quando = next((i for i, p in enumerate(seq["passos"]) if p["cap"] in ganhou and p["meu"] == do_lado), len(seq["passos"]))
         causa, k = T("a.c_perde", l=outro, p=_por(ganhou, entregou), w=_quando(quando)), "perde_material"
     else:
-        mat = _material(board) * (1 if fav == chess.WHITE else -1)
-        real = desc_material(board)
+        feita = posicao_resolvida(board, L[0], raw.get("tomada"))
+        base = feita[0] if feita else board                 # com troca ou ganho imediato, o material só vale depois dele
+        mat = _material(base) * (1 if fav == chess.WHITE else -1)
+        real = desc_material(base)
         if mat >= 150 and real and real[0] == (fav == chess.WHITE):
             causa, k = T("a.c_material", l=quem, d=real[1]), "material"
         else:

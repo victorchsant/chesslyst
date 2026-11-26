@@ -348,7 +348,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     <label class="bol"><input type="checkbox" id="c-neutros"> mostrar itens sem diferença em “Posição em detalhes”</label>
     <label class="bol"><input type="checkbox" id="c-coord"> coordenadas</label>
     <label class="bol"><input type="checkbox" id="c-flip"> virar tabuleiro (pretas embaixo)</label>
-    <label class="bol"><input type="checkbox" id="c-som"> som ao chegar lance ao vivo</label>
+    <label class="bol"><input type="checkbox" id="c-som"> som dos lances (passador e ao vivo)</label>
     <label class="bol"><input type="checkbox" id="c-notif"> notificação do sistema (lance ao vivo)</label>
   </div>
 </div></div>
@@ -356,7 +356,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
 <div class="janela" id="jan-sobre" hidden><div class="jan-tit"><span>Sobre o Chesslyst</span><button class="jan-x" title="Fechar (Esc)">✕</button></div><div class="jan-corpo"><div class="sobre">
   <h2>Chesslyst</h2>
   <p class="mut">Chance de acerto no xadrez</p>
-  <div class="kv"><span class="k">Versão</span><div class="v">0.2.7</div></div>
+  <div class="kv"><span class="k">Versão</span><div class="v">0.2.8</div></div>
   <div class="kv"><span class="k">Desenvolvedor</span><div class="v">Víctor Chaves Santos</div></div>
   <div class="kv"><span class="k">Desenvolvido com</span><div class="v">Claude (Anthropic)</div></div>
   <div class="kv"><span class="k">Modelo</span><div class="v">Claude Sonnet 5.5</div></div>
@@ -401,7 +401,7 @@ html[data-tema="claro"] .janela{box-shadow:0 16px 48px #0003}
     <div class="nav">
       <button id="n-ini">⏮</button><button id="n-ant">◀</button><button id="n-prox">▶</button><button id="n-fim">⏭</button><button id="n-flip" title="Virar o tabuleiro (tecla F)">⇅ Virar</button>
       <label class="bol"><input type="checkbox" id="seguir" checked> Lance mais recente</label>
-      <label class="bol" title="Som ao chegar um lance novo (partida ao vivo)"><input type="checkbox" id="seguir-som"> Som</label>
+      <label class="bol" title="Som ao passar os lances e ao chegar um lance novo ao vivo"><input type="checkbox" id="seguir-som"> Som</label>
     </div>
     <div class="card bloco" data-b="var" id="var-card" hidden><div class="bh"><span id="var-tit">Tabuleiro de variantes</span><span><button id="var2-flip" title="virar o tabuleiro">⇅</button><button id="var2-fecha" title="fechar (Esc)">✕</button></span></div><div class="bc"><div id="var2-info" class="sub"></div><div id="tab2"></div><div class="nav"><button id="v2-ini">⏮</button><button id="v2-ant">◀</button><button id="v2-prox">▶</button><button id="v2-fim">⏭</button></div><div class="mut" style="font-size:12px;text-align:center;margin-top:4px">Com este quadro em foco, ← → andam na variante e Esc fecha.</div></div></div>
     </div>
@@ -632,11 +632,12 @@ function setasPadrao(row){
 
 /* ---------- barras ---------- */
 function eng(row){if(row.engine_mate!=null)return(row.engine_mate>0?'+':'−')+'M'+Math.abs(row.engine_mate);return row.engine_cp==null?'':(row.engine_cp>=0?'+':'−')+num(Math.abs(row.engine_cp)/100)}
+const avisoTroca=x=>t(x.tipo==='tatica'?'Sequência imediata: o valor já conta {l}':'Troca em andamento: o valor já conta {l}',{l:x.lances});
 function dadosBarras(row){
   const ant=row.ant,lado=t(row.side==='B'?'brancas':'pretas'),W=t('brancas');
   return {
     engine:{t:t('Engine'),dica:t('Avaliação original da engine (não ajustada pelos índices)'),pct:row.engine_brancas,duo:true,val:eng(row)+'<br>'+W+' '+Math.round(row.engine_brancas)+'%'},
-    posicao:{t:t('Posição'),dica:t('Avaliação estática: material + estrutura (calculada pelo programa, sem usar a engine)'),pct:row.posicao_brancas,duo:true,val:Math.round(row.posicao_brancas)+'%<br>'+W},
+    posicao:{t:t('Posição'),dica:t('Avaliação estática: material + estrutura (calculada pelo programa, sem usar a engine)')+(row.troca?'. '+avisoTroca(row.troca):''),pct:row.posicao_brancas,duo:true,val:Math.round(row.posicao_brancas)+'%'+(row.troca?' ⇄':'')+'<br>'+W},
     material:{t:t('Material'),dica:t('Só o material (peão 1, cavalo 3, bispo 3, torre 5, dama 9)'),pct:row.material_brancas,duo:true,val:(row.material_cp>=0?'+':'−')+num(Math.abs(row.material_cp)/100,1)+'<br>'+W+' '+Math.round(row.material_brancas)+'%'},
     acerto:{t:t('Acerto'),pct:row.indice,cor:BANDA_COR(row.indice),val:Math.round(row.indice)+'%<br>'+row.faixa+' ('+lado+')'},
     jogada:ant?{t:t('Jogada'),pct:ant.indice,cor:CLS_COR[ant.classe_id]||'#999',val:Math.round(ant.indice)+'<br>'+ant.lance+' · '+ant.classe}:{t:t('Jogada'),pct:0,cor:'#555',val:'—<br>'+t('início')}
@@ -691,7 +692,7 @@ function interpHtml(row){
   if(mot.length||row.fonte_final==='estimado')h+=`<div class="kv"><span class="k">${t('Por quê')}${ajuda('Os fatores que mais pesaram na chance de acerto desta posição.')}</span><div class="v"><ul class="mot">${mot.map(m=>`<li>${m}</li>`).join('')}${row.fonte_final==='estimado'?`<li class="mut">${t('Final estimado pela engine (tablebase indisponível).')}</li>`:''}</ul></div></div>`;
   if(row.repeticao_texto)h+=`<div class="kv"><span class="k">${t('Repetição')}</span><div class="v">${row.repeticao_texto}</div></div>`;
   if(row.avaliacao_texto)h+=`<div class="kv"><span class="k">${t('Avaliação')}${ajuda('Explica a pontuação da engine lendo a linha principal dela (material, mate, vantagem). Não altera o valor original da engine.')}</span><div class="v">${row.avaliacao_texto}</div></div>`;
-  h+=`<div class="kv"><span class="k">${t('Posição')}${ajuda('Índice de Posição: avaliação estática (material, estrutura de peões, atividade das peças, rei), calculada pelo programa sem usar a engine.')}</span><div class="v">${row.posicao_texto}</div></div>`;
+  h+=`<div class="kv"><span class="k">${t('Posição')}${ajuda('Índice de Posição: avaliação estática (material, estrutura de peões, atividade das peças, rei), calculada pelo programa sem usar a engine.\n⇄ Com uma troca em andamento, uma peça solta ou uma tática imediata, a barra, a tabela e este texto medem a posição depois da sequência que a engine indica. Se o lance jogado for outro, passam a refletir a nova posição.')}</span><div class="v">${row.posicao_texto}</div></div>`;
   if(ant)h+=`<div class="kv"><span class="k">${t('Último lance')}${ajuda('Índice de Jogada: qualidade do lance que acabou de ser jogado, comparada ao melhor lance da engine.')}</span><div class="v">${lanceMc(ant.lance,ant.uci,ant.lado)} <span class="badge" style="background:${CLS_COR[ant.classe_id]||'#999'}">${ant.classe} · ${Math.round(ant.indice)}</span><div>${ant.texto}</div>${ant.critico?`<div class="critico mini">⚠ ${ant.critico.titulo}</div>`:''}${ant.tempo?`<div class="mut">⏱ ${ant.tempo}</div>`:''}</div></div>`;
   return h;
 }
@@ -808,7 +809,8 @@ function posHtml(row){
   const G=row.posicao_grupos;if(!G)return'<div class="mut">—</div>';
   const eng=row.engine_cp!=null?fcp(row.engine_cp):(row.engine_mate!=null?t('mate'):'—');
   const st=(l,v,dica)=>`<div class="st" title="${esc(dica)}"><span>${l}</span><b>${v}</b></div>`;
-  let h=`<div class="stats">${st(t('Estático'),fcp(row.posicao_cp),t('material + estrutura, calculado pelo programa sem usar a engine'))}${st(t('Engine'),eng,t('valor original da engine'))}${st(t('Dinâmica/tática'),row.posicao_residuo!=null?fcp(row.posicao_residuo):'—',t('o que a engine enxerga além do estático: tática, iniciativa, ameaças'))}</div>`;
+  const aviso=row.troca?`<div class="nota">⇄ ${esc(avisoTroca(row.troca))}</div>`:'';
+  let h=aviso+`<div class="stats">${st(t('Estático'),fcp(row.posicao_cp),t('material + estrutura, calculado pelo programa sem usar a engine'))}${st(t('Engine'),eng,t('valor original da engine'))}${st(t('Dinâmica/tática'),row.posicao_residuo!=null?fcp(row.posicao_residuo):'—',t('o que a engine enxerga além do estático: tática, iniciativa, ameaças'))}</div>`;
   const linha=(nome,cp,cls,extra,dd)=>`<div class="rw ${cls}"${dd?` data-d="${dd}"${cls==='g'?` title="${esc(t('Passe o mouse para ver no tabuleiro; clique para fixar (pode fixar vários)'))}"`:''}`:''}><span class="rn">${nome}${extra||''}</span>${cbar(cp,cls==='i')}<span class="rv">${Math.abs(cp)<5?'—':fcp(cp)}</span></div>`;
   // itens informativos (peças e casas desprotegidas): lista por lado, com cada casa em negrito marcando o tabuleiro
   const doGrupo=g=>(g.id==='estrutura'?'peoes,':'')+g.itens.map(i=>i.chave).join(',');
@@ -929,14 +931,17 @@ async function abreVariante(fen,pv,k,eng){const d=await api('/api/variante?fen='
   if(d.erro)return status(t('Variante inválida: {e}',{e:d.erro}));
   const o={fen0:fen,pv:pv,fens:d.fens,ucis:d.ucis,k:Math.min(k,pv.length),eng:eng};
   if(cfg.varSep){V2=o;V=null;foco2=true}else{V=o;foco2=false}
+  if(o.k)somDoPasso(o.pv[o.k-1]);
   $('#seguir').checked=false;desenha()}
-function passo(d){if(!V)return;V.k=Math.max(0,Math.min(V.pv.length,V.k+d));desenha()}
+function somDoPasso(san){if(cfg.som)somPeca(san||'')}   // o lance que levou à posição mostrada; no começo, só o toque da peça
+const somDaPartida=i=>somDoPasso(i>0?((S.lances&&S.lances[i-1])||(S.rows[i-1]&&S.rows[i-1].move)):'');
+function passo(d){if(!V)return;const k=V.k;V.k=Math.max(0,Math.min(V.pv.length,V.k+d));if(V.k!==k)somDoPasso(V.k?V.pv[V.k-1]:'');desenha()}
 function saiVariante(){V=null;desenha()}
 function desenhaBanner(){const b=$('#vbanner');if(!V){b.hidden=true;return}b.hidden=false;
   b.innerHTML=`<b>${t('Variante')}${V.eng?' · '+V.eng:''}</b> — ${pvTxt(V.fen0,V.pv.slice(0,V.k)).trim()||t('(posição da partida)')} <span class="mut">· ${t('passo {k}/{n}',{k:V.k,n:V.pv.length})}</span> <button id="v-ant">◀</button><button id="v-prox">▶</button><button id="v-out" title="${t('abrir esta variante em outro tabuleiro')}">${t('↗ Outro tabuleiro')}</button><button id="v-sai" class="pri">${t('Voltar à partida (Esc)')}</button><div class="mut">${t('As barras e a interpretação continuam sendo da posição real da partida. Setas ← → andam na variante.')}</div>`;
   $('#v-ant').onclick=()=>passo(-1);$('#v-prox').onclick=()=>passo(1);$('#v-sai').onclick=saiVariante;
   $('#v-out').onclick=()=>{V2=V;V=null;foco2=true;desenha()}}
-function passoV2(d,abs){if(!V2)return;V2.k=Math.max(0,Math.min(V2.pv.length,abs!=null?abs:V2.k+d));desenha()}
+function passoV2(d,abs){if(!V2)return;const k=V2.k;V2.k=Math.max(0,Math.min(V2.pv.length,abs!=null?abs:V2.k+d));if(V2.k!==k)somDoPasso(V2.k?V2.pv[V2.k-1]:'');desenha()}
 function desenhaVar2(){
   const c=$('#var-card');if(!V2){c.hidden=true;return}c.hidden=false;
   $('#var-tit').textContent=t('Variante')+(V2.eng?' · '+V2.eng:'');
@@ -948,10 +953,10 @@ function desenhaVar2(){
 }
 const totalPos=()=>S.pre?S.pre.fens.length:S.rows.length;
 function irAoRecente(){   // “Lance mais recente”: vai para o último lance e, enquanto marcado, acompanha cada lance novo
-  V=null;foco2=false;const n=(S.job&&S.rows.length)?S.rows.length:totalPos();if(!n)return;S.cur=n-1;desenha()}
+  V=null;foco2=false;const n=(S.job&&S.rows.length)?S.rows.length:totalPos();if(!n)return;if(S.cur!==n-1)somDaPartida(n-1);S.cur=n-1;desenha()}
 $('#seguir').onchange=e=>{if(e.target.checked)irAoRecente()};
 function vai(i){V=null;foco2=false;const n=totalPos();if(!n)return;
-  S.cur=Math.max(0,Math.min(n-1,i));
+  const de=S.cur;S.cur=Math.max(0,Math.min(n-1,i));if(S.cur!==de)somDaPartida(S.cur);
   const ult=(S.job&&S.rows.length)?S.rows.length-1:n-1;$('#seguir').checked=S.cur>=ult;   // a caixa acompanha onde você está: no lance mais recente fica marcada, em lance antigo desmarca
   desenha()}
 

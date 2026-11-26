@@ -63,6 +63,8 @@ As ideias, as fases e os focos são identificados por regras sobre a análise da
 - Lances e casas citados nas explicações aparecem em negrito e são marcados no tabuleiro.
 - Nos **lances de variantes** da interpretação e das linhas de cálculo, passar o mouse abre uma **janela pequena com a posição**; clicar a fixa, e o ✕, um clique fora ou Esc a fecham.
 - Posição em detalhes, com bispos ruins, mobilidade dos cavalos, ilhas, peões isolados e passados e peças desprotegidas.
+- Com uma **troca em andamento, uma peça solta ou uma tática imediata**, a barra de Posição, a tabela, o gráfico de material e o texto medem a posição **depois da sequência** que a engine indica (marcada com ⇄); se o lance jogado for outro, passam a refletir a nova posição. Cavalo contra bispo não conta como material a mais.
+- **Som das peças** ao passar os lances e nas variantes, além do aviso ao vivo (caixa *Som*).
 - Navegação pelos lances sem depender da análise; linhas de cálculo clicáveis (a variante aparece no tabuleiro).
 - Várias engines ao mesmo tempo, com aviso quando divergem.
 - Tempo de relógio (`[%clk]`) considerado na chance de acerto, quando o PGN traz.

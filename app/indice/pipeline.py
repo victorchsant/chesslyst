@@ -9,7 +9,7 @@ from pathlib import Path
 import chess, chess.engine, chess.pgn
 from . import fontes
 from .core import Candidate, Position, analyse, win_pct, indice_jogada, nome_classe
-from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao, tomada_de, e_retomada
+from .explica import explicar_lance, explicar_avaliacao, explicar_porque, marca_notacao, tomada_de, posicao_resolvida, peca_solta, _notacao
 from .critico import momento_critico
 from .i18n import T
 from .posicional import indice_posicao, desc_material, analise as analise_posicao, texto_debilidades, texto_postos, texto_rei, texto_pecas
@@ -267,22 +267,40 @@ def linha(raw, pos, r, ant=None):
     tomada = tomada_de(ant, raw["fen"])
     raw = dict(raw, tomada=tomada)
     brancas = raw["side"] == "B"
-    ip, contrib, unidades = _unidades_posicao(raw["fen"], _ecp(raw))
-    if tomada and raw.get("linhas") and e_retomada(chess.Board(raw["fen"]), raw["linhas"][0]["uci"], tomada):
-        # no meio da troca, material e "peças expostas" enganam: a posição só se avalia depois da retomada
-        tp = T("p.troca", s=chess.square_name(tomada[0]))
+    tab_atual = chess.Board(raw["fen"])
+    primeira = raw["linhas"][0] if raw.get("linhas") else None
+    feita = posicao_resolvida(tab_atual, primeira, tomada)
+    # com troca em andamento, peça solta ou tática imediata, os índices de posição são os de depois da sequência; se o
+    # lance jogado for outro, a posição seguinte é calculada pelo tabuleiro de verdade e eles mudam sozinhos
+    base = feita[0] if feita else tab_atual
+    ip, contrib, unidades = _unidades_posicao(base.fen(), _ecp(raw))
+    troca = None
+    if feita:
+        lances = _notacao(tab_atual, feita[1], len(feita[1]))
+        tipo = feita[2]
+        troca = dict(tipo=tipo, casa=chess.square_name(tomada[0]) if tipo == "troca" else "", lances=re.sub(r"<[^>]+>", "", lances))
+        tp = T("p.depois", l=lances) + " " + " ".join(unidades)      # a análise é a da posição depois da sequência
+        solta = peca_solta(tab_atual, feita[1]) if tipo == "tatica" else ""
+        if solta: tp = solta + " " + tp
     else:
-        antes = _unidades_posicao(ant["fen"], _ecp(ant))[2] if ant and ant.get("fen") else []
+        # se a posição anterior foi medida depois de uma sequência, nada dela é apagado como "já visto"
+        em_troca = bool(ant and ant.get("uci") and ant.get("linhas") and ant["linhas"][0]["uci"][2:4] == ant["uci"][2:4]
+                        and chess.Board(ant["fen"]).is_capture(chess.Move.from_uci(ant["uci"])))
+        so_aviso = em_troca or bool(ant and ant.get("linhas") and posicao_resolvida(chess.Board(ant["fen"]), ant["linhas"][0], None))
+        antes = _unidades_posicao(ant["fen"], _ecp(ant))[2] if ant and ant.get("fen") and not so_aviso else []
         tp = _texto_posicao(unidades, antes)
     ecp = raw["linhas"][0]["cp"] if raw["linhas"] else None   # avaliação ORIGINAL da engine (brancas), só para o resíduo
-    ap = analise_posicao(chess.Board(raw["fen"]), ecp)
+    ap = analise_posicao(base, ecp)
+    if feita:                      # peças e casas desprotegidas são informativas e se referem ao tabuleiro que está na tela
+        atual = {i["chave"]: i for g in analise_posicao(tab_atual, ecp)["grupos"] for i in g["itens"] if i.get("info")}
+        for g in ap["grupos"]: g["itens"] = [atual.get(i["chave"], i) if i.get("info") else i for i in g["itens"]]
     d = dict(ply=raw["ply"], side=raw["side"], move=raw["move"], uci=raw["uci"], rating=raw["rating"],
              fen=raw["fen"], fen_depois=raw["fen_depois"],
              engine_brancas=round(r.eval_pct if brancas else 100 - r.eval_pct, 1),
              engine_cp=raw["linhas"][0]["cp"] if raw["linhas"] else None,
              engine_mate=raw["linhas"][0]["mate"] if raw["linhas"] else None,
              indice=round(r.index, 1), indice_bruto=round(r.index_bruto, 1), faixa=r.band,
-             posicao_brancas=round(ip, 1), posicao_texto=tp,
+             posicao_brancas=round(ip, 1), posicao_texto=tp, troca=troca,
              material_brancas=round(ap["material_idx"], 1), estrutura_brancas=round(ap["estrutura_idx"], 1),
              posicao_cp=ap["cp"], material_cp=ap["material_cp"], posicao_grupos=ap["grupos"], posicao_residuo=ap["residuo"],
              posicao_componentes={k: round(v) for k, v in contrib.items() if abs(v) >= 3},

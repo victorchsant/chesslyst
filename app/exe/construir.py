@@ -17,7 +17,7 @@ if not PY.exists():
     venv.EnvBuilder(with_pip=True).create(VB)
 subprocess.run([str(PY), "-m", "pip", "install", "--quiet", "--upgrade", "pyinstaller", "-r", str(APP / "requirements.txt")], check=True)
 
-dados = [(APP / "web", "web"), (APP / "calibracao", "calibracao"), (APP / "exemplos", "exemplos"), (APP / "indice" / "aberturas.json", "indice")]
+dados = [(APP / "web", "web"), (APP / "calibracao", "calibracao"), (APP / "exemplos", "exemplos"), (APP / "indice" / "aberturas.json", "indice"), (APP.parent / "LICENSE", ".")]
 cmd = [str(PY), "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--noconsole", "--name", "Chesslyst",
        "--distpath", str(AQUI / "dist"), "--workpath", str(AQUI / "build"), "--specpath", str(AQUI / "build"),
        "--paths", str(APP)]

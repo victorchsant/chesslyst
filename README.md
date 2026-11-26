@@ -95,18 +95,28 @@ O que o programa cria ao rodar (ambiente `.venv`, engines baixadas, `engines.jso
 O índice mede a dificuldade **objetiva** do lance; não vê estado emocional, cansaço nem preparação. As redes Maia só vão até 1900; acima disso o ajuste vem da calibração. Itens do Índice de Posição marcados com † têm peso definido por regra, não confirmado pelos dados.
 
 ## Licença e créditos
-Chesslyst é software livre sob a **GNU GPL-3.0** (veja [LICENSE](LICENSE)).
+Copyright © 2026 Víctor Chaves Santos.
+
+Chesslyst é software livre sob a **GNU Affero General Public License, versão 3 ou posterior** (AGPL-3.0-or-later; veja [LICENSE](LICENSE)). Você pode usar, estudar, modificar e redistribuir o programa nos termos dessa licença. Quem oferecer uma **versão modificada para uso pela rede** (por exemplo, como serviço web) precisa oferecer a esses usuários o código-fonte dela. O programa é distribuído **sem garantia**.
+
+As versões publicadas até a 0.2.9 saíram sob a GNU GPL-3.0 e continuam disponíveis naquela licença.
 
 Desenvolvido por **Víctor Chaves Santos** com o **Claude** (Anthropic, modelo Claude Sonnet 5.5), em novembro de 2026.
 
-O desenho vetorial das peças, opcional em *Aparência* (`app/web/pecas.js`), é o conjunto de **Colin M.L. Burnett** (GFDL, BSD e GPL), gerado a partir do python-chess.
+O desenho vetorial das peças, opcional em *Aparência* (`app/web/pecas.js`), é o conjunto de **Colin M.L. Burnett** (GFDL, BSD e GPL), gerado a partir do python-chess. Os nomes das aberturas vêm de [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (CC0).
 
-Componentes de terceiros (não redistribuídos aqui; cada um segue sua licença):
-- [python-chess](https://github.com/niklasf/python-chess), GPL-3.0, instalado via `pip`
-- [Stockfish](https://github.com/official-stockfish/Stockfish), GPL-3.0, baixado pelo usuário
-- [Lc0](https://github.com/LeelaChessZero/lc0), GPL-3.0, baixado pelo usuário
-- [Maia](https://github.com/CSSLab/maia-chess), redes de pesos baixadas pelo usuário (veja a licença do projeto)
-- [Lichess](https://lichess.org) API aberta, para transmissões, teoria e tablebase
+Cada componente de terceiros continua sob a própria licença.
+
+**Distribuídos junto com o Chesslyst:**
+- [python-chess](https://github.com/niklasf/python-chess), GPL-3.0 ou posterior: dentro do `.exe` e da versão online (`app.zip`);
+- [Stockfish.js](https://github.com/nmrugg/stockfish.js) 19.0.1, o [Stockfish](https://github.com/official-stockfish/Stockfish) em WebAssembly, GPLv3: só na versão online (pasta `motor/`, com o texto da licença em `Copying.txt`);
+- no `.exe`, o interpretador Python e suas bibliotecas (licença PSF e as de cada biblioteca) e o inicializador do [PyInstaller](https://pyinstaller.org) (GPL, com exceção que permite distribuir o programa empacotado).
+
+**Não incluídos** (baixados ou usados na hora):
+- python-chess, instalado via `pip` quando o programa roda a partir do código;
+- [Stockfish](https://github.com/official-stockfish/Stockfish) e [Lc0](https://github.com/LeelaChessZero/lc0) (GPL-3.0) e as redes [Maia](https://github.com/CSSLab/maia-chess), baixados pelo usuário na versão instalada (veja a licença de cada projeto);
+- [Pyodide](https://pyodide.org) (MPL-2.0), que o navegador carrega de `cdn.jsdelivr.net` na versão online;
+- a API aberta do [Lichess](https://lichess.org), para transmissões, teoria e tablebase.
 
 ---
 
@@ -118,4 +128,6 @@ After the analysis, **Report** builds narrated slides (browser voice), a book-st
 
 **Run:** On Windows, download `Chesslyst.exe` from Releases (no Python needed) or, with Python 3.10+, open `Chesslyst.pyw` with Python (double-click if `.pyw` files are associated with it, otherwise right-click → *Open with* → Python), or run `python Chesslyst.pyw` (Linux/macOS). On first run it creates a `.venv` and installs `python-chess`. Then, in the **Engines** window, download Stockfish (and optionally Lc0 with the Maia networks) or register any UCI engine.
 
-**License:** GNU GPL-3.0. Built by Víctor Chaves Santos with Claude (Anthropic, Claude Sonnet 5.5), November 2026.
+**License:** GNU Affero General Public License, version 3 or later (see [LICENSE](LICENSE)); releases up to 0.2.9 were published under GPL-3.0. If you offer a modified version for use over a network, you must offer its source code to those users. No warranty. The online version bundles Stockfish.js (Stockfish in WebAssembly, GPLv3) and python-chess (GPL-3.0 or later); the `.exe` bundles python-chess, the Python runtime and the PyInstaller bootloader. Each component keeps its own license.
+
+Copyright © 2026 Víctor Chaves Santos. Built by Víctor Chaves Santos with Claude (Anthropic, Claude Sonnet 5.5), November 2026.

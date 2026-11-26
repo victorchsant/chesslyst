@@ -183,7 +183,7 @@ window.EN_DICT = {
   "Valores originais da engine, sem ajuste dos índices.": "Original engine values, not adjusted by the indices.",
   'Sobre': 'About', 'Sobre o Chesslyst': 'About Chesslyst', 'Chance de acerto no xadrez': 'Chance of finding the move, in chess',
   'Versão': 'Version', 'Agradecimentos': 'Acknowledgments', 'A Rafael Queiroz, pelas ideias': 'To Rafael Queiroz, for the ideas', 'Desenvolvedor': 'Developer', 'Desenvolvido com': 'Built with', 'Modelo': 'Model', 'Data': 'Date', 'Novembro de 2026': 'November 2026', 'Licença': 'License', 'Código-fonte': 'Source code',
-  'Este programa é software livre, sem garantia. As engines (Stockfish, Lc0) e as redes Maia não fazem parte do projeto: são baixadas da fonte oficial e continuam sob a licença original de cada uma. Dados de teoria e finais vêm da API aberta do Lichess; só a posição (FEN) é enviada.': 'This program is free software, with no warranty. The engines (Stockfish, Lc0) and the Maia networks are not part of the project: they are downloaded from the official source and remain under each one’s original license. Opening-theory and endgame data come from the open Lichess API; only the position (FEN) is sent.',
+  'Este programa é software livre, sem garantia. Quem oferecer uma versão modificada para uso pela rede precisa oferecer o código dela aos usuários. A versão online leva o Stockfish.js (Stockfish em WebAssembly, GPL-3.0); na versão instalada, as engines (Stockfish, Lc0) e as redes Maia são baixadas da fonte oficial. Cada componente continua sob a própria licença (lista no código-fonte). Dados de teoria e finais vêm da API aberta do Lichess; só a posição (FEN) é enviada.': 'This program is free software, with no warranty. Anyone offering a modified version for use over a network must offer its source code to those users. The online version bundles Stockfish.js (Stockfish in WebAssembly, GPL-3.0); in the installed version, the engines (Stockfish, Lc0) and the Maia networks are downloaded from their official sources. Each component keeps its own license (listed with the source code). Opening theory and endgame data come from the open Lichess API; only the position (FEN) is sent.',
   'mate': 'mate',
   'Estático': 'Static',
   'Dinâmica/tática': 'Dynamics/tactics',
@@ -376,5 +376,6 @@ window.EN_DICT = {
   'som dos lances (passador e ao vivo)': 'move sounds (stepper and live)',
   'Som ao passar os lances e ao chegar um lance novo ao vivo': 'Sound when stepping through moves and when a new live move arrives',
   'Troca em andamento: o valor já conta {l}': 'Exchange under way: the value already counts {l}',
-  'Sequência imediata: o valor já conta {l}': 'Immediate sequence: the value already counts {l}'
+  'Sequência imediata: o valor já conta {l}': 'Immediate sequence: the value already counts {l}',
+  'GNU AGPL-3.0 ou posterior': 'GNU AGPL-3.0 or later'
 };
